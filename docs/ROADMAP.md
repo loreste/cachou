@@ -72,6 +72,15 @@ Public plan for framework completeness. Status reflects the **0.4** line.
 
 ## Versioning
 
+Releases after **0.4.0** use **small increments** (patch-first):
+
+- **Next ship:** `0.4.1`, then `0.4.2`, …
+- **Default:** patch for fixes, docs, CI, and incremental APIs
+- **Minor** (`0.5.0`) only for a deliberate feature-line jump
+- All published packages share the same version
+
+Line history:
+
 - **0.3.x** — experimental core (signals, router load, SSR isolation)
-- **0.4.x** — library + data + SSR production primitives
+- **0.4.x** — library + data + SSR production primitives (current line)
 - **1.0** — API freeze after production bake time

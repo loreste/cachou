@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased → 0.4.1
+
+Patch releases only from here: accumulate fixes and small improvements under **0.4.1**, then **0.4.2**, etc. (see [docs/PUBLISHING.md](./docs/PUBLISHING.md) version policy).
+
+### Fixed
+
+- CI: benchmark runners use Playwright/Chromium on Linux (no Safari/`osascript` requirement); macOS Safari job is non-blocking.
+
 ## 0.4.0
 
 ### Reactivity & composition

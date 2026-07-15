@@ -22,7 +22,8 @@ npx @cachoujs/create my-app
 See **[docs/PUBLISHING.md](../docs/PUBLISHING.md)**.
 
 ```bash
-# bump version first — never republish the same version
+# bump patch first (0.4.0 → 0.4.1 → 0.4.2 …) — never republish the same version
+# keep cachoujs, @cachoujs/compiler, @cachoujs/create on the same version
 npm run publish:prep
 npm publish --access public
 npm publish -w @cachoujs/compiler --access public

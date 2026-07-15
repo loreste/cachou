@@ -94,4 +94,4 @@ import { cachou } from "cachoujs/vite" // Vite plugin
 
 ## Versioning
 
-CachouJS is **0.x**. APIs may change between minor versions. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.
+CachouJS is **0.x**. Published line is **0.4.x**; releases use **small patch increments** (next: **0.4.1**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.

@@ -33,21 +33,39 @@ npm whoami   # must print your username
 
 ---
 
+## Version policy (going forward)
+
+From **0.4.0** onward, releases use **small increments** only.
+
+| Rule | Detail |
+|------|--------|
+| Current published | **0.4.0** |
+| Next release | **0.4.1** |
+| Default bump | **patch** (`0.4.x` → `0.4.x+1`) for fixes, docs, CI, small APIs |
+| Minor bump | Rare: only when a coherent feature set lands (`0.4` → `0.5`) |
+| Major bump | Reserved for **1.0** API freeze (later) |
+| Scope | Bump **all three** packages together: `cachoujs`, `@cachoujs/compiler`, `@cachoujs/create` |
+| Tags | `v0.4.1`, `v0.4.2`, … match the npm version |
+
+Do **not** jump versions (e.g. 0.4.0 → 0.5.0) for routine work. Prefer many small patch releases over large batches.
+
+---
+
 ## Release checklist
 
 ### 1. Bump version
 
-npm **forbids** republishing the same version. Always bump:
+npm **forbids** republishing the same version. Always bump (next: **0.4.1**):
 
 - Root: `package.json` → `cachoujs`  
 - `packages/compiler/package.json`  
 - `packages/create-cachou/package.json`  
 
-Keep [CHANGELOG.md](../CHANGELOG.md) updated.
+Keep [CHANGELOG.md](../CHANGELOG.md) updated under the new version heading.
 
 ```bash
-# example
-# "version": "0.3.2" in each package you ship
+# example for the next release — same version on every package
+# "version": "0.4.1"
 ```
 
 ### 2. Verify
@@ -89,11 +107,11 @@ Pages:
 - https://www.npmjs.com/package/@cachoujs/compiler  
 - https://www.npmjs.com/package/@cachoujs/create  
 
-### 5. Git tag (optional)
+### 5. Git tag
 
 ```bash
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.4.1
+git push origin v0.4.1
 ```
 
 ---

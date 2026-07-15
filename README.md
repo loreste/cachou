@@ -528,7 +528,7 @@ cachoujs/vite       → Vite plugin
 
 ## Current notes
 
-- Public version is **0.x** — APIs may change; pin carefully and read the changelog.
+- Public version is **0.4.x** with **patch-first** releases (next: **0.4.1**). APIs may still change before 1.0; pin carefully and read the changelog.
 - The published npm package is the **runtime + compiler source + Vite plugin**, not the CRM or demo server.
 - Demo APIs are for local development only.
 - Nested layouts exist; file-based routing and data loaders do not (yet).
