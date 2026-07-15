@@ -2,7 +2,7 @@
 
 CachouJS components are **functions**. Setup runs once; reactive bindings update the DOM without re-running the whole function.
 
-Related: [Templates](./use-templates-and-directives.md), [Manage state](./manage-state.md), [`.cachou` files](./work-with-cachou-files.md).
+Related: [Templates](./use-templates-and-directives.md), [Manage state](./manage-state.md), [0.4 APIs](./use-0.4-framework-apis.md) (`splitProps` / `Dynamic`), [`.cachou` files](./work-with-cachou-files.md).
 
 ---
 

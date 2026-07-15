@@ -143,6 +143,38 @@ onSubmit: async (values) => {
 
 ---
 
+## Nested paths (0.4)
+
+```javascript
+import { createForm, html } from "cachoujs";
+
+const form = createForm(
+  { address: { city: "", zip: "" }, tags: [""] },
+  {
+    nested: true,
+    fields: {
+      "address.city": {
+        validate: v => (String(v).trim() ? null : "City required")
+      }
+    },
+    onSubmit: async values => {
+      await save(values);
+    }
+  }
+);
+
+const city = form.fields["address.city"];
+
+html`
+  <input
+    value=${() => city.value()}
+    oninput=${e => city.setValue(e.target.value)}
+  />
+`;
+```
+
+Use dotted paths for nested objects/arrays when `nested: true`.
+
 ## Accessibility tips
 
 - Associate `<label>` with inputs (`for` / wrapping).  
@@ -153,4 +185,5 @@ onSubmit: async (values) => {
 ## Next
 
 - [Use resources](./use-resources.md) after submit  
+- [Use 0.4 framework APIs](./use-0.4-framework-apis.md) for `createMutation`  
 - [Configure security policy](./configure-security-policy.md)  

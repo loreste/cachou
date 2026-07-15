@@ -1,6 +1,9 @@
 # How to: use 0.4 framework APIs
 
-Quick recipes for the 0.4 library surface. Full reference: [API.md](../API.md), status: [ROADMAP.md](../ROADMAP.md).
+Quick recipes for the **0.4** library surface (current: **0.4.1**).  
+Full tutorial: [Get Started](../GETTING_STARTED.md) · Reference: [API.md](../API.md) · Status: [ROADMAP.md](../ROADMAP.md).
+
+---
 
 ## untrack and owners
 
@@ -23,6 +26,35 @@ createRoot(() => {
 });
 ```
 
+Also: [Manage state](./manage-state.md).
+
+---
+
+## Composition: splitProps / mergeProps / Dynamic
+
+```js
+import { splitProps, mergeProps, Dynamic, html } from "cachoujs";
+
+function Button(props) {
+  const [local, rest] = splitProps(props, ["variant", "children"]);
+  const merged = mergeProps({ type: "button" }, rest);
+  return html`
+    <button
+      type=${() => merged.type}
+      class=${() => `btn btn-${local.variant || "default"}`}
+      onclick=${() => merged.onclick?.()}
+    >
+      ${local.children}
+    </button>
+  `;
+}
+
+// Render a component chosen at runtime
+html`${Dynamic({ component: Tab, props: { id: "a" } })}`;
+```
+
+---
+
 ## For / Index
 
 ```js
@@ -37,10 +69,14 @@ html`<ul>${For({
 })}</ul>`;
 ```
 
+Details: [Render keyed lists](./render-keyed-lists.md).
+
+---
+
 ## Route load control flow
 
 ```js
-import { Route, redirect, notFound } from "cachoujs";
+import { Route, redirect, notFound, html } from "cachoujs";
 
 Route({
   path: "/account",
@@ -54,13 +90,18 @@ Route({
 });
 ```
 
+Also: [Route loaders](./use-route-loaders.md) · [Routing](./routing-and-lazy-pages.md).
+
+---
+
 ## Actions and mutations
 
 ```js
 import { createAction, createMutation, optimisticUpdate, setQueryData } from "cachoujs";
 
 const addToCart = createMutation(
-  async item => fetch("/api/cart", { method: "POST", body: JSON.stringify(item) }).then(r => r.json()),
+  async item =>
+    fetch("/api/cart", { method: "POST", body: JSON.stringify(item) }).then(r => r.json()),
   {
     onMutate(item) {
       return optimisticUpdate("cart", cart => [...(cart || []), item]);
@@ -77,10 +118,12 @@ const checkout = createAction(async formData => {
 });
 ```
 
-## Search params (catalog filters)
+---
+
+## Search / path params
 
 ```js
-import { useSearchParams, html } from "cachoujs";
+import { useSearchParams, useParams, html } from "cachoujs";
 
 function Catalog() {
   const [params, setParams] = useSearchParams();
@@ -91,7 +134,14 @@ function Catalog() {
     />
   `;
 }
+
+function Product() {
+  const params = useParams();
+  return html`<h1>${() => params().id}</h1>`;
+}
 ```
+
+---
 
 ## History modes
 
@@ -100,25 +150,35 @@ import { configureRouter } from "cachoujs";
 
 configureRouter({ history: "memory", initialPath: "/" }); // tests
 // configureRouter({ history: "hash" }); // static hosts without server rewrites
+// configureRouter({ history: "browser" }); // default
 ```
+
+---
 
 ## Streaming SSR and islands
 
 ```js
-import { renderToStream, Island, hydrateIslands, setRequestEvent } from "cachoujs";
+import { renderToStream, Island, hydrateIslands, setRequestEvent, html } from "cachoujs";
 
-setRequestEvent({ headers: req.headers, cookies: parse(req) });
-const stream = renderToStream(App, { path: req.url, request: event });
-// pipe stream to response
+setRequestEvent({ headers: req.headers /* … */ });
+const stream = renderToStream(App, { path: req.url });
+// pipe stream to the response
+
+// In the tree:
+html`${Island({ id: "cart-badge", hydrate: "idle", children: () => CartBadge() })}`;
 
 // Client:
 // hydrateIslands(document, { "cart-badge": CartBadge });
 ```
 
+Also: [SSR and hydration](./ssr-and-hydration.md).
+
+---
+
 ## Dialog and model
 
 ```js
-import { signal, Dialog, html, directive } from "cachoujs";
+import { signal, Dialog, html } from "cachoujs";
 
 const [open, setOpen] = signal(false);
 const [name, setName] = signal("");
@@ -130,7 +190,36 @@ html`
     open,
     onClose: () => setOpen(false),
     title: "Cart",
-    children: () => html`<p>Hello ${name}</p>`
+    children: () => html`<p>Hello ${() => name()}</p>`
   })}
 `;
 ```
+
+Also: [Templates](./use-templates-and-directives.md) · [Accessibility](./use-accessibility.md).
+
+---
+
+## persist and virtualList
+
+```js
+import { signal, persist, virtualList, html } from "cachoujs";
+
+const [theme, setTheme] = signal("light");
+persist("theme", theme, setTheme); // localStorage (browser)
+
+const [rows] = signal(Array.from({ length: 10000 }, (_, i) => ({ id: i, label: `Row ${i}` })));
+const list = virtualList({
+  items: rows,
+  itemHeight: 32,
+  height: 400,
+  renderItem: row => html`<div>${() => row.label}</div>`
+});
+```
+
+---
+
+## Next
+
+- [Get Started](../GETTING_STARTED.md)  
+- [How-to index](./README.md)  
+- [Known limitations](../KNOWN_LIMITATIONS.md)  

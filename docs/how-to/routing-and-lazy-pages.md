@@ -1,6 +1,8 @@
 # Use Routing and Lazy Pages
 
-CachouJS includes a small reactive router. Full concepts: [Developer guide § Routing](../GUIDE.md#8-routing).
+CachouJS includes a small reactive router with layouts, lazy pages, loaders, **history modes**, and **0.4** control flow (`redirect` / `notFound`, actions, params helpers).
+
+Full concepts: [Developer guide § Routing](../GUIDE.md#8-routing). Recipes: [Route loaders](./use-route-loaders.md) · [File-based routing](./use-file-based-routing.md) · [0.4 APIs](./use-0.4-framework-apis.md).
 
 ## Define routes
 
@@ -96,3 +98,65 @@ const page = html`
 ```
 
 `Link` preloads lazy route components on mouse enter when the matched route component exposes `preload()`.
+
+## History modes (0.4)
+
+```javascript
+import { configureRouter } from "cachoujs";
+
+// Default: browser History API
+configureRouter({ history: "browser" });
+
+// Hash URLs for static hosts without rewrite rules
+configureRouter({ history: "hash" });
+
+// In-memory (tests, embedded previews)
+configureRouter({ history: "memory", initialPath: "/" });
+```
+
+## Richer path patterns (0.4)
+
+| Pattern | Matches |
+|---------|---------|
+| `/users/:id` | `/users/ada` |
+| `/files/:path*` | rest param |
+| `/optional/:id?` | optional segment |
+| `/*` | prefix / catch-all style |
+
+## Params helpers (0.4)
+
+```javascript
+import { useParams, useSearchParams, html } from "cachoujs";
+
+function ProductPage() {
+  const params = useParams();           // reactive path params
+  const [search, setSearch] = useSearchParams();
+
+  return html`
+    <h1>Product ${() => params().id}</h1>
+    <input
+      value=${() => search().q || ""}
+      oninput=${e => setSearch({ q: e.target.value })}
+    />
+  `;
+}
+```
+
+## `redirect` / `notFound` from `load`
+
+```javascript
+import { Route, redirect, notFound } from "cachoujs";
+
+Route({
+  path: "/account",
+  load: async ({ request }) => {
+    if (!request?.user) redirect("/login");
+    const user = await loadUser();
+    if (!user) notFound();
+    return user;
+  },
+  component: (params, { data }) => html`<div>${() => data()?.name}</div>`
+});
+```
+
+See [Use route loaders](./use-route-loaders.md).

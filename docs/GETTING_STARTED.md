@@ -1,90 +1,58 @@
 # Get Started with CachouJS
 
-**CachouJS** is a fine-grained reactive JavaScript UI library: components set up once, and **signals** update the DOM directly (no virtual DOM).
+**CachouJS** is a fine-grained reactive JavaScript UI library: components set up **once**, and **signals** update the DOM directly (no virtual DOM).
 
 | | |
 |--|--|
 | **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
 | **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
-| **Version** | 0.4.1 (experimental 0.x) |
+| **Version** | **0.4.1** (experimental 0.x, patch-first) |
+| **License / maturity** | 0.x — pin versions; read the [changelog](../CHANGELOG.md) |
 
-This page takes you from zero to a running app, then the first concepts you’ll use every day.
+This guide takes you from zero to a running app, then the concepts and patterns you’ll use every day. Task recipes live in the [how-to guides](./how-to/README.md).
 
 ---
 
-## Get it from npm
+## Requirements
 
-CachouJS is published on the **[npm registry](https://www.npmjs.com/package/cachoujs)**. You install it with npm (or pnpm / yarn / bun) like any other package—no need to clone the GitHub repo unless you want to contribute.
+- **Node.js 20+** (LTS recommended)
+- **npm** 9+ (or pnpm / yarn / bun)
+- A browser
 
-### Packages
+You do **not** need Go for normal app development. The optional [`.cachou` compiler](https://www.npmjs.com/package/@cachoujs/compiler) is pure JavaScript.
 
-| Command / package | What you get | npm page |
-|-------------------|--------------|----------|
-| `npm install cachoujs` | Runtime, Vite plugin, helpers | [cachoujs](https://www.npmjs.com/package/cachoujs) |
-| `npx @cachoujs/create my-app` | New Vite project scaffold | [@cachoujs/create](https://www.npmjs.com/package/@cachoujs/create) |
-| `npm install -D @cachoujs/compiler` | Optional `.cachou` SFC compiler | [@cachoujs/compiler](https://www.npmjs.com/package/@cachoujs/compiler) |
+---
 
-### Check that npm can see the package
+## Install from npm
+
+CachouJS is on the [npm registry](https://www.npmjs.com/package/cachoujs). You do not need to clone GitHub unless you contribute.
+
+| Package | Command | Role |
+|---------|---------|------|
+| Runtime + Vite plugin | `npm install cachoujs` | Day-to-day apps |
+| Scaffold | `npx @cachoujs/create my-app` | New Vite project |
+| SFC compiler (optional) | `npm install -D @cachoujs/compiler` | `.cachou` files |
 
 ```bash
 npm view cachoujs version
 # → 0.4.1 (or newer)
-```
 
-### Install into a project
-
-```bash
-# inside your app folder (with a package.json)
 npm install cachoujs
 ```
 
-Then import it:
-
-```js
-import { signal, html, mount } from "cachoujs";
-```
-
-### Other package managers
+Other managers:
 
 ```bash
-# pnpm
 pnpm add cachoujs
-
-# yarn
 yarn add cachoujs
-
-# bun
 bun add cachoujs
 ```
 
-### Requirements
-
-- **Node.js 20+** (LTS recommended)
-- **npm** 9+ (ships with Node), or pnpm / yarn / bun
-- A browser for the UI
-
-You do **not** need Go to use the runtime from npm. The optional compiler package is pure JavaScript.
-
-More install detail: [INSTALL.md](./INSTALL.md).
+More detail: [INSTALL.md](./INSTALL.md) · [Install from npm how-to](./how-to/install-from-npm.md).
 
 ---
 
-## What you need
-
-- **Node.js 20+**
-- **npm** (or pnpm / yarn)
-- A browser
-
-Optional later:
-
-- [Vite](https://vitejs.dev/) for a modern dev server (recommended)
-- [VS Code / Cursor extension](../vscode-cachou/README.md) for `.cachou` files
-
----
-
-## Path A — New project in 1 minute (recommended)
-
-Scaffold a Vite app from npm (this downloads `@cachoujs/create` and sets up `cachoujs` for you):
+## Path A — New project (recommended)
 
 ```bash
 npx @cachoujs/create my-app
@@ -97,17 +65,20 @@ Open the URL Vite prints (usually **http://localhost:5173**).
 
 You get:
 
-- Home / About / dynamic user routes under `src/routes/`
-- `cachoujs` installed and ready
-- Optional place for `.cachou` components (`src/components/`)
+- File routes under `src/routes/` (`/`, `/about`, `/users/:id` with `load`)
+- `cachoujs@^0.4.1` + Vite 6
+- Base CSS, `.gitignore`, optional `.cachou` folder under `src/components/`
+- DevTools bridge in development (`Ctrl+Shift+D`)
 
 Stop with `Ctrl+C`.
 
-If `npx @cachoujs/create` cannot resolve the package, try:
+If `npx @cachoujs/create` cannot resolve the scoped package:
 
 ```bash
 npx --package=cachoujs create-cachou my-app
 ```
+
+Scaffold details: [Scaffold a new app](./how-to/scaffold-a-new-app.md).
 
 ---
 
@@ -116,8 +87,6 @@ npx --package=cachoujs create-cachou my-app
 ```bash
 npm install cachoujs
 ```
-
-### 1. Create an entry file
 
 `src/main.js`:
 
@@ -140,8 +109,6 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### 2. HTML shell
-
 `index.html`:
 
 ```html
@@ -159,16 +126,15 @@ mount(App, document.getElementById("app"));
 </html>
 ```
 
-### 3. Run with Vite (recommended)
+With Vite:
 
 ```bash
 npm install -D vite
 ```
 
-`package.json` scripts:
-
 ```json
 {
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -199,9 +165,11 @@ npm run dev
 | http://localhost:5173/tests/ | Browser tests page |
 
 ```bash
-npm run crm:demo    # larger CRM showcase
+npm run crm:demo    # larger CRM showcase (PostgreSQL or memory)
 npm run test:unit   # Node unit tests
 ```
+
+Monorepo setup: [Set up local development](./how-to/setup-local-development.md).
 
 ---
 
@@ -214,8 +182,8 @@ import { signal } from "cachoujs";
 
 const [count, setCount] = signal(0);
 
-count();           // read → 0
-setCount(1);       // write
+count();              // read → 0
+setCount(1);          // write
 setCount(n => n + 1); // update from previous
 ```
 
@@ -225,7 +193,7 @@ Unlike React, the component function is **not** re-executed on every change. Set
 
 ### 3. Templates use `html` and reactive functions
 
-Dynamic text and attributes should be functions so Cachou can track dependencies:
+Dynamic text and attributes should be **functions** so Cachou can track dependencies:
 
 ```js
 import { html, signal } from "cachoujs";
@@ -235,7 +203,7 @@ const [name, setName] = signal("Ada");
 // ✅ updates when name changes
 html`<p>Hello ${() => name()}</p>`
 
-// ❌ usually will NOT update
+// ❌ usually will NOT update (read once at setup)
 html`<p>Hello ${name()}</p>`
 ```
 
@@ -256,22 +224,23 @@ const dispose = mount(App, document.getElementById("app"));
 
 ### 5. Lists need keys
 
-```js
-import { mapArray, html, signal } from "cachoujs";
+Prefer **`For`** (0.4) or `mapArray` with a stable key:
 
-const [items, setItems] = signal([
+```js
+import { For, html, signal } from "cachoujs";
+
+const [items] = signal([
   { id: 1, text: "One" },
   { id: 2, text: "Two" }
 ]);
 
 html`
   <ul>
-    ${mapArray(
-      items,
-      item => html`<li>${() => item.text}</li>`,
-      item => item.id,
-      { uniqueKeys: true }
-    )}
+    ${For({
+      each: items,
+      by: item => item.id,
+      children: item => html`<li>${() => item.text}</li>`
+    })}
   </ul>
 `
 ```
@@ -295,13 +264,26 @@ html`
 `
 ```
 
+### 7. What 0.4 adds (quick map)
+
+| Area | APIs |
+|------|------|
+| Libraries | `untrack`, `getOwner`, `runWithOwner`, `splitProps`, `mergeProps`, `Dynamic` |
+| Lists | `For`, `Index` (plus `mapArray`) |
+| Router | `redirect` / `notFound`, `createAction`, history modes, `useParams` / `useSearchParams` |
+| Templates | `directive` / `use:`, `model`, merged `useHead`, `Dialog` |
+| Data | `createMutation`, `persist`, nested forms, `virtualList` |
+| SSR | `renderToStream`, `Island`, `hydrateIslands`, `getRequestEvent` |
+
+Recipes: [Use 0.4 framework APIs](./how-to/use-0.4-framework-apis.md).
+
 ---
 
 ## Code examples
 
-Copy-paste patterns you can drop into `src/main.js` after `npm install cachoujs`.
+Drop these into `src/main.js` after `npm install cachoujs`.
 
-### Complete counter app
+### Complete counter
 
 ```js
 import { signal, html, mount } from "cachoujs";
@@ -325,7 +307,7 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### Two-way input + derived text
+### Two-way input with `model` (0.4)
 
 ```js
 import { signal, memo, html, mount } from "cachoujs";
@@ -341,11 +323,7 @@ function App() {
     <main style="font-family: system-ui; padding: 2rem">
       <label>
         Name
-        <input
-          value=${() => name()}
-          oninput=${e => setName(e.target.value)}
-          placeholder="Ada"
-        />
+        <input model=${[name, setName]} placeholder="Ada" />
       </label>
       <p>${() => greeting()}</p>
     </main>
@@ -355,10 +333,12 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### Todo list (signals + `mapArray`)
+(`bind:value=${[name, setName]}` still works; `model` is the shorter 0.4 form.)
+
+### Todo list (`For` + signals)
 
 ```js
-import { signal, html, mount, mapArray } from "cachoujs";
+import { signal, html, mount, For } from "cachoujs";
 
 function App() {
   const [todos, setTodos] = signal([
@@ -390,8 +370,7 @@ function App() {
       <h1>Todos</h1>
       <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem">
         <input
-          value=${() => draft()}
-          oninput=${e => setDraft(e.target.value)}
+          model=${[draft, setDraft]}
           onkeydown=${e => e.key === "Enter" && addTodo()}
           placeholder="New todo"
           style="flex: 1"
@@ -399,9 +378,10 @@ function App() {
         <button type="button" onclick=${addTodo}>Add</button>
       </div>
       <ul style="list-style: none; padding: 0; margin: 0">
-        ${mapArray(
-          todos,
-          todo => html`
+        ${For({
+          each: todos,
+          by: todo => todo.id,
+          children: todo => html`
             <li style="display: flex; gap: 0.5rem; align-items: center; padding: 0.35rem 0">
               <input
                 type="checkbox"
@@ -415,10 +395,8 @@ function App() {
                 ×
               </button>
             </li>
-          `,
-          todo => todo.id,
-          { uniqueKeys: true }
-        )}
+          `
+        })}
       </ul>
       <p style="color: #666; font-size: 0.9rem">
         ${() => todos().filter(t => !t.done).length} remaining
@@ -477,10 +455,10 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### Fetch data (`createResource`)
+### Fetch data (`createResource` + `For`)
 
 ```js
-import { createResource, html, mount, Show } from "cachoujs";
+import { createResource, html, mount, Show, For } from "cachoujs";
 
 function App() {
   const [posts, { loading, error, refetch }] = createResource(
@@ -508,10 +486,11 @@ function App() {
         children: err => html`<p style="color: crimson">${err.message}</p>`
       })}
       <ul>
-        ${() =>
-          (posts() || []).map(
-            p => html`<li><strong>${p.title}</strong></li>`
-          )}
+        ${For({
+          each: () => posts() || [],
+          by: p => p.id,
+          children: p => html`<li><strong>${() => p.title}</strong></li>`
+        })}
       </ul>
     </main>
   `;
@@ -560,10 +539,19 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### Route with `load` (data on navigate)
+### Route with `load` + `redirect` / `notFound` (0.4)
 
 ```js
-import { html, mount, Router, Route, Link, Show } from "cachoujs";
+import {
+  html,
+  mount,
+  Router,
+  Route,
+  Link,
+  Show,
+  redirect,
+  notFound
+} from "cachoujs";
 
 function UserPage(params, state) {
   return html`
@@ -593,10 +581,13 @@ function App() {
           Route({
             path: "/users/:id",
             load: async ({ params, signal }) => {
+              if (params.id === "0") redirect("/");
               const res = await fetch(
                 `https://jsonplaceholder.typicode.com/users/${params.id}`,
                 { signal }
               );
+              if (res.status === 404) notFound();
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
               return res.json();
             },
             fallback: () => html`<p>Loading user…</p>`,
@@ -609,6 +600,34 @@ function App() {
 }
 
 mount(App, document.getElementById("app"));
+```
+
+File-based routes (what the scaffold uses): [Use file-based routing](./how-to/use-file-based-routing.md).
+
+### Search params (filters)
+
+```js
+import { html, mount, useSearchParams } from "cachoujs";
+
+function Catalog() {
+  const [params, setParams] = useSearchParams();
+
+  return html`
+    <main style="font-family: system-ui; padding: 2rem">
+      <label>
+        Search
+        <input
+          value=${() => params().q || ""}
+          oninput=${e => setParams({ q: e.target.value })}
+          placeholder="Filter…"
+        />
+      </label>
+      <p>Query: <code>${() => params().q || "(empty)"}</code></p>
+    </main>
+  `;
+}
+
+mount(Catalog, document.getElementById("app"));
 ```
 
 ### Simple form validation
@@ -662,7 +681,34 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### Vite config (with optional `.cachou` components)
+### Dialog
+
+```js
+import { signal, html, mount, Dialog } from "cachoujs";
+
+function App() {
+  const [open, setOpen] = signal(false);
+
+  return html`
+    <main style="font-family: system-ui; padding: 2rem">
+      <button type="button" onclick=${() => setOpen(true)}>Open dialog</button>
+      ${Dialog({
+        open,
+        onClose: () => setOpen(false),
+        title: "Hello",
+        children: () => html`
+          <p>Focus trap + Esc + backdrop are built in.</p>
+          <button type="button" onclick=${() => setOpen(false)}>Close</button>
+        `
+      })}
+    </main>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Vite + optional `.cachou` components
 
 ```js
 // vite.config.js
@@ -672,7 +718,7 @@ import { cachou } from "cachoujs/vite";
 export default defineConfig({
   plugins: [
     cachou({
-      dirs: ["src/components"], // compile *.cachou here
+      dirs: ["src/components"],
       runtime: "cachoujs"
     })
   ]
@@ -700,7 +746,6 @@ export default defineConfig({
 ```
 
 ```js
-// After compile (or with Vite plugin), import the generated JS:
 import Badge from "./components/Badge.js";
 import { html, mount } from "cachoujs";
 
@@ -710,42 +755,6 @@ mount(
 );
 ```
 
----
-
-## Optional: `.cachou` single-file components
-
-```html
-<!-- src/components/Counter.cachou -->
-<script>
-  const [n, setN] = signal(props.initial ?? 0);
-</script>
-
-<style scoped>
-  :host { display: block; }
-  button { font: inherit; }
-</style>
-
-<button type="button" onclick={() => setN(v => v + 1)}>
-  {n()}
-</button>
-```
-
-`vite.config.js`:
-
-```js
-import { defineConfig } from "vite";
-import { cachou } from "cachoujs/vite";
-
-export default defineConfig({
-  plugins: [
-    cachou({
-      dirs: ["src/components"],
-      runtime: "cachoujs"
-    })
-  ]
-});
-```
-
 Manual compile:
 
 ```bash
@@ -753,34 +762,7 @@ npm install -D @cachoujs/compiler
 npx cachou-compiler -dir src/components -out src/components -runtime cachoujs
 ```
 
-Literal braces in templates: write `{{` and `}}` for `{` and `}`.  
-Details: [Compiler](./COMPILER.md).
-
----
-
-## Optional: routing
-
-```js
-import { html, Router, Route, Link, navigate } from "cachoujs";
-
-function App() {
-  return html`
-    <nav>
-      ${Link({ href: "/", children: "Home" })}
-      ${Link({ href: "/about", children: "About" })}
-    </nav>
-    ${Router({
-      children: [
-        Route({ path: "/", component: () => html`<h1>Home</h1>` }),
-        Route({ path: "/about", component: () => html`<h1>About</h1>` })
-      ]
-    })}
-  `;
-}
-```
-
-File-based routes: [Use file-based routing](./how-to/use-file-based-routing.md)  
-Loaders: [Use route loaders](./how-to/use-route-loaders.md)
+Literal braces in templates: write `{{` and `}}` for `{` and `}`. Details: [Compiler](./COMPILER.md) · [Work with `.cachou` files](./how-to/work-with-cachou-files.md).
 
 ---
 
@@ -794,13 +776,14 @@ mount(App, document.getElementById("app"));
 ```
 
 ```bash
-npm run build    # in a Vite app
+npm run build
 npm run preview
 ```
 
-- Use your own APIs and auth (not monorepo demo endpoints).  
-- Deploy static `dist/` to any host: [Deploy](./DEPLOY.md).  
-- Security notes: [Security](./SECURITY.md).
+- Use your own APIs and auth (not monorepo demo endpoints).
+- Deploy static `dist/` to any host: [Deploy](./DEPLOY.md).
+- SSR path: [SSR & hydration](./how-to/ssr-and-hydration.md).
+- Security: [Security](./SECURITY.md).
 
 ---
 
@@ -813,6 +796,7 @@ npm run preview
 | Scaffold / scoped package 404 | Retry later, or `npx --package=cachoujs create-cachou my-app` |
 | Effects / timers leak | Use `mount` and `onCleanup`; see [Prevent leaks](./how-to/prevent-leaks-and-races.md) |
 | Want DevTools | `installDevtoolsHotkey()` or [use DevTools](./how-to/use-devtools.md) |
+| Version mismatch | `npm view cachoujs version` should show **0.4.x** |
 
 ---
 
@@ -821,27 +805,30 @@ npm run preview
 | Goal | Doc |
 |------|-----|
 | Task recipes | [How-to guides](./how-to/README.md) |
+| 0.4 API recipes | [Use 0.4 framework APIs](./how-to/use-0.4-framework-apis.md) |
 | Full mental model | [Developer guide](./GUIDE.md) |
 | API lookup | [API reference](./API.md) |
 | Templates & directives | [Templates](./TEMPLATES.md) |
 | Install details | [Install](./INSTALL.md) |
-| Contribute to the framework | Clone [loreste/cachou](https://github.com/loreste/cachou) · [setup](./how-to/setup-local-development.md) |
+| Roadmap / limits | [Roadmap](./ROADMAP.md) · [Known limitations](./KNOWN_LIMITATIONS.md) |
+| Contribute | Clone [loreste/cachou](https://github.com/loreste/cachou) · [setup](./how-to/setup-local-development.md) |
 
-### Suggested order of how-tos
+### Suggested learning path
 
 1. [Create a component](./how-to/create-a-component.md)  
 2. [Manage state](./how-to/manage-state.md)  
 3. [Templates & directives](./how-to/use-templates-and-directives.md)  
-4. [Keyed lists](./how-to/render-keyed-lists.md)  
+4. [Keyed lists](./how-to/render-keyed-lists.md) (`For` / `mapArray`)  
 5. [Resources](./how-to/use-resources.md)  
-6. [Routing](./how-to/routing-and-lazy-pages.md)  
+6. [Routing](./how-to/routing-and-lazy-pages.md) + [file routes](./how-to/use-file-based-routing.md)  
+7. [0.4 APIs](./how-to/use-0.4-framework-apis.md) · [SSR](./how-to/ssr-and-hydration.md) · [Deploy](./how-to/build-and-deploy.md)
 
 ---
 
 ## Packages at a glance
 
 ```bash
-npm install cachoujs                 # runtime + vite plugin
+npm install cachoujs                 # runtime + vite plugin  (0.4.1)
 npm install -D @cachoujs/compiler    # optional SFC compiler
 npx @cachoujs/create my-app          # scaffold
 ```

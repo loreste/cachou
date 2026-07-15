@@ -1,6 +1,8 @@
 # Use File-Based Routing
 
-Map a `routes/` folder to `Router` children without hand-writing every `Route`.
+Map a `routes/` folder to `Router` children without hand-writing every `Route`. The **`@cachoujs/create` scaffold** uses this pattern under `src/routes/`.
+
+Related: [Get Started](../GETTING_STARTED.md) · [Route loaders](./use-route-loaders.md) · [Scaffold](./scaffold-a-new-app.md).
 
 ## Path conventions
 
@@ -9,7 +11,7 @@ Map a `routes/` folder to `Router` children without hand-writing every `Route`.
 | `routes/index.js` | `/` |
 | `routes/about.js` | `/about` |
 | `routes/users/[id].js` | `/users/:id` |
-| `routes/blog/[...slug].js` | `/blog/*` |
+| `routes/blog/[...slug].js` | `/blog/*` (rest) |
 | `routes/(app)/settings.js` | `/settings` (group omitted) |
 | `routes/app/layout.js` | Layout for `/app/*` |
 | `routes/app/index.js` | `/app` |
@@ -40,13 +42,29 @@ mount(App, document.getElementById("app"));
 
 ```js
 // routes/users/[id].js
+import { html, Show, notFound } from "cachoujs";
+
 export async function load({ params, signal }) {
   const res = await fetch(`/api/users/${params.id}`, { signal });
+  if (res.status === 404) notFound();
+  if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 export default function User(params, state) {
-  // state.data / loading / error from Route.load
+  return html`
+    <main>
+      <h1>User ${params.id}</h1>
+      ${Show({
+        when: () => state?.loading?.(),
+        children: () => html`<p>Loading…</p>`
+      })}
+      ${Show({
+        when: () => state?.data?.(),
+        children: data => html`<pre>${JSON.stringify(data, null, 2)}</pre>`
+      })}
+    </main>
+  `;
 }
 ```
 

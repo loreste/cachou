@@ -101,6 +101,29 @@ function Modal(props) {
 
 Always provide an obvious close action and `Escape` handling in the product UI.
 
+## `Dialog` primitive (0.4)
+
+Prefer the built-in **`Dialog`** for focus trap, Esc, and backdrop:
+
+```javascript
+import { signal, html, Dialog } from "cachoujs";
+
+const [open, setOpen] = signal(false);
+
+html`
+  <button type="button" onclick=${() => setOpen(true)}>Open</button>
+  ${Dialog({
+    open,
+    onClose: () => setOpen(false),
+    title: "Confirm",
+    children: () => html`
+      <p>Are you sure?</p>
+      <button type="button" onclick=${() => setOpen(false)}>Cancel</button>
+    `
+  })}
+`;
+```
+
 ---
 
 ## Semantic checklist (your responsibility)

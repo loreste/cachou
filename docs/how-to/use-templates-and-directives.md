@@ -85,6 +85,37 @@ html`
 `;
 ```
 
+### `model` (0.4 shorthand)
+
+```javascript
+html`
+  <input model=${[text, setText]} />
+  <textarea model=${[notes, setNotes]}></textarea>
+`;
+```
+
+`model` wires value + input for common form controls. Prefer it for new code; `bind:` remains supported.
+
+---
+
+## Custom directives (`use:`, 0.4)
+
+```javascript
+import { directive, html, signal } from "cachoujs";
+
+directive("tooltip", (el, accessor) => {
+  const update = () => {
+    el.title = typeof accessor === "function" ? accessor() : accessor;
+  };
+  update();
+  // return a cleanup if you attach listeners
+});
+
+html`<button use:tooltip=${() => "Save changes"}>Save</button>`;
+```
+
+Register once at app start. Directives receive the element and the reactive value (function or static).
+
 ---
 
 ## Refs
@@ -159,10 +190,11 @@ See [Work with `.cachou` files](./work-with-cachou-files.md).
 |---------|-----|
 | `${count}` never updates | `${() => count()}` |
 | Building HTML with strings | Use `html` / `trustedHTML` (sanitized only) |
-| Index keys on sortable lists | Stable ids in `mapArray` |
+| Index keys on sortable lists | Stable ids with `For` / `mapArray` |
 | `javascript:` hrefs | Use `onclick` + `navigate` / buttons |
 
 ## Next
 
 - [Render keyed lists](./render-keyed-lists.md)
 - [Create a component](./create-a-component.md)
+- [Use 0.4 framework APIs](./use-0.4-framework-apis.md)

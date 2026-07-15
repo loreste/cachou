@@ -6,6 +6,8 @@
 
 - Scaffold (`@cachoujs/create`): pin **0.4.1** deps, base CSS (light/dark), `.gitignore`, clearer routes/README.
 - Docs: version numbers and claims aligned to 0.4.1 (Get Started, Install, how-tos, README).
+- **Get Started** rewritten for 0.4: `For`, `model`, `redirect`/`notFound`, search params, Dialog, scaffold notes.
+- **How-to** index reorganized; guides updated for 0.4 (lists, templates, routing, loaders, forms, a11y, install).
 - `KNOWN_LIMITATIONS`: reflect shipped islands/stream/router APIs; honest remaining gaps.
 - SSR/Deploy/Compiler docs: portable JS compiler default, streaming + islands notes.
 - VS Code extension and browser DevTools extension version labels → 0.4.1.

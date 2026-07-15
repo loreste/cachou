@@ -37,7 +37,7 @@ Traditional VDOM frameworks rebuild a virtual tree and diff it when state change
 3. When a signal changes, **only subscribed effects/bindings** re-run.
 4. Updates write directly to text nodes, attributes, or list slots.
 
-This is the same broad family as SolidJS. CachouJS additionally offers a small Go SFC compiler and optional demo server adapters in this repository.
+This is the same broad family as SolidJS. CachouJS additionally offers an optional `.cachou` SFC compiler (pure JS by default; native binary optional) and optional demo server adapters in this repository. The **0.4** line adds owner/`untrack`, `For`/`Index`, route actions, streaming SSR/islands, mutations, and more — see [Get Started](./GETTING_STARTED.md) and [0.4 APIs](./how-to/use-0.4-framework-apis.md).
 
 **Design priorities** (see also [Performance targets](./PERFORMANCE_TARGETS.md)):
 

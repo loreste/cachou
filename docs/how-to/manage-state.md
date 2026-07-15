@@ -1,8 +1,8 @@
 # Manage State with Signals and Stores
 
-Use **signals** for discrete values, **memos** for derived data, **stores** for nested objects, and **batch** to coalesce updates.
+Use **signals** for discrete values, **memos** for derived data, **stores** for nested objects, and **batch** to coalesce updates. In **0.4**, use **`untrack`** and **owner** APIs when building libraries or avoiding accidental subscriptions.
 
-Related: [Create a component](./create-a-component.md), [Resources](./use-resources.md), [API: Reactivity](../API.md#reactivity).
+Related: [Create a component](./create-a-component.md), [Resources](./use-resources.md), [0.4 APIs](./use-0.4-framework-apis.md), [API: Reactivity](../API.md#reactivity).
 
 ---
 
@@ -126,6 +126,29 @@ dispose();
 ```
 
 In UI code, prefer `mount(App, root)` which creates a root for you. Use `createRoot` for reactive work outside the DOM (tests, headless services).
+
+### `untrack` and owners (0.4)
+
+```javascript
+import { signal, effect, untrack, getOwner, runWithOwner, onCleanup, createRoot } from "cachoujs";
+
+const [n, setN] = signal(0);
+
+createRoot(() => {
+  effect(() => {
+    // Read without registering a dependency
+    const snapshot = untrack(() => n());
+    console.log("setup peek", snapshot);
+  });
+
+  const owner = getOwner();
+  queueWithOwner(owner, () => {
+    onCleanup(() => console.log("cleaned with owner"));
+  });
+});
+```
+
+Use `untrack` when logging, measuring, or reading “current” state without re-running the effect. Use `runWithOwner` when registering cleanups from callbacks that run outside the current reactive scope (library code, async).
 
 ---
 
