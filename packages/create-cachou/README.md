@@ -1,6 +1,6 @@
 # @cachoujs/create
 
-Scaffold a Vite + CachouJS app with file-based routes.
+Scaffold a Vite + **CachouJS 0.4** app with file-based routes.
 
 ## Create a project
 
@@ -13,9 +13,11 @@ npm run dev
 
 ## What you get
 
-- `cachoujs` app entry with `mount`
-- `src/routes/` file-based routing (`/`, `/about`, `/users/:id`)
-- Vite config ready for optional `.cachou` components
+- `cachoujs@^0.4.1` + Vite 6
+- App shell with `Router` + `fileRoutes`
+- Routes: `/`, `/about`, `/users/:id` (with `load`)
+- Base CSS (light/dark), `.gitignore`
+- Optional `.cachou` compile script + Vite plugin
 - DevTools bridge (`window.__CACHOU_RUNTIME__` in development)
 
 ## Related
@@ -23,3 +25,4 @@ npm run dev
 - Runtime: [`cachoujs`](https://www.npmjs.com/package/cachoujs)
 - Compiler: [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler)
 - Full install guide: [docs/INSTALL.md](../../docs/INSTALL.md)
+- Scaffold how-to: [docs/how-to/scaffold-a-new-app.md](../../docs/how-to/scaffold-a-new-app.md)

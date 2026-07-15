@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Version label aligned with CachouJS **0.4.1** (patch-first 0.4 line).
+
 ## 0.2.0
 
 - Initial extension release aligned with CachouJS 0.2.0.

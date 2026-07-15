@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased → 0.4.2
+
+### Polish
+
+- Scaffold (`@cachoujs/create`): pin **0.4.1** deps, base CSS (light/dark), `.gitignore`, clearer routes/README.
+- Docs: version numbers and claims aligned to 0.4.1 (Get Started, Install, how-tos, README).
+- `KNOWN_LIMITATIONS`: reflect shipped islands/stream/router APIs; honest remaining gaps.
+- SSR/Deploy/Compiler docs: portable JS compiler default, streaming + islands notes.
+- VS Code extension and browser DevTools extension version labels → 0.4.1.
+
 ## 0.4.1
 
 Patch release (small-increment policy). See [docs/PUBLISHING.md](./docs/PUBLISHING.md).

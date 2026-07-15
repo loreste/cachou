@@ -6,7 +6,7 @@
 |--|--|
 | **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
 | **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
-| **Version** | 0.3.x (experimental 0.x) |
+| **Version** | 0.4.1 (experimental 0.x) |
 
 This page takes you from zero to a running app, then the first concepts you’ll use every day.
 
@@ -28,7 +28,7 @@ CachouJS is published on the **[npm registry](https://www.npmjs.com/package/cach
 
 ```bash
 npm view cachoujs version
-# → 0.3.0 (or newer)
+# → 0.4.1 (or newer)
 ```
 
 ### Install into a project

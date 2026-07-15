@@ -1,45 +1,70 @@
 # Scaffold a New App
 
-Create a standalone Vite app that imports `cachoujs` and optionally compiles `.cachou` components.
+Create a standalone Vite app that imports `cachoujs` with file-based routes and optional `.cachou` components.
 
 ## Prerequisites
 
 - Node.js 20+
-- npm
-- For SFCs: Go (to build the compiler) or a prebuilt `bin/cachou-compiler`
+- npm (or pnpm / yarn / bun)
 
-## From this monorepo
+## From npm (recommended)
 
 ```bash
-node create-cachou/index.js my-app
+npx @cachoujs/create my-app
 cd my-app
 npm install
 npm run dev
 ```
 
-The scaffold writes:
+Open the URL Vite prints (usually `http://localhost:5173`).
+
+## From this monorepo
+
+```bash
+node create-cachou/index.js my-app
+# or
+node packages/create-cachou/index.js my-app
+cd my-app
+npm install
+npm run dev
+```
+
+## What you get
 
 ```text
 my-app/
 ├── index.html
-├── package.json          # depends on cachoujs + vite
+├── package.json          # cachoujs@^0.4.1 + vite
 ├── vite.config.js        # cachoujs/vite plugin
-├── src/main.js           # counter demo
-└── README.md
+├── .gitignore
+├── README.md
+└── src/
+    ├── main.js           # shell + Router + fileRoutes
+    ├── styles.css        # base light/dark styles
+    ├── routes/
+    │   ├── index.js      # /
+    │   ├── about.js      # /about
+    │   └── users/[id].js # /users/:id + load()
+    └── components/       # optional .cachou SFCs
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`).
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Vite dev server |
+| `npm run build` | Production client build |
+| `npm run preview` | Preview build |
+| `npm run compile` | Compile `.cachou` under `src/components` |
 
 ## Manual setup (no scaffold)
 
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-npm install cachoujs
-npm install -D vite
+npm install cachoujs@^0.4.1
+npm install -D vite @cachoujs/compiler
 ```
 
-`package.json`:
+`package.json` scripts:
 
 ```json
 {
@@ -88,19 +113,13 @@ export default defineConfig({
 `src/main.js`:
 
 ```javascript
-import { signal, html, mount, applyProductionSecurityDefaults } from "cachoujs";
-
-// Optional: tighten URL/style policy for production builds
-if (import.meta.env.PROD) {
-  applyProductionSecurityDefaults();
-}
+import { signal, html, mount } from "cachoujs";
 
 function App() {
   const [count, setCount] = signal(0);
   return html`
     <main>
-      <h1>Hello CachouJS</h1>
-      <button onclick=${() => setCount(c => c + 1)}>
+      <button type="button" onclick=${() => setCount(c => c + 1)}>
         Count: ${() => count()}
       </button>
     </main>
@@ -110,51 +129,8 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-```bash
-npx vite
-```
-
-## Add a `.cachou` component
-
-`src/components/Greeting.cachou`:
-
-```html
-<script>
-  const [n, setN] = signal(props.initial ?? 0);
-</script>
-
-<style scoped>
-  .box { padding: 1rem; border: 1px solid #ccc; border-radius: 8px; }
-</style>
-
-<div class="box">
-  <p>Hello {props.name}</p>
-  <button onclick={() => setN(v => v + 1)}>Clicks: {n()}</button>
-</div>
-```
-
-Import the **compiled** module (`.js` next to the source after compile):
-
-```javascript
-import Greeting from "./components/Greeting.js";
-
-html`${Greeting({ name: "Ada", initial: 0 })}`
-```
-
-With the Vite plugin, saving the `.cachou` file recompiles and reloads.
-
-## Production
-
-```bash
-npm run build
-npm run preview
-```
-
-Deploy the `dist/` folder as a static site. Use your own backend for data — do not enable this monorepo’s `CACHOU_DEMO` APIs on a public host.
-
 ## Next
 
-- [Create a component](./create-a-component.md)
-- [Manage state](./manage-state.md)
-- [Work with `.cachou` files](./work-with-cachou-files.md)
-- [Build and deploy](./build-and-deploy.md)
+- [Get Started](../GETTING_STARTED.md)
+- [0.4 framework APIs](./use-0.4-framework-apis.md)
+- [File-based routing](./use-file-based-routing.md)

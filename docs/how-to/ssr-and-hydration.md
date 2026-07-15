@@ -48,6 +48,30 @@ Resources reuse `window.__CACHOU_STATE__` by resource index when present, avoidi
 
 Each `renderToStringAsync` uses a fresh context (resource cache, counters, head). On Node, install AsyncLocalStorage for concurrent requests (this repo’s `server.js` and Vite config do so).
 
+## Streaming and islands (0.4)
+
+```javascript
+import { renderToStream, Island, hydrateIslands, html } from "cachoujs";
+
+// Server: ReadableStream / async iterable of HTML chunks
+const stream = renderToStream(App, { path: req.url });
+
+// Mark interactive regions for partial hydration
+function Page() {
+  return html`
+    <article>
+      <p>Static shell…</p>
+      ${Island({ id: "counter", hydrate: "idle", children: () => Counter() })}
+    </article>
+  `;
+}
+
+// Client: hydrate only islands
+hydrateIslands(document, { counter: Counter });
+```
+
+See [use 0.4 framework APIs](./use-0.4-framework-apis.md).
+
 ## Escaping
 
 Dynamic text and attributes are escaped on SSR. Use `trustedHTML` only for sanitized markup.

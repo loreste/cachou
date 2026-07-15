@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.3.x**. Each guide assumes a basic install (`npm install` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.4.x**. Each guide assumes a basic install (`npm install` / `npm run dev`).
 
 For concepts, read the [Developer guide](../GUIDE.md). For signatures, see the [API reference](../API.md). Documentation home: [docs/README.md](../README.md).
 

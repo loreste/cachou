@@ -1,8 +1,13 @@
 # Compiler Reference
 
-CachouJS ships a small **Go** compiler that turns `.cachou` single-file components into ES modules.
+CachouJS turns `.cachou` single-file components into ES modules.
 
-It is intentionally **not** a full JavaScript parser. It supports a practical SFC subset suitable for UI components.
+| Path | Role |
+|------|------|
+| **`@cachoujs/compiler`** (pure JS) | Default portable compiler — no Go required |
+| Optional **Go** binary (`compiler.go` / `bin/cachou-compiler`) | Faster native builds when you want them |
+
+It is intentionally **not** a full JavaScript/TypeScript parser. It supports a practical SFC subset suitable for UI components (0.4: section-aware maps, pragmatic type strip, expanded imports).
 
 ---
 

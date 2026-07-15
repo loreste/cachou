@@ -510,7 +510,7 @@ cachou/
 ├── docs/                # Canonical documentation
 ├── crm/                 # CRM proving ground (PostgreSQL or memory)
 ├── scripts/             # check, compiler, browser tests
-└── package.json         # cachoujs@0.3.0
+└── package.json         # cachoujs@0.4.1
 ```
 
 ## Package exports
@@ -529,10 +529,10 @@ cachoujs/vite       → Vite plugin
 ## Current notes
 
 - Public version is **0.4.x** with **patch-first** releases (current: **0.4.1**, next: **0.4.2**). APIs may still change before 1.0; pin carefully and read the changelog.
-- The published npm package is the **runtime + compiler source + Vite plugin**, not the CRM or demo server.
+- The published npm package is the **runtime + Vite plugin + compiler helpers**, not the CRM or demo server.
 - Demo APIs are for local development only.
-- Nested layouts exist; file-based routing and data loaders do not (yet).
-- Devtools are framework events + debug snapshots, not a browser extension.
+- Nested layouts, file-based routing, route loaders/actions, streaming SSR, and islands are part of the 0.4 surface.
+- Devtools: in-page panel + framework events; optional browser extension in-repo (not store-listed yet).
 
 ## License
 

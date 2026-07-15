@@ -55,9 +55,9 @@ Package pages:
 
 | Package | Version | What it is |
 |---------|---------|------------|
-| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | **0.3.0** | Runtime, Vite plugin, helpers |
-| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | **0.3.1** | Pure-JS `.cachou` compiler |
-| [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | **0.3.1** | `npx` app scaffold |
+| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | **0.4.1** | Runtime, Vite plugin, helpers |
+| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | **0.4.1** | Pure-JS `.cachou` compiler |
+| [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | **0.4.1** | `npx` app scaffold |
 
 Requirements: **Node.js 20+** and npm (or pnpm/yarn/bun).
 

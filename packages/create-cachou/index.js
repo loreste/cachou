@@ -1,14 +1,21 @@
 #!/usr/bin/env node
 /**
- * Scaffold: Vite + CachouJS (+ optional file routes).
+ * Scaffold: Vite + CachouJS (+ file routes).
  * Usage: npx @cachoujs/create my-app
  *        node packages/create-cachou/index.js my-app
  */
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const name = process.argv[2] || "cachou-app";
-const target = resolve(process.cwd(), name);
+const rawName = process.argv[2] || "cachou-app";
+// Accept a simple folder name (preferred) or an absolute/relative path.
+const target = resolve(process.cwd(), rawName);
+const name = target.split(/[/\\]/).filter(Boolean).pop() || "cachou-app";
+
+if (!/^[a-zA-Z0-9._@-]+$/.test(name)) {
+  console.error(`Invalid project name "${name}". Use letters, numbers, ., _, -, or @.`);
+  process.exit(1);
+}
 
 if (existsSync(target)) {
   console.error(`Directory already exists: ${target}`);
@@ -33,10 +40,10 @@ const files = {
           compile: "cachou-compiler -dir src/components -out src/components -runtime cachoujs"
         },
         dependencies: {
-          cachoujs: "^0.3.0"
+          cachoujs: "^0.4.1"
         },
         devDependencies: {
-          "@cachoujs/compiler": "^0.3.0",
+          "@cachoujs/compiler": "^0.4.1",
           vite: "^6.0.0"
         }
       },
@@ -63,10 +70,124 @@ export default defineConfig({
   </body>
 </html>
 `,
-  "src/main.js": `import * as Cachou from "cachoujs";
-import { signal, html, mount, Router, Link, fileRoutes, installDevtoolsHotkey } from "cachoujs";
+  ".gitignore": `node_modules
+dist
+.DS_Store
+*.log
+.env
+.env.*
+`,
+  "src/styles.css": `:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --fg: #172033;
+  --muted: #5b6578;
+  --card: #ffffff;
+  --border: #d7dce5;
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  line-height: 1.5;
+}
 
-// Expose runtime for the Cachou browser DevTools extension (dev only)
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1419;
+    --fg: #e8eef7;
+    --muted: #9aa6b8;
+    --card: #171d26;
+    --border: #2a3342;
+    --accent: #3b82f6;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.shell {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.card p {
+  margin: 0.5rem 0;
+  color: var(--muted);
+}
+
+button {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+pre {
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+}
+`,
+  "src/main.js": `import * as Cachou from "cachoujs";
+import {
+  html,
+  mount,
+  Router,
+  Link,
+  fileRoutes,
+  installDevtoolsHotkey
+} from "cachoujs";
+import "./styles.css";
+
+// Expose runtime for the Cachou browser DevTools extension (dev only).
 if (import.meta.env.DEV) {
   window.__CACHOU_RUNTIME__ = Cachou;
   installDevtoolsHotkey();
@@ -76,8 +197,8 @@ const pages = import.meta.glob("./routes/**/*.{js,jsx}");
 
 function App() {
   return html\`
-    <div style="font-family: system-ui; padding: 1.5rem; max-width: 40rem; margin: auto">
-      <nav style="display:flex; gap: 0.75rem; margin-bottom: 1rem">
+    <div class="shell">
+      <nav class="nav" aria-label="Main">
         \${Link({ href: "/", children: "Home" })}
         \${Link({ href: "/about", children: "About" })}
         \${Link({ href: "/users/ada", children: "User ada" })}
@@ -94,11 +215,14 @@ mount(App, document.getElementById("app"));
 export default function Home() {
   const [count, setCount] = signal(0);
   return html\`
-    <main>
+    <main class="card">
       <h1>Hello CachouJS</h1>
-      <button type="button" onclick=\${() => setCount(c => c + 1)}>
-        Count: \${() => count()}
-      </button>
+      <p>Fine-grained reactivity + file-based routes. Edit <code>src/routes/</code> to add pages.</p>
+      <p style="margin-top:1rem">
+        <button type="button" onclick=\${() => setCount(c => c + 1)}>
+          Count: \${() => count()}
+        </button>
+      </p>
     </main>
   \`;
 }
@@ -106,7 +230,13 @@ export default function Home() {
   "src/routes/about.js": `import { html } from "cachoujs";
 
 export default function About() {
-  return html\`<main><h1>About</h1><p>File-based route: routes/about.js</p></main>\`;
+  return html\`
+    <main class="card">
+      <h1>About</h1>
+      <p>This page is a file-based route: <code>src/routes/about.js</code>.</p>
+      <p>Optional <code>.cachou</code> components go in <code>src/components/</code>.</p>
+    </main>
+  \`;
 }
 `,
   "src/routes/users/[id].js": `import { html, Show } from "cachoujs";
@@ -117,10 +247,11 @@ export async function load({ params, signal }) {
   return { id: params.id, name: String(params.id).toUpperCase() };
 }
 
-export default function UserPage(params, state) {
+export default function UserPage(_params, state) {
   return html\`
-    <main>
+    <main class="card">
       <h1>User</h1>
+      <p>Route loader demo for <code>/users/:id</code>.</p>
       \${Show({
         when: () => state?.loading?.(),
         children: () => html\`<p>Loading…</p>\`
@@ -135,16 +266,36 @@ export default function UserPage(params, state) {
 `,
   "README.md": `# ${name}
 
-CachouJS + Vite scaffold with **file-based routes** under \`src/routes/\`.
+Vite + **CachouJS 0.4** scaffold with file-based routes.
 
 \`\`\`bash
 npm install
 npm run dev
 \`\`\`
 
-- Routes: \`src/routes/**\`
-- Optional \`.cachou\` components: \`src/components/\` + \`npm run compile\`
-- DevTools: set \`window.__CACHOU_RUNTIME__\` (already in \`main.js\`) and load the browser extension from the monorepo, or press Ctrl+Shift+D
+## Layout
+
+| Path | Role |
+|------|------|
+| \`src/main.js\` | App shell, router, DevTools bridge |
+| \`src/routes/\` | File-based pages (\`/\`, \`/about\`, \`/users/:id\`) |
+| \`src/components/\` | Optional \`.cachou\` SFCs |
+| \`src/styles.css\` | Base styles |
+
+## Scripts
+
+| Command | What it does |
+|---------|----------------|
+| \`npm run dev\` | Vite dev server |
+| \`npm run build\` | Production build |
+| \`npm run preview\` | Preview build |
+| \`npm run compile\` | Compile \`.cachou\` components |
+
+## Next steps
+
+- [Get Started](https://github.com/loreste/cachou/blob/main/docs/GETTING_STARTED.md)
+- [0.4 framework APIs](https://github.com/loreste/cachou/blob/main/docs/how-to/use-0.4-framework-apis.md)
+- DevTools: \`Ctrl+Shift+D\` in dev, or load the monorepo browser extension
 `
 };
 
@@ -154,7 +305,6 @@ for (const [file, content] of Object.entries(files)) {
   writeFileSync(full, content);
 }
 
-// Keep root create-cachou in sync path for monorepo users
 console.log(`Created ${name}/
 
 Next:

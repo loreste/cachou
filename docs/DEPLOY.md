@@ -33,6 +33,15 @@ Configure a strict **Content-Security-Policy** at the edge.
 
 ---
 
+## SSR notes (0.4)
+
+- Prefer **`renderToStringAsync`** or **`renderToStream`** with per-request isolation.
+- Use **`Island` + `hydrateIslands`** when only part of the page needs client JS.
+- Call **`dehydrate()`** / **`getSSRHead()`** immediately after each render.
+- See [SSR & hydration](./how-to/ssr-and-hydration.md) and [0.4 APIs](./how-to/use-0.4-framework-apis.md).
+
+---
+
 ## Option 2 — Node SSR + static assets (this repo’s `server.js`)
 
 Use only after you understand the demo surface area.
