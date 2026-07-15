@@ -1,6 +1,7 @@
-import { createRoot, effect, emitFrameworkEvent, onCleanup, resetResourceCounter, resetSSRHead, resolvePendingResources, createSSRContext, runWithSSRContext, runWithSSRContextAsync, setLastSSRContext } from "./reactivity.js";
+import { createRoot, effect, emitFrameworkEvent, onCleanup, resetResourceCounter, resetSSRHead, resolvePendingResources, createSSRContext, runWithSSRContext, runWithSSRContextAsync, setLastSSRContext, getSSRHead, dehydrate } from "./reactivity.js";
 import { reconcile } from "./reconcile.js";
 import { setSSRPath } from "./router-state.js";
+import { applyDirective } from "./directives.js";
 
 const templateCache = new WeakMap();
 const textElementCache = new WeakMap();
@@ -452,6 +453,35 @@ function bindValue(node, binding, values) {
       });
     }
   } else if (binding.type === "attribute") {
+    // Custom directives: use:name=${value}
+    if (binding.name.startsWith("use:")) {
+      const dirName = binding.name.slice(4);
+      const cleanup = applyDirective(node, dirName, values[binding.index]);
+      if (typeof cleanup === "function") addNodeCleanup(node, cleanup);
+      return;
+    }
+
+    // model=${[get,set]} alias for two-way binding on form controls
+    if (binding.name === "model") {
+      const signalPair = values[binding.index];
+      if (Array.isArray(signalPair) && signalPair.length >= 2) {
+        const [get, set] = signalPair;
+        const assignValue = () => {
+          if (node.type === "checkbox") node.checked = Boolean(get());
+          else node.value = get() ?? "";
+        };
+        const stop = effect(assignValue);
+        addNodeCleanup(node, stop);
+        const eventName = node.type === "checkbox" || node.type === "radio" || node.tagName === "SELECT" ? "change" : "input";
+        const onInput = (e) => {
+          set(node.type === "checkbox" ? e.target.checked : e.target.value);
+        };
+        node.addEventListener(eventName, onInput);
+        addNodeCleanup(node, () => node.removeEventListener(eventName, onInput));
+      }
+      return;
+    }
+
     // Handle Two-way Data Binding
     if (binding.name.startsWith("bind:")) {
       const prop = binding.name.slice(5);
@@ -1034,6 +1064,10 @@ export function renderToString(Component) {
 
 export async function renderToStringAsync(Component, options = {}) {
   const context = createSSRContext();
+  if (options.request) {
+    context.request = options.request;
+    if (typeof globalThis !== "undefined") globalThis.__CACHOU_REQUEST_EVENT__ = options.request;
+  }
   const html = await runWithSSRContextAsync(context, async () => {
     resetSSRHead();
     if (options.path) {
@@ -1048,4 +1082,150 @@ export async function renderToStringAsync(Component, options = {}) {
   // Preserve context for sequential dehydrate()/getSSRHead() after await.
   setLastSSRContext(context);
   return html;
+}
+
+/**
+ * Streaming SSR: yields head shell then body after resources resolve.
+ * Returns a ReadableStream of UTF-8 text chunks when available, else async iterable.
+ */
+export function renderToStream(Component, options = {}) {
+  const encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
+
+  async function* generate() {
+    const context = createSSRContext();
+    if (options.request) {
+      context.request = options.request;
+      if (typeof globalThis !== "undefined") globalThis.__CACHOU_REQUEST_EVENT__ = options.request;
+    }
+    await runWithSSRContextAsync(context, async () => {
+      resetSSRHead();
+      if (options.path) setSSRPath(options.path);
+      resetResourceCounter();
+      // kick render for resource registration
+      typeof Component === "function" ? Component() : Component;
+      await resolvePendingResources();
+    });
+    setLastSSRContext(context);
+
+    const headHtml = runWithSSRContext(context, () => getSSRHead());
+    if (options.shell !== false) {
+      yield `<!DOCTYPE html><html><head>${headHtml}</head><body><div id="app">`;
+    }
+    const body = await runWithSSRContextAsync(context, async () => {
+      resetResourceCounter();
+      return String(typeof Component === "function" ? Component() : Component);
+    });
+    yield body;
+    if (options.shell !== false) {
+      yield `</div>${runWithSSRContext(context, () => dehydrate())}</body></html>`;
+    }
+  }
+
+  if (typeof ReadableStream !== "undefined") {
+    const iterator = generate();
+    return new ReadableStream({
+      async pull(controller) {
+        const { value, done } = await iterator.next();
+        if (done) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(encoder ? encoder.encode(String(value)) : value);
+      },
+      cancel() {
+        iterator.return?.();
+      }
+    });
+  }
+
+  return generate();
+}
+
+let islandSeq = 0;
+
+/**
+ * Island boundary for partial hydration.
+ * @param {{ hydrate?: 'load'|'idle'|'visible'|'false', id?: string, children: any }} props
+ */
+export function Island(props) {
+  const mode = props.hydrate || "load";
+  const id = props.id || `island-${++islandSeq}`;
+
+  if (typeof window === "undefined") {
+    const children = typeof props.children === "function" ? props.children() : props.children;
+    const inner = children instanceof SafeHTML ? children.toString() : String(children ?? "");
+    return trustedHTML(
+      `<div data-cachou-island="${id}" data-hydrate="${mode}">${inner}</div>`
+    );
+  }
+
+  const container = document.createElement("div");
+  container.setAttribute("data-cachou-island", id);
+  container.setAttribute("data-hydrate", mode);
+
+  const renderChildren = () => {
+    let val = typeof props.children === "function" ? props.children() : props.children;
+    const nodes = normalizeVal(val);
+    container.replaceChildren(...nodes);
+  };
+
+  if (mode === "false" || mode === false) {
+    // static — no client bindings beyond first paint content if SSR
+    renderChildren();
+    return container;
+  }
+
+  if (mode === "idle" && typeof requestIdleCallback === "function") {
+    requestIdleCallback(() => {
+      createRoot(() => {
+        effect(renderChildren);
+      });
+    });
+  } else if (mode === "visible" && typeof IntersectionObserver === "function") {
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) {
+        io.disconnect();
+        createRoot(() => {
+          effect(renderChildren);
+        });
+      }
+    });
+    io.observe(container);
+  } else {
+    createRoot(() => {
+      effect(renderChildren);
+    });
+  }
+
+  return container;
+}
+
+/**
+ * Hydrate only marked islands within root (or document).
+ */
+export function hydrateIslands(root = typeof document !== "undefined" ? document : null, ComponentMap = {}) {
+  if (!root || typeof root.querySelectorAll !== "function") return;
+  const nodes = root.querySelectorAll("[data-cachou-island]");
+  for (const node of nodes) {
+    const id = node.getAttribute("data-cachou-island");
+    const Comp = ComponentMap[id];
+    if (typeof Comp !== "function") continue;
+    const mode = node.getAttribute("data-hydrate") || "load";
+    const run = () => {
+      hydrate(Comp, node);
+    };
+    if (mode === "idle" && typeof requestIdleCallback === "function") {
+      requestIdleCallback(run);
+    } else if (mode === "visible" && typeof IntersectionObserver === "function") {
+      const io = new IntersectionObserver(entries => {
+        if (entries.some(e => e.isIntersecting)) {
+          io.disconnect();
+          run();
+        }
+      });
+      io.observe(node);
+    } else {
+      run();
+    }
+  }
 }

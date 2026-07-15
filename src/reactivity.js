@@ -529,6 +529,44 @@ export function onCleanup(fn) {
   }
 }
 
+/** Current reactive owner (effect or root), or null. */
+export function getOwner() {
+  return activeOwner || activeEffect || null;
+}
+
+/**
+ * Run `fn` under `owner` so created effects/memos attach to that owner.
+ * Does not force tracking; use inside effects when needed.
+ */
+export function runWithOwner(owner, fn) {
+  const prevOwner = activeOwner;
+  const prevEffect = activeEffect;
+  activeOwner = owner || null;
+  // Keep activeEffect only if it is the same owner graph; default clear tracking context for ownership-only runs.
+  if (owner && owner.type === "effect") {
+    activeEffect = owner;
+  }
+  try {
+    return fn();
+  } finally {
+    activeOwner = prevOwner;
+    activeEffect = prevEffect;
+  }
+}
+
+/**
+ * Run `fn` without tracking signal reads in the current effect.
+ */
+export function untrack(fn) {
+  const prev = activeEffect;
+  activeEffect = null;
+  try {
+    return fn();
+  } finally {
+    activeEffect = prev;
+  }
+}
+
 export function memo(fn, options = {}) {
   let value;
   let initialized = false;
@@ -1634,27 +1672,82 @@ export function resetSSRHead() {
   const head = getSSRContext().head;
   head.title = "";
   head.meta = [];
+  head.links = [];
+  head.jsonld = [];
+  head.scripts = [];
+}
+
+function escapeHead(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export function getSSRHead() {
   const currentHeadData = getSSRContext().head;
   let headHtml = "";
   if (currentHeadData.title) {
-    headHtml += `<title>${currentHeadData.title}</title>\n`;
+    headHtml += `<title>${escapeHead(currentHeadData.title)}</title>\n`;
   }
   if (currentHeadData.meta) {
     for (const m of currentHeadData.meta) {
-      const keyAttr = m.name ? `name="${m.name}"` : `property="${m.property}"`;
-      headHtml += `<meta ${keyAttr} content="${m.content}">\n`;
+      if (m.name) {
+        headHtml += `<meta name="${escapeHead(m.name)}" content="${escapeHead(m.content)}">\n`;
+      } else if (m.property) {
+        headHtml += `<meta property="${escapeHead(m.property)}" content="${escapeHead(m.content)}">\n`;
+      }
+    }
+  }
+  if (currentHeadData.links) {
+    for (const link of currentHeadData.links) {
+      const attrs = Object.entries(link)
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => `${k}="${escapeHead(v)}"`)
+        .join(" ");
+      headHtml += `<link ${attrs}>\n`;
+    }
+  }
+  if (currentHeadData.jsonld) {
+    for (const data of currentHeadData.jsonld) {
+      const json = typeof data === "string" ? data : JSON.stringify(data);
+      headHtml += `<script type="application/ld+json">${json.replace(/</g, "\\u003c")}</script>\n`;
     }
   }
   return headHtml;
 }
 
+function mergeMeta(existing, incoming) {
+  const list = Array.isArray(existing) ? [...existing] : [];
+  for (const item of incoming || []) {
+    const key = item.name ? `name:${item.name}` : item.property ? `property:${item.property}` : null;
+    if (!key) {
+      list.push(item);
+      continue;
+    }
+    const idx = list.findIndex(m =>
+      item.name ? m.name === item.name : m.property === item.property
+    );
+    const normalized = {
+      name: item.name,
+      property: item.property,
+      content: typeof item.content === "function" ? item.content() : item.content
+    };
+    if (idx >= 0) list[idx] = normalized;
+    else list.push(normalized);
+  }
+  return list;
+}
+
+/**
+ * Manage document head. Multiple calls merge meta by name/property.
+ * Supports title, meta, links, jsonld.
+ */
 export function useHead(config) {
   if (typeof window !== "undefined") {
     effect(() => {
-      if (config.title) {
+      if (config.title != null) {
         const titleVal = typeof config.title === "function" ? config.title() : config.title;
         document.title = titleVal;
       }
@@ -1673,18 +1766,53 @@ export function useHead(config) {
           el.setAttribute("content", content);
         }
       }
+      if (config.links) {
+        for (const link of config.links) {
+          const rel = link.rel || "";
+          const href = typeof link.href === "function" ? link.href() : link.href;
+          let el = rel && href
+            ? document.head.querySelector(`link[rel="${rel}"][href="${href}"]`)
+            : null;
+          if (!el) {
+            el = document.createElement("link");
+            document.head.appendChild(el);
+          }
+          for (const [k, v] of Object.entries(link)) {
+            if (v != null) el.setAttribute(k, typeof v === "function" ? v() : v);
+          }
+        }
+      }
+      if (config.jsonld) {
+        // client: replace scripts marked by data-cachou-jsonld
+        document.head.querySelectorAll("script[data-cachou-jsonld]").forEach(n => n.remove());
+        for (const data of config.jsonld) {
+          const el = document.createElement("script");
+          el.type = "application/ld+json";
+          el.setAttribute("data-cachou-jsonld", "1");
+          el.textContent = typeof data === "string" ? data : JSON.stringify(data);
+          document.head.appendChild(el);
+        }
+      }
     });
   } else {
     const currentHeadData = getSSRContext().head;
-    if (config.title) {
+    if (config.title != null) {
       currentHeadData.title = typeof config.title === "function" ? config.title() : config.title;
     }
     if (config.meta) {
-      currentHeadData.meta = config.meta.map(m => ({
-        name: m.name,
-        property: m.property,
-        content: typeof m.content === "function" ? m.content() : m.content
-      }));
+      currentHeadData.meta = mergeMeta(currentHeadData.meta, config.meta);
+    }
+    if (config.links) {
+      currentHeadData.links = [...(currentHeadData.links || []), ...config.links.map(l => {
+        const out = {};
+        for (const [k, v] of Object.entries(l)) {
+          out[k] = typeof v === "function" ? v() : v;
+        }
+        return out;
+      })];
+    }
+    if (config.jsonld) {
+      currentHeadData.jsonld = [...(currentHeadData.jsonld || []), ...config.jsonld];
     }
   }
 }

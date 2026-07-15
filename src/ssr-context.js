@@ -18,8 +18,24 @@ function createEmptyContext() {
     ssrCache: Object.create(null),
     resourceCounter: 0,
     pendingResources: new Set(),
-    head: { title: "", meta: [] }
+    head: { title: "", meta: [], links: [], jsonld: [], scripts: [] },
+    request: null
   };
+}
+
+/** Attach request bag (cookies, headers, url) for SSR loaders. */
+export function setRequestEvent(event) {
+  const ctx = getSSRContext();
+  ctx.request = event || null;
+  if (typeof globalThis !== "undefined") {
+    globalThis.__CACHOU_REQUEST_EVENT__ = event || null;
+  }
+}
+
+export function getRequestEvent() {
+  const ctx = getSSRContext();
+  if (ctx.request) return ctx.request;
+  return typeof globalThis !== "undefined" ? globalThis.__CACHOU_REQUEST_EVENT__ || null : null;
 }
 
 function ensureALS() {

@@ -11,6 +11,9 @@ declare module "cachoujs" {
   export function batch(fn: () => void): void;
   export function onCleanup(fn: () => void): void;
   export function onMount(fn: () => void): void;
+  export function untrack<T>(fn: () => T): T;
+  export function getOwner(): any;
+  export function runWithOwner<T>(owner: any, fn: () => T): T;
   export function onFrameworkEvent(listener: (event: { type: string; time: number; [key: string]: any }) => void): () => void;
   export function emitFrameworkEvent(event: { type: string; [key: string]: any }): void;
   export function mapArray<T, U>(
@@ -156,6 +159,105 @@ declare module "cachoujs" {
   }): () => any;
   export function Switch(props: { children?: any; fallback?: any }): () => any;
   export function Match(props: { when: any; children?: any }): () => any;
+  export function For(props: {
+    each: any[] | (() => any[]);
+    children: (item: any, index: number) => any;
+    by?: (item: any, index: number) => unknown;
+    fallback?: any;
+    uniqueKeys?: boolean;
+  }): () => any;
+  export function Index(props: {
+    each: any[] | (() => any[]);
+    children: (item: () => any, index: number) => any;
+    fallback?: any;
+  }): () => any;
+  export function splitProps(props: object, ...keyGroups: string[][]): object[];
+  export function mergeProps(...sources: Array<object | null | undefined>): any;
+  export function Dynamic(props: { component: any; children?: any; [key: string]: any }): () => any;
+  export function directive(name: string, handler: (el: Element, accessor: () => any) => void | (() => void)): () => void;
+  export function createMutation<TInput = any, TResult = any>(
+    mutationFn: (input: TInput, ctx: { signal?: AbortSignal }) => Promise<TResult>,
+    options?: {
+      onMutate?: (input: TInput) => any | Promise<any>;
+      onSuccess?: (data: TResult, input: TInput, context: any) => void;
+      onError?: (err: any, input: TInput, context: any) => void;
+      onSettled?: (data: TResult | undefined, err: any, input: TInput, context: any) => void;
+      invalidateKeys?: string[];
+    }
+  ): {
+    mutate: (input: TInput) => Promise<TResult>;
+    pending: SignalGetter<boolean>;
+    error: SignalGetter<any>;
+    data: SignalGetter<TResult | undefined>;
+    reset: () => void;
+  };
+  export function getQueryData(key: string): any;
+  export function setQueryData(key: string, data: any): void;
+  export function subscribeQuery(key: string, fn: (data: any) => void): () => void;
+  export function invalidateQuery(key: string): void;
+  export function optimisticUpdate(key: string, updater: any): { previous: any; rollback: () => void };
+  export function persist(
+    signalPair: Signal<any>,
+    options: {
+      key: string;
+      storage?: Storage;
+      serialize?: (v: any) => string;
+      deserialize?: (s: string) => any;
+      sync?: boolean;
+    }
+  ): () => void;
+  export function virtualList(props: {
+    each: any[] | (() => any[]);
+    itemHeight: number;
+    height: number;
+    overscan?: number;
+    children: (item: any, index: number) => any;
+  }): {
+    windowed: SignalGetter<any>;
+    scrollTop: SignalGetter<number>;
+    setScrollTop: SignalSetter<number>;
+    onScroll: (event: any) => void;
+  };
+  export function Dialog(props: {
+    open: boolean | (() => boolean);
+    onClose?: () => void;
+    title?: string;
+    children?: any;
+    modal?: boolean;
+  }): () => any;
+  export function configureRouter(options?: {
+    history?: "browser" | "hash" | "memory";
+    initialPath?: string;
+  }): { history: string };
+  export function getHistoryMode(): string;
+  export function matchPath(routePath: string, path: string): { matches: boolean; params?: Record<string, string> };
+  export function useParams(): SignalGetter<Record<string, string>>;
+  export function useSearchParams(): [
+    SignalGetter<Record<string, string>>,
+    (next: Record<string, any> | ((prev: Record<string, string>) => Record<string, any>), options?: { replace?: boolean; replaceAll?: boolean }) => void
+  ];
+  export function useAction(): any;
+  export function createAction(handler: (input: any, ctx?: any) => any | Promise<any>): {
+    submit: (input?: any, ctx?: any) => Promise<any>;
+    pending: SignalGetter<boolean>;
+    error: SignalGetter<any>;
+    result: SignalGetter<any>;
+    Form: (props?: any) => any;
+  };
+  export function redirect(path: string, options?: { replace?: boolean }): never;
+  export function notFound(message?: string): never;
+  export function isRedirectError(err: any): boolean;
+  export function isNotFoundError(err: any): boolean;
+  export class RedirectError extends Error {
+    path: string;
+    options: any;
+  }
+  export class NotFoundError extends Error {}
+  export function renderToStream(Component: any, options?: { path?: string; request?: any; shell?: boolean }): ReadableStream | AsyncGenerator<string>;
+  export function Island(props: { hydrate?: "load" | "idle" | "visible" | "false" | false; id?: string; children?: any }): any;
+  export function hydrateIslands(root?: ParentNode | null, ComponentMap?: Record<string, any>): void;
+  export function getRequestEvent(): any;
+  export function setRequestEvent(event: any): void;
 
   export function mountDevtools(options?: {
     parent?: HTMLElement;
@@ -221,7 +323,12 @@ declare module "cachoujs" {
   export function configureScheduler(options?: { budgetMs?: number }): { budgetMs: number };
   export function startTransition(fn: () => void, options?: { cancelPrevious?: boolean }): Promise<void> | void;
   export function useTransition(): [SignalGetter<boolean>, (fn: () => void) => void];
-  export function useHead(config: { title?: string | (() => string); meta?: Array<{ name?: string; property?: string; content: string | (() => string) }> }): void;
+  export function useHead(config: {
+    title?: string | (() => string);
+    meta?: Array<{ name?: string; property?: string; content: string | (() => string) }>;
+    links?: Array<Record<string, any>>;
+    jsonld?: any[];
+  }): void;
   export function enableDebug(options?: { slowEffectThresholdMs?: number; strict?: boolean }): void;
   export function disableDebug(): void;
   export function getDebugSnapshot(): {
@@ -256,11 +363,13 @@ declare module "cachoujs" {
     reset: (nextValue?: T) => void;
   };
   export function createForm<T extends Record<string, any>>(initialValues: T, options?: {
-    fields?: Partial<Record<keyof T, Parameters<typeof createField>[1]>>;
+    nested?: boolean;
+    fields?: Partial<Record<string, Parameters<typeof createField>[1]>> & Partial<Record<keyof T, Parameters<typeof createField>[1]>>;
     validate?: (values: T) => any | Promise<any>;
     onSubmit?: (values: T, context: any) => any | Promise<any>;
   }): {
-    fields: { [K in keyof T]: ReturnType<typeof createField<T[K]>> };
+    fields: Record<string, ReturnType<typeof createField>>;
+    field: (path: string) => ReturnType<typeof createField>;
     values: SignalGetter<T>;
     submitting: SignalGetter<boolean>;
     error: SignalGetter<any>;

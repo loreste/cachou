@@ -1,12 +1,20 @@
-import { createContext, createResource, onCleanup, useContext } from "./reactivity.js";
+import { createContext, createResource, onCleanup, useContext, signal, memo } from "./reactivity.js";
 import { html } from "./html.js";
-import { currentPath, currentSearch, setCurrentPath, setCurrentSearch, setSSRPath } from "./router-state.js";
+import {
+  currentPath,
+  currentSearch,
+  setSSRPath,
+  configureRouter,
+  getHistoryMode,
+  applyNavigation
+} from "./router-state.js";
 
 const isClient = typeof window !== "undefined";
-export { setSSRPath };
+export { setSSRPath, configureRouter, getHistoryMode };
 const navigationGuards = new Set();
 let lastRouteParams = {};
 let lastRouteData = undefined;
+let lastNotFound = false;
 
 const OutletContext = createContext({
   child: null,
@@ -21,13 +29,7 @@ const RouteDataContext = createContext({
   params: {}
 });
 
-// Global history listener
-if (isClient) {
-  window.addEventListener("popstate", () => {
-    setCurrentPath(window.location.pathname);
-    setCurrentSearch(window.location.search);
-  });
-}
+const ActionContext = createContext(null);
 
 export function getPath() {
   return currentPath();
@@ -59,6 +61,34 @@ export function getRouteParams() {
   return { ...lastRouteParams };
 }
 
+/** Reactive route params from the last matched route (snapshot updated on match). */
+export function useParams() {
+  return memo(() => {
+    // depend on path so consumers re-render
+    currentPath();
+    return { ...lastRouteParams };
+  });
+}
+
+/** Reactive URL search params as a plain object + setter helpers. */
+export function useSearchParams() {
+  const params = memo(() => getQueryParams());
+  function setParams(next, options = {}) {
+    const current = { ...getQueryParams() };
+    const patch = typeof next === "function" ? next(current) : next;
+    const merged = options.replaceAll ? { ...patch } : { ...current, ...patch };
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(merged)) {
+      if (v == null || v === false || v === "") continue;
+      sp.set(k, String(v));
+    }
+    const q = sp.toString();
+    const path = currentPath() + (q ? `?${q}` : "");
+    navigate(path, { replace: options.replace !== false, scroll: false, focus: false });
+  }
+  return [params, setParams];
+}
+
 /** Data returned by the active matched route's `load` function (if any). */
 export function getRouteData() {
   return lastRouteData;
@@ -72,8 +102,106 @@ export function useRouteData() {
   return useContext(RouteDataContext);
 }
 
+export function useAction() {
+  return useContext(ActionContext);
+}
+
+export class RedirectError extends Error {
+  constructor(path, options = {}) {
+    super(`Redirect to ${path}`);
+    this.name = "RedirectError";
+    this.path = path;
+    this.options = options;
+    this.$$cachouRedirect = true;
+  }
+}
+
+export class NotFoundError extends Error {
+  constructor(message = "Not Found") {
+    super(message);
+    this.name = "NotFoundError";
+    this.$$cachouNotFound = true;
+  }
+}
+
+export function redirect(path, options = {}) {
+  throw new RedirectError(path, options);
+}
+
+export function notFound(message) {
+  throw new NotFoundError(message);
+}
+
+export function isRedirectError(err) {
+  return Boolean(err && (err.$$cachouRedirect || err instanceof RedirectError));
+}
+
+export function isNotFoundError(err) {
+  return Boolean(err && (err.$$cachouNotFound || err instanceof NotFoundError));
+}
+
+/**
+ * Create a route/form action.
+ * @param {(formData: FormData | any, ctx: object) => any | Promise<any>} handler
+ */
+export function createAction(handler) {
+  const [pending, setPending] = signal(false);
+  const [error, setError] = signal(null);
+  const [result, setResult] = signal(undefined);
+
+  async function submit(input, ctx = {}) {
+    setPending(true);
+    setError(null);
+    try {
+      let payload = input;
+      if (typeof FormData !== "undefined" && input instanceof FormData) {
+        payload = input;
+      } else if (input && typeof input.preventDefault === "function") {
+        input.preventDefault();
+        const form = input.currentTarget || input.target;
+        payload = form && typeof FormData !== "undefined" ? new FormData(form) : input;
+      }
+      const value = await handler(payload, ctx);
+      setResult(value);
+      if (value && value.$$cachouRedirect) {
+        navigate(value.path, value.options || {});
+      }
+      return value;
+    } catch (err) {
+      if (isRedirectError(err)) {
+        navigate(err.path, err.options || {});
+        return;
+      }
+      if (isNotFoundError(err)) {
+        lastNotFound = true;
+        throw err;
+      }
+      setError(err);
+      throw err;
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const action = {
+    submit,
+    pending,
+    error,
+    result,
+    Form(props = {}) {
+      return html`<form
+        method=${props.method || "post"}
+        action=${props.action || "#"}
+        onsubmit=${e => submit(e)}
+        class=${props.class || ""}
+      >${props.children}</form>`;
+    }
+  };
+  return action;
+}
+
 export function navigate(path, options = {}) {
-  const from = typeof window !== "undefined" ? window.location.pathname + window.location.search : currentPath() + currentSearch();
+  const from = currentPath() + currentSearch();
   for (const guard of Array.from(navigationGuards)) {
     const result = guard({ from, to: path, replace: Boolean(options.replace) });
     if (result === false) {
@@ -82,15 +210,8 @@ export function navigate(path, options = {}) {
   }
 
   const updateDOM = () => {
-    if (options.replace) {
-      window.history.replaceState(null, "", path);
-    } else {
-      window.history.pushState(null, "", path);
-    }
-    const url = new URL(window.location.href, window.location.origin);
-    setCurrentPath(url.pathname);
-    setCurrentSearch(url.search);
-    if (options.scroll !== false && typeof window.scrollTo === "function") {
+    applyNavigation(path, options);
+    if (options.scroll !== false && typeof window !== "undefined" && typeof window.scrollTo === "function") {
       window.scrollTo(0, 0);
     }
     if (options.focus !== false && typeof document !== "undefined") {
@@ -263,33 +384,75 @@ function getNormalizedPath(p) {
   return pathVal;
 }
 
-function matchPath(routePath, currentPath) {
+/**
+ * Match route patterns:
+ * - /users/:id
+ * - /files/* (prefix wildcard)
+ * - /blog/:slug? (optional segment)
+ * - /docs/:path* (rest param)
+ * - * (catch-all)
+ */
+function matchPath(routePath, pathValue) {
   if (routePath === "*") return { matches: true, params: {} };
 
   const routeParts = routePath.split("/").filter(Boolean);
-  const currentParts = currentPath.split("/").filter(Boolean);
+  const currentParts = pathValue.split("/").filter(Boolean);
 
-  const isWildcard = routePath.endsWith("/*");
-  if (isWildcard) {
+  // trailing /* => prefix match
+  let prefixWildcard = false;
+  if (routeParts.length && routeParts[routeParts.length - 1] === "*") {
+    prefixWildcard = true;
     routeParts.pop();
   }
 
-  if (!isWildcard && routeParts.length !== currentParts.length) {
-    return { matches: false };
-  }
-
-  if (isWildcard && currentParts.length < routeParts.length) {
-    return { matches: false };
-  }
-
   const params = {};
-  for (let i = 0; i < routeParts.length; i++) {
-    const rPart = routeParts[i];
+  let ri = 0;
+  let ci = 0;
+
+  while (ri < routeParts.length) {
+    const rPart = routeParts[ri];
+
+    // rest param :path*
+    if (rPart.startsWith(":") && rPart.endsWith("*")) {
+      const name = rPart.slice(1, -1);
+      params[name] = currentParts.slice(ci).map(decodePathSegment).join("/");
+      return { matches: true, params };
+    }
+
+    // optional :id?
+    if (rPart.startsWith(":") && rPart.endsWith("?")) {
+      const name = rPart.slice(1, -1);
+      if (ci < currentParts.length) {
+        params[name] = decodePathSegment(currentParts[ci]);
+        ci++;
+      }
+      ri++;
+      continue;
+    }
+
+    // required param
     if (rPart.startsWith(":")) {
-      params[rPart.slice(1)] = decodePathSegment(currentParts[i]);
-    } else if (rPart !== currentParts[i]) {
+      if (ci >= currentParts.length) return { matches: false };
+      params[rPart.slice(1)] = decodePathSegment(currentParts[ci]);
+      ri++;
+      ci++;
+      continue;
+    }
+
+    // literal
+    if (ci >= currentParts.length || rPart !== currentParts[ci]) {
       return { matches: false };
     }
+    ri++;
+    ci++;
+  }
+
+  if (prefixWildcard) {
+    return { matches: true, params };
+  }
+
+  if (ci !== currentParts.length) {
+    return { matches: false };
   }
 
   return { matches: true, params };
@@ -332,13 +495,32 @@ export function Route(props) {
       source,
       async (src, ctx) => {
         if (!src) return undefined;
-        return props.load({
-          params: src.params,
-          path: src.path,
-          query: Object.fromEntries(new URLSearchParams(src.search || "")),
-          signal: ctx && ctx.signal,
-          requestId: ctx && ctx.requestId
-        });
+        try {
+          lastNotFound = false;
+          return await props.load({
+            params: src.params,
+            path: src.path,
+            query: Object.fromEntries(new URLSearchParams(src.search || "")),
+            signal: ctx && ctx.signal,
+            requestId: ctx && ctx.requestId,
+            request: getRequestEventSafe()
+          });
+        } catch (err) {
+          if (isRedirectError(err)) {
+            if (typeof window !== "undefined") {
+              navigate(err.path, { ...err.options, replace: err.options?.replace !== false });
+            } else {
+              // SSR: rethrow for server adapters
+              throw err;
+            }
+            return undefined;
+          }
+          if (isNotFoundError(err)) {
+            lastNotFound = true;
+            throw err;
+          }
+          throw err;
+        }
       },
       {
         key: src =>
@@ -478,4 +660,13 @@ export function lazy(loader) {
   return lazyComponent;
 }
 
-export { matchPath, getNormalizedPath };
+function getRequestEventSafe() {
+  try {
+    // optional dependency to avoid circular hard fail
+    return globalThis.__CACHOU_REQUEST_EVENT__ || null;
+  } catch {
+    return null;
+  }
+}
+
+export { matchPath, getNormalizedPath, lastNotFound };

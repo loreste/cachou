@@ -73,11 +73,60 @@ export function createField(initialValue = "", options = {}) {
   };
 }
 
+function flattenFields(obj, prefix = "", out = {}) {
+  if (obj == null || typeof obj !== "object" || Array.isArray(obj)) {
+    out[prefix] = obj;
+    return out;
+  }
+  for (const [key, value] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (value != null && typeof value === "object" && !Array.isArray(value)) {
+      flattenFields(value, path, out);
+    } else if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        const itemPath = `${path}.${index}`;
+        if (item != null && typeof item === "object") flattenFields(item, itemPath, out);
+        else out[itemPath] = item;
+      });
+      // also keep array root for whole-array updates
+      out[path] = value;
+    } else {
+      out[path] = value;
+    }
+  }
+  return out;
+}
+
+function setPath(obj, path, value) {
+  const parts = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const p = parts[i];
+    const next = parts[i + 1];
+    const asIndex = String(Number(next)) === next;
+    if (cur[p] == null) cur[p] = asIndex ? [] : {};
+    cur = cur[p];
+  }
+  cur[parts[parts.length - 1]] = value;
+  return obj;
+}
+
 export function createForm(initialValues = {}, options = {}) {
   const fields = {};
   const validators = options.fields || {};
-  for (const key of Object.keys(initialValues)) {
-    fields[key] = createField(initialValues[key], validators[key] || {});
+  const flat = options.nested ? flattenFields(initialValues) : null;
+  const keys = flat ? Object.keys(flat).filter(k => !Array.isArray(flat[k]) || flat[k].some(x => typeof x !== "object")) : Object.keys(initialValues);
+
+  if (options.nested) {
+    // Prefer leaf scalar paths
+    for (const [path, value] of Object.entries(flat)) {
+      if (value != null && typeof value === "object") continue;
+      fields[path] = createField(value, validators[path] || {});
+    }
+  } else {
+    for (const key of Object.keys(initialValues)) {
+      fields[key] = createField(initialValues[key], validators[key] || {});
+    }
   }
 
   const [submitting, setSubmitting] = signal(false);
@@ -85,12 +134,30 @@ export function createForm(initialValues = {}, options = {}) {
   let submitId = 0;
 
   const values = memo(() => {
+    if (!options.nested) {
+      const result = {};
+      for (const key of Object.keys(fields)) {
+        result[key] = fields[key].value();
+      }
+      return result;
+    }
     const result = {};
     for (const key of Object.keys(fields)) {
-      result[key] = fields[key].value();
+      setPath(result, key, fields[key].value());
     }
     return result;
   });
+
+  /** Access nested field by path: form.field("address.city") */
+  function field(path) {
+    if (!fields[path]) {
+      fields[path] = createField(
+        options.nested ? flat?.[path] : undefined,
+        validators[path] || {}
+      );
+    }
+    return fields[path];
+  }
 
   const validate = async () => {
     const currentValues = values();
@@ -151,11 +218,12 @@ export function createForm(initialValues = {}, options = {}) {
 
   return {
     fields,
+    field,
     values,
     submitting,
     error: submitError,
-    valid: memo(() => Object.values(fields).every(field => field.valid())),
-    dirty: memo(() => Object.values(fields).some(field => field.dirty())),
+    valid: memo(() => Object.values(fields).every(f => f.valid())),
+    dirty: memo(() => Object.values(fields).some(f => f.dirty())),
     validate,
     reset,
     handleSubmit

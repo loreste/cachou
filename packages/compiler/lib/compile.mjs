@@ -420,17 +420,78 @@ function renderExpression(compiledHTML) {
   return "html`\n" + compiledHTML + "\n`";
 }
 
-function writeSourceMap(mapPath, fileName, sourceName, sourceContent, generated) {
-  const mappings = generated.split("\n").map(() => "").join(";");
+/** Minimal base64 VLQ for section-aware source maps (line-level). */
+function encodeVLQ(value) {
+  let vlq = value < 0 ? (-value << 1) + 1 : value << 1;
+  let encoded = "";
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  do {
+    let digit = vlq & 31;
+    vlq >>>= 5;
+    if (vlq > 0) digit |= 32;
+    encoded += alphabet[digit];
+  } while (vlq > 0);
+  return encoded;
+}
+
+function writeSourceMap(mapPath, fileName, sourceName, sourceContent, generated, sectionHints = {}) {
+  // Map each generated line: script body lines → script section start; rest → template or file start
+  const genLines = generated.split("\n");
+  const scriptStart = sectionHints.scriptLine || 0;
+  const templateStart = sectionHints.templateLine || 0;
+  let lastGenCol = 0;
+  let lastSourceLine = 0;
+  let lastSourceCol = 0;
+  let lastName = 0;
+  const segments = [];
+  for (let i = 0; i < genLines.length; i++) {
+    // Heuristic: component setup block uses script lines sequentially when we see "Component Setup"
+    let sourceLine = 0;
+    if (genLines[i].includes("--- Component Setup ---") || (i > 0 && segments.length && genLines[i - 1]?.includes("Component Setup"))) {
+      sourceLine = scriptStart;
+    } else if (genLines[i].includes("--- Render ---") || genLines[i].includes("html`") || genLines[i].includes("htmlStatic")) {
+      sourceLine = templateStart;
+    } else if (scriptStart && i > 10 && i < genLines.length - 5) {
+      sourceLine = Math.min(scriptStart + Math.max(0, i - 12), sourceContent.split("\n").length - 1);
+    }
+    const relLine = sourceLine - lastSourceLine;
+    // generated column 0, source index 0, source line, source col 0
+    const seg =
+      encodeVLQ(0 - lastGenCol) +
+      encodeVLQ(0) +
+      encodeVLQ(relLine) +
+      encodeVLQ(0 - lastSourceCol);
+    lastGenCol = 0;
+    lastSourceLine = sourceLine;
+    lastSourceCol = 0;
+    segments.push(seg);
+  }
   const payload = {
     version: 3,
     file: fileName,
     sources: [sourceName.replace(/\\/g, "/")],
     sourcesContent: [sourceContent],
     names: [],
-    mappings
+    mappings: segments.join(";")
   };
   writeFileSync(mapPath, JSON.stringify(payload) + "\n", "utf8");
+}
+
+/** Pragmatic TS strip for simple annotations in <script> (not a full parser). */
+export function stripTypeScript(script) {
+  let out = script;
+  // remove interface / type blocks
+  out = out.replace(/^\s*interface\s+\w+[\s\S]*?\{[\s\S]*?\}\s*$/gm, "");
+  out = out.replace(/^\s*type\s+\w+\s*=\s*[^;]+;/gm, "");
+  // strip `as Type` assertions
+  out = out.replace(/\s+as\s+[A-Za-z0-9_.<>,\s|&[\]"']+/g, "");
+  // strip simple param types: (x: number) and property types in destructuring limited
+  out = out.replace(/(\(|,)\s*([A-Za-z_$][\w$]*)\s*:\s*[A-Za-z0-9_<>|\[\]\s.,]+(?=[,)=])/g, "$1$2");
+  // strip return types on functions: ): Type {
+  out = out.replace(/\)\s*:\s*[A-Za-z0-9_<>|\[\]\s.,]+\s*\{/g, ") {");
+  // strip variable annotations: const x: Type =
+  out = out.replace(/\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*:\s*[A-Za-z0-9_<>|\[\]\s.,]+\s*=/g, "$1 $2 =");
+  return out;
 }
 
 /**
@@ -453,6 +514,14 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
   const sections = parseComponentSections(content);
   const scopeID = "data-c-" + sanitizeScopeID(nameWithoutExt);
   validateTemplateTags(sections.template);
+  // Pragmatic TS support: strip simple annotations in script
+  sections.script = stripTypeScript(sections.script || "");
+
+  // Section line hints for source maps
+  const scriptIdx = content.search(/<script\b/i);
+  const templateIdx = content.search(/<template\b/i);
+  const scriptLine = scriptIdx >= 0 ? content.slice(0, scriptIdx).split("\n").length - 1 : 0;
+  const templateLine = templateIdx >= 0 ? content.slice(0, templateIdx).split("\n").length - 1 : 0;
 
   let scopedHTML = sections.template;
   let scopedCSS = "";
@@ -488,6 +557,9 @@ const {
   batch,
   onCleanup,
   onMount,
+  untrack,
+  getOwner,
+  runWithOwner,
   html,
   mapArray,
   createResource,
@@ -502,10 +574,23 @@ const {
   getQueryParams,
   getRouteData,
   useRouteData,
+  useParams,
+  useSearchParams,
   useHead,
   Show,
   Switch,
-  Match
+  Match,
+  For,
+  Index,
+  splitProps,
+  mergeProps,
+  Dynamic,
+  createAction,
+  redirect,
+  notFound,
+  createMutation,
+  persist,
+  Dialog
 } = Cachou;
 
 export default function ${componentName}(props = {}) {
@@ -519,7 +604,10 @@ ${indentLines(sections.script, "  ")}
 `;
 
   writeFileSync(outputPath, outputJS, "utf8");
-  writeSourceMap(outputPath + ".map", basename(outputPath), base, content, outputJS);
+  writeSourceMap(outputPath + ".map", basename(outputPath), base, content, outputJS, {
+    scriptLine,
+    templateLine
+  });
   return { outputPath, componentName };
 }
 
