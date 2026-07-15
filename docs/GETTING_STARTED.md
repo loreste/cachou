@@ -12,6 +12,63 @@ This page takes you from zero to a running app, then the first concepts you’ll
 
 ---
 
+## Get it from npm
+
+CachouJS is published on the **[npm registry](https://www.npmjs.com/package/cachoujs)**. You install it with npm (or pnpm / yarn / bun) like any other package—no need to clone the GitHub repo unless you want to contribute.
+
+### Packages
+
+| Command / package | What you get | npm page |
+|-------------------|--------------|----------|
+| `npm install cachoujs` | Runtime, Vite plugin, helpers | [cachoujs](https://www.npmjs.com/package/cachoujs) |
+| `npx @cachoujs/create my-app` | New Vite project scaffold | [@cachoujs/create](https://www.npmjs.com/package/@cachoujs/create) |
+| `npm install -D @cachoujs/compiler` | Optional `.cachou` SFC compiler | [@cachoujs/compiler](https://www.npmjs.com/package/@cachoujs/compiler) |
+
+### Check that npm can see the package
+
+```bash
+npm view cachoujs version
+# → 0.3.0 (or newer)
+```
+
+### Install into a project
+
+```bash
+# inside your app folder (with a package.json)
+npm install cachoujs
+```
+
+Then import it:
+
+```js
+import { signal, html, mount } from "cachoujs";
+```
+
+### Other package managers
+
+```bash
+# pnpm
+pnpm add cachoujs
+
+# yarn
+yarn add cachoujs
+
+# bun
+bun add cachoujs
+```
+
+### Requirements
+
+- **Node.js 20+** (LTS recommended)
+- **npm** 9+ (ships with Node), or pnpm / yarn / bun
+- A browser for the UI
+
+You do **not** need Go to use the runtime from npm. The optional compiler package is pure JavaScript.
+
+More install detail: [INSTALL.md](./INSTALL.md).
+
+---
+
 ## What you need
 
 - **Node.js 20+**
@@ -27,7 +84,7 @@ Optional later:
 
 ## Path A — New project in 1 minute (recommended)
 
-Scaffold a Vite app with routes already set up:
+Scaffold a Vite app from npm (this downloads `@cachoujs/create` and sets up `cachoujs` for you):
 
 ```bash
 npx @cachoujs/create my-app

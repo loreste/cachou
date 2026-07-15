@@ -8,6 +8,30 @@ CachouJS is a small fine-grained reactive JavaScript framework: signals update t
 
 Privileged features in **this monorepo** (demo DB, files API, WebSockets) are **demo-gated** (`CACHOU_DEMO=1`) and are not part of a normal app install.
 
+## Get it from npm
+
+CachouJS is published on the [npm registry](https://www.npmjs.com/package/cachoujs). Install it like any other package (Node.js 20+):
+
+```bash
+# See the published version
+npm view cachoujs version
+
+# Add to a project
+npm install cachoujs
+
+# Or scaffold a full Vite app
+npx @cachoujs/create my-app
+cd my-app && npm install && npm run dev
+```
+
+| Package | Install | npm |
+|---------|---------|-----|
+| Runtime + Vite plugin | `npm install cachoujs` | [cachoujs](https://www.npmjs.com/package/cachoujs) |
+| App scaffold | `npx @cachoujs/create my-app` | [@cachoujs/create](https://www.npmjs.com/package/@cachoujs/create) |
+| `.cachou` compiler (optional) | `npm install -D @cachoujs/compiler` | [@cachoujs/compiler](https://www.npmjs.com/package/@cachoujs/compiler) |
+
+**Full guide:** [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md) · **Install details:** [docs/INSTALL.md](./docs/INSTALL.md)
+
 ## Get started
 
 **New app (recommended):**
@@ -37,14 +61,6 @@ function App() {
 
 mount(App, document.getElementById("app"));
 ```
-
-| Package | Role |
-|---------|------|
-| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | Runtime + Vite plugin |
-| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | `.cachou` compiler (optional) |
-| [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | Project scaffold |
-
-**Full guide:** [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md) · **Install details:** [docs/INSTALL.md](./docs/INSTALL.md)
 
 ## Why CachouJS
 

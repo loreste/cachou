@@ -1,14 +1,65 @@
 # Install & use CachouJS (from npm)
 
-Published packages:
+CachouJS is distributed on the **public npm registry**. You do not need to download a zip from GitHub to use it in an app—install from npm like React, Vue, or Vite.
+
+## Get it from npm
+
+### 1. Have Node and npm
+
+Install Node.js 20+ from [nodejs.org](https://nodejs.org/) (includes `npm`).
+
+Check:
+
+```bash
+node -v   # v20 or higher
+npm -v
+```
+
+### 2. Install the package
+
+**Into an existing project** (folder with `package.json`):
+
+```bash
+npm install cachoujs
+```
+
+**Create a new project** (scaffold + install):
+
+```bash
+npx @cachoujs/create my-app
+cd my-app
+npm install
+npm run dev
+```
+
+**Optional compiler** for `.cachou` single-file components:
+
+```bash
+npm install -D @cachoujs/compiler
+```
+
+### 3. Confirm install
+
+```bash
+npm view cachoujs version
+npm ls cachoujs
+```
+
+Package pages:
+
+- https://www.npmjs.com/package/cachoujs  
+- https://www.npmjs.com/package/@cachoujs/create  
+- https://www.npmjs.com/package/@cachoujs/compiler  
+
+### Published packages
 
 | Package | Version | What it is |
 |---------|---------|------------|
-| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | **0.3.0** | Runtime, Vite plugin, compiler scripts, scaffold bin |
-| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | **0.3.1** | Standalone pure-JS `.cachou` compiler |
+| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | **0.3.0** | Runtime, Vite plugin, helpers |
+| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | **0.3.1** | Pure-JS `.cachou` compiler |
 | [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | **0.3.1** | `npx` app scaffold |
 
-Requirements: **Node.js 20+** and npm (or pnpm/yarn).
+Requirements: **Node.js 20+** and npm (or pnpm/yarn/bun).
 
 ---
 

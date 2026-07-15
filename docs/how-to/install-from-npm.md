@@ -1,6 +1,19 @@
 # Install from npm
 
-Short recipe. Full guide: [Install & use](../INSTALL.md).
+CachouJS is on the **npm registry**. Install it with npm—you do not need to clone GitHub for normal app development.
+
+Short recipe. Full guide: [Install & use](../INSTALL.md) · [Get Started](../GETTING_STARTED.md).
+
+## Get the packages
+
+| Goal | Command |
+|------|---------|
+| Add the library | `npm install cachoujs` |
+| Scaffold a new app | `npx @cachoujs/create my-app` |
+| Optional SFC compiler | `npm install -D @cachoujs/compiler` |
+| See published version | `npm view cachoujs version` |
+
+Links: [cachoujs](https://www.npmjs.com/package/cachoujs) · [@cachoujs/create](https://www.npmjs.com/package/@cachoujs/create) · [@cachoujs/compiler](https://www.npmjs.com/package/@cachoujs/compiler)
 
 ## New project
 
