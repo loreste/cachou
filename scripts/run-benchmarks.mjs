@@ -3,7 +3,12 @@ import { once } from "node:events";
 import { createRequire } from "module";
 
 const port = Number(process.env.CACHOU_BENCH_PORT || 5178);
-const url = `http://127.0.0.1:${port}/benchmarks/`;
+// Shared CI runners are slower/noisier than local Safari baselines. Default looser
+// gates under CI=true; override with CACHOU_BENCH_RATIO / CACHOU_BENCH_SLACK_MS.
+const isCi = process.env.CI === "true" || process.env.CI === "1";
+const regressionRatio = process.env.CACHOU_BENCH_RATIO || (isCi ? "2.5" : "1.5");
+const regressionSlackMs = process.env.CACHOU_BENCH_SLACK_MS || (isCi ? "25" : "5");
+const url = `http://127.0.0.1:${port}/benchmarks/?ratio=${encodeURIComponent(regressionRatio)}&slackMs=${encodeURIComponent(regressionSlackMs)}`;
 const preferSafari = process.env.CACHOU_TEST_BROWSER === "safari";
 const preferPlaywright =
   process.env.CACHOU_TEST_BROWSER === "chromium" ||
@@ -92,16 +97,18 @@ async function runPlaywrightBenchmarks() {
       { timeout: 120000 }
     );
     const summary = await page.evaluate(() => window.__CACHOU_BENCH_RESULTS__);
+    const ratio = Number(regressionRatio);
+    const slackMs = Number(regressionSlackMs);
     const failedNames = (summary.results || [])
       .filter(item => {
         if (typeof item.baseline !== "number") return false;
-        const allowed = Math.max(item.baseline * 1.5, item.baseline + 5);
+        const allowed = Math.max(item.baseline * ratio, item.baseline + slackMs);
         return item.duration > allowed;
       })
       .map(item => `${item.name}=${item.duration.toFixed(2)}ms baseline=${item.baseline.toFixed(2)}ms`);
     return {
       total: summary.total,
-      failed: summary.failed,
+      failed: failedNames.length,
       failedNames,
       runner: "playwright-chromium"
     };

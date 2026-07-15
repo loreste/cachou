@@ -7,6 +7,7 @@ Patch releases only from here: accumulate fixes and small improvements under **0
 ### Fixed
 
 - CI: benchmark runners use Playwright/Chromium on Linux (no Safari/`osascript` requirement); macOS Safari job is non-blocking.
+- CI: perf baseline gates use looser thresholds under `CI=true` (`ratio=2.5`, `slackMs=25`) so shared Linux runners do not false-fail Safari-era baselines.
 
 ## 0.4.0
 

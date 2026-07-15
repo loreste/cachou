@@ -4,8 +4,11 @@ const results = document.getElementById("results");
 const target = document.getElementById("target");
 const runButton = document.getElementById("run");
 let baselines = {};
-const allowedRegressionRatio = 1.5;
-const allowedRegressionMs = 5;
+// Thresholds are tunable via query (?ratio=&slackMs=). CI runners are noisier than
+// developer machines, so the harness passes looser values there.
+const benchParams = new URLSearchParams(location.search);
+const allowedRegressionRatio = Math.max(1, Number(benchParams.get("ratio") || 1.5) || 1.5);
+const allowedRegressionMs = Math.max(0, Number(benchParams.get("slackMs") || 5) || 5);
 
 async function measure(name, fn, notes = "") {
   target.replaceChildren();
