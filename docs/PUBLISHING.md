@@ -6,9 +6,9 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 
 | Package | Path | Current |
 |---------|------|---------|
-| `cachoujs` | repo root | 0.4.0 |
-| `@cachoujs/compiler` | `packages/compiler` | 0.4.0 |
-| `@cachoujs/create` | `packages/create-cachou` | 0.4.0 |
+| `cachoujs` | repo root | 0.4.1 |
+| `@cachoujs/compiler` | `packages/compiler` | 0.4.1 |
+| `@cachoujs/create` | `packages/create-cachou` | 0.4.1 |
 
 You must own the npm name / `@cachoujs` org (this project uses org **cachoujs**, owner **loreste**).
 
@@ -39,8 +39,8 @@ From **0.4.0** onward, releases use **small increments** only.
 
 | Rule | Detail |
 |------|--------|
-| Current published | **0.4.0** |
-| Next release | **0.4.1** |
+| Current published | **0.4.1** |
+| Next release | **0.4.2** |
 | Default bump | **patch** (`0.4.x` → `0.4.x+1`) for fixes, docs, CI, small APIs |
 | Minor bump | Rare: only when a coherent feature set lands (`0.4` → `0.5`) |
 | Major bump | Reserved for **1.0** API freeze (later) |
@@ -55,7 +55,7 @@ Do **not** jump versions (e.g. 0.4.0 → 0.5.0) for routine work. Prefer many sm
 
 ### 1. Bump version
 
-npm **forbids** republishing the same version. Always bump (next: **0.4.1**):
+npm **forbids** republishing the same version. Always bump (next: **0.4.2**):
 
 - Root: `package.json` → `cachoujs`  
 - `packages/compiler/package.json`  
@@ -65,7 +65,7 @@ Keep [CHANGELOG.md](../CHANGELOG.md) updated under the new version heading.
 
 ```bash
 # example for the next release — same version on every package
-# "version": "0.4.1"
+# "version": "0.4.2"
 ```
 
 ### 2. Verify
@@ -110,8 +110,8 @@ Pages:
 ### 5. Git tag
 
 ```bash
-git tag v0.4.1
-git push origin v0.4.1
+git tag v0.4.2
+git push origin v0.4.2
 ```
 
 ---

@@ -143,7 +143,7 @@ export default defineConfig({
 ## Check versions
 
 ```bash
-npm view cachoujs version              # 0.3.0
-npm view @cachoujs/compiler version    # 0.3.1
-npm view @cachoujs/create version      # 0.3.1
+npm view cachoujs version              # 0.4.1
+npm view @cachoujs/compiler version    # 0.4.1
+npm view @cachoujs/create version      # 0.4.1
 ```

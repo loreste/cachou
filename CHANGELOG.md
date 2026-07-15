@@ -1,13 +1,17 @@
 # Changelog
 
-## Unreleased → 0.4.1
+## 0.4.1
 
-Patch releases only from here: accumulate fixes and small improvements under **0.4.1**, then **0.4.2**, etc. (see [docs/PUBLISHING.md](./docs/PUBLISHING.md) version policy).
+Patch release (small-increment policy). See [docs/PUBLISHING.md](./docs/PUBLISHING.md).
 
 ### Fixed
 
 - CI: benchmark runners use Playwright/Chromium on Linux (no Safari/`osascript` requirement); macOS Safari job is non-blocking.
 - CI: perf baseline gates use looser thresholds under `CI=true` (`ratio=2.5`, `slackMs=25`) so shared Linux runners do not false-fail Safari-era baselines.
+
+### Docs
+
+- Document **patch-first** versioning: next after 0.4.0 is 0.4.1, then 0.4.2, …
 
 ## 0.4.0
 
