@@ -4,7 +4,7 @@
   "description": "Scaffold a Vite + CachouJS application",
   "type": "module",
   "bin": {
-    "create-cachou": "./bin/create-cachou.js"
+    "create-cachou": "bin/create-cachou.js"
   },
   "files": [
     "index.js",

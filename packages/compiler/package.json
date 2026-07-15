@@ -4,7 +4,7 @@
   "description": "CachouJS .cachou SFC compiler (pure JS, optional native binaries)",
   "type": "module",
   "bin": {
-    "cachou-compiler": "./bin/cachou-compiler.js"
+    "cachou-compiler": "bin/cachou-compiler.js"
   },
   "main": "./lib/compile.mjs",
   "exports": {

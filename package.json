@@ -24,8 +24,8 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "cachou-compiler": "./bin/cachou-compiler.js",
-    "create-cachou": "./bin/create-cachou.js"
+    "cachou-compiler": "bin/cachou-compiler.js",
+    "create-cachou": "bin/create-cachou.js"
   },
   "workspaces": [
     "packages/compiler",
