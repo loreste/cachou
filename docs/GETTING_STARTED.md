@@ -297,6 +297,421 @@ html`
 
 ---
 
+## Code examples
+
+Copy-paste patterns you can drop into `src/main.js` after `npm install cachoujs`.
+
+### Complete counter app
+
+```js
+import { signal, html, mount } from "cachoujs";
+
+function App() {
+  const [count, setCount] = signal(0);
+
+  return html`
+    <main style="font-family: system-ui; padding: 2rem; max-width: 24rem">
+      <h1>Counter</h1>
+      <p>Value: <strong>${() => count()}</strong></p>
+      <div style="display: flex; gap: 0.5rem">
+        <button type="button" onclick=${() => setCount(n => n - 1)}>-</button>
+        <button type="button" onclick=${() => setCount(0)}>Reset</button>
+        <button type="button" onclick=${() => setCount(n => n + 1)}>+</button>
+      </div>
+    </main>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Two-way input + derived text
+
+```js
+import { signal, memo, html, mount } from "cachoujs";
+
+function App() {
+  const [name, setName] = signal("");
+  const greeting = memo(() => {
+    const n = name().trim();
+    return n ? `Hello, ${n}!` : "Type your name…";
+  });
+
+  return html`
+    <main style="font-family: system-ui; padding: 2rem">
+      <label>
+        Name
+        <input
+          value=${() => name()}
+          oninput=${e => setName(e.target.value)}
+          placeholder="Ada"
+        />
+      </label>
+      <p>${() => greeting()}</p>
+    </main>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Todo list (signals + `mapArray`)
+
+```js
+import { signal, html, mount, mapArray } from "cachoujs";
+
+function App() {
+  const [todos, setTodos] = signal([
+    { id: 1, text: "Install cachoujs", done: true },
+    { id: 2, text: "Build something", done: false }
+  ]);
+  const [draft, setDraft] = signal("");
+  let nextId = 3;
+
+  function addTodo() {
+    const text = draft().trim();
+    if (!text) return;
+    setTodos(list => [...list, { id: nextId++, text, done: false }]);
+    setDraft("");
+  }
+
+  function toggle(id) {
+    setTodos(list =>
+      list.map(t => (t.id === id ? { ...t, done: !t.done } : t))
+    );
+  }
+
+  function remove(id) {
+    setTodos(list => list.filter(t => t.id !== id));
+  }
+
+  return html`
+    <main style="font-family: system-ui; padding: 2rem; max-width: 28rem">
+      <h1>Todos</h1>
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem">
+        <input
+          value=${() => draft()}
+          oninput=${e => setDraft(e.target.value)}
+          onkeydown=${e => e.key === "Enter" && addTodo()}
+          placeholder="New todo"
+          style="flex: 1"
+        />
+        <button type="button" onclick=${addTodo}>Add</button>
+      </div>
+      <ul style="list-style: none; padding: 0; margin: 0">
+        ${mapArray(
+          todos,
+          todo => html`
+            <li style="display: flex; gap: 0.5rem; align-items: center; padding: 0.35rem 0">
+              <input
+                type="checkbox"
+                checked=${() => todo.done}
+                onchange=${() => toggle(todo.id)}
+              />
+              <span style=${() => (todo.done ? "text-decoration: line-through; opacity: 0.6" : "")}>
+                ${() => todo.text}
+              </span>
+              <button type="button" onclick=${() => remove(todo.id)} style="margin-left: auto">
+                ×
+              </button>
+            </li>
+          `,
+          todo => todo.id,
+          { uniqueKeys: true }
+        )}
+      </ul>
+      <p style="color: #666; font-size: 0.9rem">
+        ${() => todos().filter(t => !t.done).length} remaining
+      </p>
+    </main>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Show / Switch (conditional UI)
+
+```js
+import { signal, html, mount, Show, Switch, Match } from "cachoujs";
+
+function App() {
+  const [loggedIn, setLoggedIn] = signal(false);
+  const [tab, setTab] = signal("home");
+
+  return html`
+    <main style="font-family: system-ui; padding: 2rem">
+      <button type="button" onclick=${() => setLoggedIn(v => !v)}>
+        ${() => (loggedIn() ? "Log out" : "Log in")}
+      </button>
+
+      ${Show({
+        when: loggedIn,
+        fallback: () => html`<p>Please log in.</p>`,
+        children: () => html`
+          <div>
+            <nav style="display: flex; gap: 0.5rem; margin: 1rem 0">
+              <button type="button" onclick=${() => setTab("home")}>Home</button>
+              <button type="button" onclick=${() => setTab("settings")}>Settings</button>
+            </nav>
+            ${Switch({
+              fallback: () => html`<p>Unknown tab</p>`,
+              children: [
+                Match({
+                  when: () => tab() === "home",
+                  children: () => html`<h2>Home</h2>`
+                }),
+                Match({
+                  when: () => tab() === "settings",
+                  children: () => html`<h2>Settings</h2>`
+                })
+              ]
+            })}
+          </div>
+        `
+      })}
+    </main>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Fetch data (`createResource`)
+
+```js
+import { createResource, html, mount, Show } from "cachoujs";
+
+function App() {
+  const [posts, { loading, error, refetch }] = createResource(
+    async ({ signal, requestId }) => {
+      const res = await fetch(
+        `https://jsonplaceholder.typicode.com/posts?_limit=5&r=${requestId}`,
+        { signal }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+  );
+
+  return html`
+    <main style="font-family: system-ui; padding: 2rem; max-width: 36rem">
+      <h1>Posts</h1>
+      <button type="button" onclick=${() => refetch()}>Refresh</button>
+
+      ${Show({
+        when: () => loading(),
+        children: () => html`<p>Loading…</p>`
+      })}
+      ${Show({
+        when: () => error(),
+        children: err => html`<p style="color: crimson">${err.message}</p>`
+      })}
+      <ul>
+        ${() =>
+          (posts() || []).map(
+            p => html`<li><strong>${p.title}</strong></li>`
+          )}
+      </ul>
+    </main>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Client router
+
+```js
+import { html, mount, Router, Route, Link, NotFound } from "cachoujs";
+
+function Home() {
+  return html`<h1>Home</h1><p>Welcome.</p>`;
+}
+
+function About() {
+  return html`<h1>About</h1><p>Built with CachouJS.</p>`;
+}
+
+function User(params) {
+  return html`<h1>User</h1><p>id = <code>${params.id}</code></p>`;
+}
+
+function App() {
+  return html`
+    <div style="font-family: system-ui; padding: 2rem">
+      <nav style="display: flex; gap: 1rem; margin-bottom: 1.5rem">
+        ${Link({ href: "/", children: "Home" })}
+        ${Link({ href: "/about", children: "About" })}
+        ${Link({ href: "/users/ada", children: "User ada" })}
+      </nav>
+      ${Router({
+        children: [
+          Route({ path: "/", component: Home }),
+          Route({ path: "/about", component: About }),
+          Route({ path: "/users/:id", component: User }),
+          NotFound({ component: () => html`<h1>404</h1>` })
+        ]
+      })}
+    </div>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Route with `load` (data on navigate)
+
+```js
+import { html, mount, Router, Route, Link, Show } from "cachoujs";
+
+function UserPage(params, state) {
+  return html`
+    <section>
+      <h1>User ${params.id}</h1>
+      ${Show({
+        when: () => state.loading(),
+        children: () => html`<p>Loading…</p>`
+      })}
+      ${Show({
+        when: () => state.data(),
+        children: data => html`<pre>${JSON.stringify(data, null, 2)}</pre>`
+      })}
+    </section>
+  `;
+}
+
+function App() {
+  return html`
+    <div style="font-family: system-ui; padding: 2rem">
+      <nav style="display: flex; gap: 1rem">
+        ${Link({ href: "/users/1", children: "User 1" })}
+        ${Link({ href: "/users/2", children: "User 2" })}
+      </nav>
+      ${Router({
+        children: [
+          Route({
+            path: "/users/:id",
+            load: async ({ params, signal }) => {
+              const res = await fetch(
+                `https://jsonplaceholder.typicode.com/users/${params.id}`,
+                { signal }
+              );
+              return res.json();
+            },
+            fallback: () => html`<p>Loading user…</p>`,
+            component: UserPage
+          })
+        ]
+      })}
+    </div>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Simple form validation
+
+```js
+import { createForm, html, mount } from "cachoujs";
+
+function App() {
+  const form = createForm(
+    { email: "" },
+    {
+      fields: {
+        email: {
+          validate: v => (String(v).includes("@") ? null : "Enter a valid email"),
+          validateOnChange: true
+        }
+      },
+      onSubmit: async values => {
+        alert(`Submitted: ${values.email}`);
+      }
+    }
+  );
+
+  const email = form.fields.email;
+
+  return html`
+    <form
+      style="font-family: system-ui; padding: 2rem; max-width: 20rem"
+      onsubmit=${form.handleSubmit()}
+    >
+      <label>
+        Email
+        <input
+          type="email"
+          value=${() => email.value()}
+          oninput=${e => email.setValue(e.target.value)}
+          onblur=${() => email.setTouched(true)}
+        />
+      </label>
+      ${() =>
+        email.touched() && email.error()
+          ? html`<p style="color: crimson">${email.error()}</p>`
+          : ""}
+      <button type="submit" disabled=${() => form.submitting()}>
+        ${() => (form.submitting() ? "Saving…" : "Save")}
+      </button>
+    </form>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Vite config (with optional `.cachou` components)
+
+```js
+// vite.config.js
+import { defineConfig } from "vite";
+import { cachou } from "cachoujs/vite";
+
+export default defineConfig({
+  plugins: [
+    cachou({
+      dirs: ["src/components"], // compile *.cachou here
+      runtime: "cachoujs"
+    })
+  ]
+});
+```
+
+```html
+<!-- src/components/Badge.cachou -->
+<script>
+  const label = props.label ?? "New";
+</script>
+
+<style scoped>
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: #0d9488;
+    color: white;
+    font-size: 0.85rem;
+  }
+</style>
+
+<span class="badge">{label}</span>
+```
+
+```js
+// After compile (or with Vite plugin), import the generated JS:
+import Badge from "./components/Badge.js";
+import { html, mount } from "cachoujs";
+
+mount(
+  () => html`<p>Status: ${Badge({ label: "Live" })}</p>`,
+  document.getElementById("app")
+);
+```
+
+---
+
 ## Optional: `.cachou` single-file components
 
 ```html

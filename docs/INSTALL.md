@@ -107,16 +107,28 @@ import { signal, html, mount } from "cachoujs";
 function App() {
   const [count, setCount] = signal(0);
   return html`
-    <main>
-      <button type="button" onclick=${() => setCount(c => c + 1)}>
-        Count: ${() => count()}
-      </button>
+    <main style="font-family: system-ui; padding: 2rem">
+      <h1>Hello CachouJS</h1>
+      <p>Count: <strong>${() => count()}</strong></p>
+      <button type="button" onclick=${() => setCount(c => c + 1)}>+1</button>
+      <button type="button" onclick=${() => setCount(0)}>Reset</button>
     </main>
   `;
 }
 
 mount(App, document.getElementById("app"));
 ```
+
+### More examples
+
+See **[Get Started → Code examples](./GETTING_STARTED.md#code-examples)** for:
+
+- Todo list  
+- Show / Switch  
+- `createResource` fetch  
+- Client router + `load`  
+- Forms  
+- `.cachou` components  
 
 `index.html`:
 

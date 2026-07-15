@@ -47,6 +47,8 @@ cd my-app && npm install && npm run dev
 npm install cachoujs
 ```
 
+### Counter
+
 ```js
 import { signal, html, mount } from "cachoujs";
 
@@ -61,6 +63,55 @@ function App() {
 
 mount(App, document.getElementById("app"));
 ```
+
+### List
+
+```js
+import { signal, html, mount, mapArray } from "cachoujs";
+
+function App() {
+  const [items] = signal([
+    { id: 1, text: "Ship" },
+    { id: 2, text: "Document" }
+  ]);
+  return html`
+    <ul>
+      ${mapArray(
+        items,
+        item => html`<li>${() => item.text}</li>`,
+        item => item.id,
+        { uniqueKeys: true }
+      )}
+    </ul>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+### Fetch
+
+```js
+import { createResource, html, mount } from "cachoujs";
+
+function App() {
+  const [todo, { loading, error }] = createResource(async ({ signal }) => {
+    const res = await fetch("https://jsonplaceholder.typicode.com/todos/1", { signal });
+    return res.json();
+  });
+  return html`
+    <div>
+      ${() => (loading() ? "Loading…" : "")}
+      ${() => (error() ? error().message : "")}
+      ${() => (todo() ? html`<p>${todo().title}</p>` : "")}
+    </div>
+  `;
+}
+
+mount(App, document.getElementById("app"));
+```
+
+More examples: [Get Started → Code examples](./docs/GETTING_STARTED.md#code-examples).
 
 ## Why CachouJS
 
