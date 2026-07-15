@@ -26,7 +26,7 @@ How CachouJS is structured and how data flows through the system.
 | `plugin/vite.js` | Yes (`cachoujs/vite`) | Dev/build integration |
 | `compiler.go` | Yes (source) | SFC compile |
 | `server/*` | No (repo only) | Demo APIs |
-| `faydb-crm/*` | No | Proving ground app |
+| `crm/*` | No | CRM proving ground (PostgreSQL) |
 | `demo/`, `examples/` | No | Learning surfaces |
 
 The npm package is intentionally small (~60KB packed): runtime + compiler source + plugin + docs, not the CRM or `node_modules` competitors used only for benchmarks.

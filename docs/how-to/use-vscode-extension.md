@@ -82,7 +82,7 @@ Search **Cachou** in Settings, or `settings.json`:
   "cachou.componentDirs": [
     "src/components",
     "demo/components",
-    "faydb-crm/src/components"
+    "crm/src/components"
   ]
 }
 ```

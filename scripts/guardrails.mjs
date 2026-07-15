@@ -36,11 +36,11 @@ for (const file of files) {
     label.startsWith("server/") ||
     label.startsWith("plugin/") ||
     label.startsWith("create-cachou/") ||
-    label.startsWith("faydb-crm/scripts/");
+    label.startsWith("crm/scripts/");
   const isGeneratedComponent =
     /(^|\/)components\/[^/]+\.js$/.test(label) || /^demo\/components\/[^/]+\.js$/.test(label);
   const isAppSurface =
-    label.startsWith("faydb-crm/src/") || label.startsWith("demo/") || label.startsWith("examples/");
+    label.startsWith("crm/src/") || label.startsWith("demo/") || label.startsWith("examples/");
 
   if (isGeneratedComponent && content.includes("$${")) {
     issues.push(`${label}: generated template contains a \${"{...}"} interpolation artifact`);

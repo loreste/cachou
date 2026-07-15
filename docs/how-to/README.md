@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.2.0**. Each guide assumes a basic install (`npm install` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.3.x**. Each guide assumes a basic install (`npm install` / `npm run dev`).
 
 For concepts, read the [Developer guide](../GUIDE.md). For signatures, see the [API reference](../API.md). Documentation home: [docs/README.md](../README.md).
 
@@ -16,7 +16,7 @@ For concepts, read the [Developer guide](../GUIDE.md). For signatures, see the [
 | [Scaffold a new app](./scaffold-a-new-app.md) | Start a standalone Vite + Cachou project |
 | [Run quality checks](./run-quality-checks.md) | Unit/browser tests, benches, `npm run check`, pack dry-run |
 | [Build and deploy](./build-and-deploy.md) | Production assets, static host vs Node SSR |
-| [Build a CRM with Cachou and FayDB](./build-a-crm-with-cachou-and-faydb.md) | Run the in-repo CRM proving ground |
+| [Build a CRM with Cachou and PostgreSQL](./build-a-crm-with-cachou-and-postgres.md) | Run the in-repo CRM proving ground (Postgres) |
 
 ## Frontend UI
 
@@ -69,7 +69,7 @@ For concepts, read the [Developer guide](../GUIDE.md). For signatures, see the [
 3. [Templates](./use-templates-and-directives.md) + [Keyed lists](./render-keyed-lists.md)  
 4. [Resources](./use-resources.md) + [Routing](./routing-and-lazy-pages.md)  
 5. [Security](./configure-security-policy.md) + [Deploy](./build-and-deploy.md)  
-6. Optional: [`.cachou` files](./work-with-cachou-files.md), [SSR](./ssr-and-hydration.md), [CRM](./build-a-crm-with-cachou-and-faydb.md)
+6. Optional: [`.cachou` files](./work-with-cachou-files.md), [SSR](./ssr-and-hydration.md), [CRM + PostgreSQL](./build-a-crm-with-cachou-and-postgres.md)
 
 ---
 

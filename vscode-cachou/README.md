@@ -69,7 +69,7 @@ Reload the window after linking.
 |---------|---------|---------|
 | `cachou.compilerPath` | `""` | Custom compiler binary/script; empty = auto |
 | `cachou.runtime` | `cachoujs` | `-runtime` import specifier |
-| `cachou.componentDirs` | `src/components`, `demo/components`, `faydb-crm/src/components` | Workspace compile targets |
+| `cachou.componentDirs` | `src/components`, `demo/components`, `crm/src/components` | Workspace compile targets |
 | `cachou.compileOnSave` | `true` | Compile active `.cachou` on save |
 | `cachou.diagnostics` | `true` | Show compiler problems |
 | `cachou.diagnosticsDebounceMs` | `400` | Debounce for change diagnostics |

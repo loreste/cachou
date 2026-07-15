@@ -1,4 +1,4 @@
-# Cachou FayDB CRM Showcase
+# Cachou CRM Showcase (PostgreSQL)
 
 ## Start
 
@@ -9,7 +9,7 @@ npm run crm:demo
 Or run API and UI separately:
 
 ```bash
-npm run crm:api:faydb
+npm run crm:api:postgres
 npm run crm:dev
 ```
 
@@ -70,7 +70,7 @@ http://127.0.0.1:5190/
 ```bash
 npm run crm:qa
 npm run crm:check
-npm run crm:smoke:faydb
+npm run crm:smoke:postgres
 npm run crm:ui:smoke
 npm run crm:stress
 npm run crm:visual:smoke
@@ -82,7 +82,7 @@ npm run crm:ci
 
 - Cachou single-file components with Vue-style `<style scoped>`.
 - Generated component CSS imports.
-- FayDB/PostgreSQL-wire persistence.
+- PostgreSQL persistence via the `pg` driver.
 - WebSocket chat and realtime deal updates.
 - Optimistic writes with server-side version conflict detection.
 - Authenticated sessions and server-side RBAC.
@@ -91,22 +91,22 @@ npm run crm:ci
 - Role-aware UI behavior backed by API permissions.
 - Large-list frontend stress path.
 - API schema metadata at `/api/schema`.
-- FayDB/PostgreSQL typed table and index setup where the database supports it, with typed tables used for CRM reads and `crm_records` kept as the compatibility log.
+- PostgreSQL typed table and index setup where the database supports it, with typed tables used for CRM reads and `crm_records` kept as the compatibility log.
 - Direct visual QA routes: `/#overview`, `/#contacts`, `/#pipeline`, `/#live-room`.
 - Security Center route: `/#security`.
 - Performance Lab route: `/#performance-lab`.
 - Benchmark Claims route: `/#benchmarks`.
-- Screenshot artifacts from visual smoke in `faydb-crm/artifacts/screenshots/`.
-- Optional visual baselines in `faydb-crm/artifacts/screenshots-baseline/`; visual smoke compares pixels when baselines exist.
-- Benchmark report artifacts from `npm run crm:bench:report` in `faydb-crm/artifacts/benchmarks/latest.json`.
-- Benchmark history in `faydb-crm/artifacts/benchmarks/history.json` and timestamped report files.
+- Screenshot artifacts from visual smoke in `crm/artifacts/screenshots/`.
+- Optional visual baselines in `crm/artifacts/screenshots-baseline/`; visual smoke compares pixels when baselines exist.
+- Benchmark report artifacts from `npm run crm:bench:report` in `crm/artifacts/benchmarks/latest.json`.
+- Benchmark history in `crm/artifacts/benchmarks/history.json` and timestamped report files.
 - Benchmark trend cards in the UI for rank and p95 movement.
 - Collaboration Lab route: `/#collaboration-lab`.
 - Companies route with relationship views: `/#companies`.
 - Contact, deal, and activity records carry relationship IDs such as `companyId`, `contactIds`, and `dealId`.
 - Company detail actions write related contacts and deals with the right relationship IDs.
 - Accessible modals, reduced-motion handling, and keyboard pipeline movement.
-- CI evidence bundles in `faydb-crm/artifacts/ci/<timestamp>/`.
+- CI evidence bundles in `crm/artifacts/ci/<timestamp>/`.
 - One-command demo launcher: `npm run crm:demo`.
 
 ## Schema
@@ -117,7 +117,7 @@ The API exposes:
 GET /api/schema
 ```
 
-The schema response declares the CRM kinds, SQL table names, index targets, schema version, and whether typed SQL tables were created successfully. This keeps the demo honest: the app can run on memory, FayDB, or a local Postgres container, and the smoke tests assert the schema contract.
+The schema response declares the CRM kinds, SQL table names, index targets, schema version, and whether typed SQL tables were created successfully. This keeps the demo honest: the app can run on memory, Postgres, or a local Postgres container, and the smoke tests assert the schema contract.
 
 ## Auth and RBAC
 
@@ -142,13 +142,13 @@ WebSocket chat also requires an authenticated token.
 Sessions expire after one hour by default. Override with:
 
 ```bash
-CRM_SESSION_TTL_MS=900000 npm run crm:api:faydb
+CRM_SESSION_TTL_MS=900000 npm run crm:api:postgres
 ```
 
 Allowed browser origins default to the local Vite ports. Override for deployed frontends:
 
 ```bash
-CRM_CORS_ORIGINS=https://crm.example.com npm run crm:api:faydb
+CRM_CORS_ORIGINS=https://crm.example.com npm run crm:api:postgres
 ```
 
 The frontend disables or explains restricted actions, but the API remains the enforcement point.
@@ -156,13 +156,13 @@ The frontend disables or explains restricted actions, but the API remains the en
 Production-like runs can enforce custom auth and reject unsafe demo config:
 
 ```bash
-CRM_ENV=production CRM_REQUIRE_CUSTOM_AUTH=1 CRM_USERS_JSON='[{"username":"admin","password":"change-me","name":"Admin","role":"Admin"}]' npm run crm:api:faydb
+CRM_ENV=production CRM_REQUIRE_CUSTOM_AUTH=1 CRM_USERS_JSON='[{"username":"admin","password":"change-me","name":"Admin","role":"Admin"}]' npm run crm:api:postgres
 ```
 
 ## NPM-Only Commands
 
 ```bash
-npm run crm:api:faydb
+npm run crm:api:postgres
 npm run crm:dev
 npm run crm:demo
 npm run crm:check
@@ -170,7 +170,7 @@ npm run crm:build
 npm run crm:qa
 npm run crm:ci
 npm run crm:bench:report
-npm run crm:smoke:faydb
+npm run crm:smoke:postgres
 npm run crm:stress
 npm run crm:visual:smoke
 ```

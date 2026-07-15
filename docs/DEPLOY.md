@@ -76,10 +76,11 @@ server {
 
 ## Option 3 — CRM proving ground
 
-`faydb-crm/` is a separate application for showcasing Cachou at scale. Deploy it with its own `server.mjs`, auth model, and database — not as “the Cachou framework server.”
+`crm/` is a separate application for showcasing Cachou at scale (PostgreSQL or in-memory). Deploy it with its own `server.mjs`, auth model, and database — not as “the Cachou framework server.”
 
 ```bash
 npm run crm:demo
+# Postgres: npm run crm:db:postgres:up && npm run crm:api:postgres && npm run crm:dev
 npm run crm:build
 ```
 

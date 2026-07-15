@@ -34,7 +34,7 @@ for (const [name, command] of checks) {
     stdio: "inherit",
     env: {
       ...process.env,
-      FAYDB_MODE: process.env.FAYDB_MODE || "memory"
+      CRM_DB_MODE: process.env.CRM_DB_MODE || "memory"
     }
   });
   if (result.status !== 0) {

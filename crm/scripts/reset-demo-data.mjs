@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 
 const port = Number(process.env.CRM_API_PORT || 6200 + Math.floor(Math.random() * 1000));
 const API = `http://127.0.0.1:${port}`;
-const server = spawn("npm", ["run", "api:faydb"], {
+const server = spawn("npm", ["run", "api"], {
   cwd: new URL("..", import.meta.url),
   env: {
     ...process.env,

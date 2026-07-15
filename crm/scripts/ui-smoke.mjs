@@ -70,8 +70,8 @@ function freePort(start, end) {
 const api = run("npm", ["run", "api"], {
   CRM_API_PORT: String(apiPort),
   CRM_CORS_ORIGINS: webUrl,
-  FAYDB_MODE: process.env.FAYDB_MODE || "memory",
-  FAYDB_DSN: process.env.FAYDB_DSN || ""
+  CRM_DB_MODE: process.env.CRM_DB_MODE || "memory",
+  POSTGRES_DSN: process.env.POSTGRES_DSN || ""
 });
 const web = run("node", ["../node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"], {
   VITE_CRM_API_URL: apiUrl,

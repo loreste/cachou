@@ -84,4 +84,4 @@ Published tarball should stay small (runtime + compiler source + plugin + docs).
 npm run crm:ci
 ```
 
-Runs CRM QA and packages artifacts under `faydb-crm/artifacts/ci/<timestamp>/` (gitignored).
+Runs CRM QA and packages artifacts under `crm/artifacts/ci/<timestamp>/` (gitignored).

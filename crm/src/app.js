@@ -458,8 +458,8 @@ async function signOut() {
 
 function databaseMode() {
   const mode = systemHealth()?.mode || "connecting";
-  if (mode.startsWith("faydb:")) {
-    return "FayDB live";
+  if (mode.startsWith("postgres:")) {
+    return "Postgres live";
   }
   if (mode.startsWith("memory")) {
     return "Demo memory";

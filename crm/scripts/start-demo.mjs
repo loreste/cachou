@@ -1,7 +1,13 @@
 import { spawn } from "node:child_process";
 
 const children = [
-  spawn("npm", ["run", "api:faydb"], { cwd: new URL("..", import.meta.url), stdio: "inherit" }),
+  // Default demo uses memory API so no Postgres install is required.
+  // For Postgres: CRM_DB_MODE=postgres POSTGRES_DSN=... npm run crm:api:postgres
+  spawn("npm", ["run", "api"], {
+    cwd: new URL("..", import.meta.url),
+    stdio: "inherit",
+    env: { ...process.env, CRM_DB_MODE: process.env.CRM_DB_MODE || "memory" }
+  }),
   spawn("npm", ["run", "dev"], { cwd: new URL("..", import.meta.url), stdio: "inherit" })
 ];
 

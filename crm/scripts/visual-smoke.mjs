@@ -58,7 +58,7 @@ function freePort(start, end) {
   });
 }
 
-const api = run("npm", ["run", "api"], { CRM_API_PORT: String(apiPort), CRM_CORS_ORIGINS: webUrl, FAYDB_MODE: "memory" });
+const api = run("npm", ["run", "api"], { CRM_API_PORT: String(apiPort), CRM_CORS_ORIGINS: webUrl, CRM_DB_MODE: "memory" });
 const web = run("node", ["../node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(webPort), "--strictPort"], {
   VITE_CRM_API_URL: apiUrl,
   VITE_CRM_DEMO_AUTOSIGNIN: "manager"

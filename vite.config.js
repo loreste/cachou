@@ -201,7 +201,7 @@ export default defineConfig({
   plugins: [
     svelte(),
     cachou({
-      dirs: ["demo/components", "faydb-crm/src/components", "examples"],
+      dirs: ["demo/components", "crm/src/components", "examples"],
       runtime: "cachoujs"
     }),
     demoApiPlugin()

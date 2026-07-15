@@ -1,9 +1,10 @@
 # Dependencies
 node_modules/
-faydb-crm/node_modules/
+crm/node_modules/
 
 # Build outputs
 dist/
+crm/dist/
 bin/cachou-compiler
 bin/cachou-compiler-*
 *.exe
@@ -18,10 +19,10 @@ bin/cachou-compiler-*
 !.env.example
 
 # CI / demo artifacts
-faydb-crm/artifacts/
+crm/artifacts/
 **/artifacts/ci/
 **/screenshots/
-!faydb-crm/artifacts/screenshots-baseline/.gitkeep
+!crm/artifacts/screenshots-baseline/.gitkeep
 
 # Logs and coverage
 logs/

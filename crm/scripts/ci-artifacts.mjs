@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 
 const root = path.resolve(new URL("../..", import.meta.url).pathname);
-const crmRoot = path.join(root, "faydb-crm");
+const crmRoot = path.join(root, "crm");
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const runDir = path.join(crmRoot, "artifacts", "ci", stamp);
 const logsDir = path.join(runDir, "logs");

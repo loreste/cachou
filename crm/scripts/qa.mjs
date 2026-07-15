@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 const steps = [
   ["npm", ["run", "crm:compile"]],
   ["npm", ["run", "crm:build"]],
-  ["npm", ["run", "crm:smoke:faydb"]],
+  ["npm", ["run", "crm:smoke:postgres"]],
   ["npm", ["run", "crm:ui:smoke"]],
   ["npm", ["run", "crm:visual:smoke"]],
   ["npm", ["run", "crm:stress"]],

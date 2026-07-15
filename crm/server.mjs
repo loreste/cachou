@@ -3,7 +3,8 @@ import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.CRM_API_PORT || 5191);
-const MODE = process.env.FAYDB_MODE || "auto";
+// auto | memory | postgres
+const MODE = process.env.CRM_DB_MODE || "auto";
 const TABLE = "crm_records";
 const SCHEMA_VERSION = 2;
 const SESSION_TTL_MS = Number(process.env.CRM_SESSION_TTL_MS || 60 * 60 * 1000);
@@ -31,19 +32,10 @@ const TYPED_TABLES = {
   messages: "crm_messages"
 };
 const DEFAULT_DSNS = [
-  "postgres://admin:admin@127.0.0.1:5432/faydb?sslmode=disable",
-  "postgres://admin@127.0.0.1:5432/faydb?sslmode=disable",
-  "postgres://postgres@127.0.0.1:5432/faydb?sslmode=disable",
-  "postgres://root@127.0.0.1:5432/faydb?sslmode=disable",
-  "postgres://fay:fay@127.0.0.1:5432/faydb?sslmode=disable",
-  "postgres://fay:secret@127.0.0.1:5432/faydb?sslmode=disable",
-  "postgres://oracle:oracle@127.0.0.1:5432/faydb_oracle?sslmode=disable",
-  "postgres://dba@127.0.0.1:5433/faydb?sslmode=disable",
-  "postgres://dba:secret@127.0.0.1:5433/faydb?sslmode=disable",
-  "postgres://fay@127.0.0.1:55432/faydb?sslmode=disable",
-  "postgres://fay:fay@127.0.0.1:55432/faydb?sslmode=disable",
-  "postgres://oracle:oracle@127.0.0.1:55432/faydb_oracle?sslmode=disable",
-  "postgres://fay@127.0.0.1:15543/faydb?sslmode=disable"
+  "postgres://crm:crm@127.0.0.1:55433/crm?sslmode=disable",
+  "postgres://postgres@127.0.0.1:5432/crm?sslmode=disable",
+  "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable",
+  "postgres://crm:crm@127.0.0.1:5432/crm?sslmode=disable"
 ];
 
 const seed = {
@@ -56,7 +48,7 @@ const seed = {
   ],
   contacts: [
     { id: "contact_ada", name: "Ada Martin", email: "ada@northstar.example", phone: "555-0188", companyId: "company_northstar", company: "Northstar Health", status: "Active", owner: "Sales", notes: "Interested in a faster customer portal.", updatedAt: new Date().toISOString() },
-    { id: "contact_miles", name: "Miles Chen", email: "miles@apex.example", phone: "555-0142", companyId: "company_apex", company: "Apex Logistics", status: "Nurture", owner: "L. Oreste", notes: "Needs integration notes for FayDB.", updatedAt: new Date().toISOString() },
+    { id: "contact_miles", name: "Miles Chen", email: "miles@apex.example", phone: "555-0142", companyId: "company_apex", company: "Apex Logistics", status: "Nurture", owner: "L. Oreste", notes: "Needs integration notes for Postgres.", updatedAt: new Date().toISOString() },
     { id: "contact_rina", name: "Rina Cole", email: "rina@izitech.example", phone: "555-0164", companyId: "company_izitech", company: "Izitechnologies", status: "At risk", owner: "Platform", notes: "Wants proof the UI stays fast with large lists.", updatedAt: new Date().toISOString() },
     { id: "contact_omar", name: "Omar Reyes", email: "omar@helios.example", phone: "555-0199", companyId: "company_helios", company: "Helios Energy", status: "Active", owner: "Manager", notes: "Evaluating realtime operations dashboard.", updatedAt: new Date().toISOString() },
     { id: "contact_jules", name: "Jules Park", email: "jules@metro.example", phone: "555-0133", companyId: "company_metro", company: "Metro Finance", status: "Nurture", owner: "Admin", notes: "Needs role-based views for audit teams.", updatedAt: new Date().toISOString() }
@@ -69,13 +61,13 @@ const seed = {
     { id: "deal_5", name: "Compliance CRM rollout", companyId: "company_metro", company: "Metro Finance", contactIds: ["contact_jules"], value: 71000, stage: "Qualified" }
   ],
   activities: [
-    { id: "activity_1", title: "Send FayDB adapter notes", contactId: "contact_miles", companyId: "company_apex", dealId: "deal_2", contact: "Miles Chen", due: "Today" },
+    { id: "activity_1", title: "Send Postgres schema notes", contactId: "contact_miles", companyId: "company_apex", dealId: "deal_2", contact: "Miles Chen", due: "Today" },
     { id: "activity_2", title: "Benchmark walkthrough", contactId: "contact_rina", companyId: "company_izitech", dealId: "deal_3", contact: "Rina Cole", due: "Tomorrow" },
     { id: "activity_3", title: "Security review", contactId: "contact_ada", companyId: "company_northstar", dealId: "deal_1", contact: "Ada Martin", due: "Friday" }
   ],
   messages: [
     { id: "message_1", author: "Cachou Bot", text: "Realtime room is online.", createdAt: new Date().toISOString() },
-    { id: "message_2", author: "Sales", text: "FayDB-backed workspace loaded.", createdAt: new Date().toISOString() }
+    { id: "message_2", author: "Sales", text: "Postgres-backed workspace loaded.", createdAt: new Date().toISOString() }
   ],
   audit: []
 };
@@ -402,12 +394,12 @@ async function createRepository() {
   if (MODE === "memory") return memoryRepository("memory");
   try {
     const pg = await import("pg");
-    const repo = await faydbRepository(pg.default || pg);
+    const repo = await postgresRepository(pg.default || pg);
     if (MODE === "auto") return repo;
     return repo;
   } catch (err) {
-    if (MODE === "faydb") {
-      throw new Error(`FayDB mode failed: ${err.message}`);
+    if (MODE === "postgres") {
+      throw new Error(`Postgres mode failed: ${err.message}`);
     }
     return memoryRepository(`memory-fallback: ${err.message}`);
   }
@@ -450,7 +442,7 @@ function memoryRepository(mode) {
   };
 }
 
-async function faydbRepository(pg) {
+async function postgresRepository(pg) {
   const { Client } = pg;
   const attempts = [];
   let client;
@@ -470,7 +462,7 @@ async function faydbRepository(pg) {
     }
   }
   if (!client) {
-    throw new Error(`Could not connect to FayDB. Attempts: ${attempts.join(" | ")}`);
+    throw new Error(`Could not connect to Postgres. Attempts: ${attempts.join(" | ")}`);
   }
   let queryChain = Promise.resolve();
   const query = (text, params) => {
@@ -489,8 +481,8 @@ async function faydbRepository(pg) {
   }
   await seedIfEmpty(query);
   return {
-    mode: `faydb:${redactDsn(selectedDsn)}`,
-    schema: schemaInfo(`faydb:${redactDsn(selectedDsn)}`, typedSchema, typedSchemaError),
+    mode: `postgres:${redactDsn(selectedDsn)}`,
+    schema: schemaInfo(`postgres:${redactDsn(selectedDsn)}`, typedSchema, typedSchemaError),
     async init() {},
     async listAll() {
       if (typedSchema) {
@@ -541,13 +533,13 @@ async function faydbRepository(pg) {
       await seedIfEmpty(query);
     },
     async diagnostics() {
-      return diagnostics(query, `faydb:${redactDsn(selectedDsn)}`, typedSchema, typedSchemaError);
+      return diagnostics(query, `postgres:${redactDsn(selectedDsn)}`, typedSchema, typedSchemaError);
     }
   };
 }
 
 function getCandidateDsns() {
-  if (process.env.FAYDB_DSN) return [process.env.FAYDB_DSN];
+  if (process.env.POSTGRES_DSN) return [process.env.POSTGRES_DSN];
   return DEFAULT_DSNS;
 }
 

@@ -152,7 +152,7 @@ Closest relatives: **Solid** (reactive model) and **Svelte** (compile + direct D
 
 - Demo app and runnable `/examples/`
 - Optional demo server APIs (SQLite, files, WS) behind `CACHOU_DEMO`
-- FayDB CRM proving ground (`npm run crm:demo`) — not part of the published package surface
+- CRM proving ground with **PostgreSQL** (`npm run crm:demo`) — not part of the published package surface
 
 ## Requirements
 
@@ -480,7 +480,7 @@ CACHOU_COMPARE_SAMPLES=30 npm run bench:compare   # publishable local runs
 
 npm run check           # full pipeline used in CI
 npm run pack:dry        # inspect publish tarball (~60KB runtime package)
-npm run crm:ci          # CRM QA + evidence bundle under faydb-crm/artifacts/ci/
+npm run crm:ci          # CRM QA + evidence bundle under crm/artifacts/ci/
 ```
 
 CI runs on **Ubuntu + Chromium**. Optional Safari job on macOS for `main` pushes.
@@ -508,9 +508,9 @@ cachou/
 ├── tests/               # Browser + unit tests
 ├── benchmarks/          # Perf + competitive suite
 ├── docs/                # Canonical documentation
-├── faydb-crm/           # CRM proving ground (separate app)
+├── crm/                 # CRM proving ground (PostgreSQL or memory)
 ├── scripts/             # check, compiler, browser tests
-└── package.json         # cachoujs@0.2.0
+└── package.json         # cachoujs@0.3.0
 ```
 
 ## Package exports
