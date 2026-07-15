@@ -1,6 +1,6 @@
 # CachouJS
 
-**v0.3.0** · experimental (0.x)
+**v0.4.0** · experimental (0.x)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · **[Get Started](./docs/GETTING_STARTED.md)**
 

@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.4.0
+
+### Reactivity & composition
+
+- **`untrack`**, **`getOwner`**, **`runWithOwner`** for library-safe ownership and non-tracking reads.
+- **`splitProps`**, **`mergeProps`**, **`Dynamic`** for component composition.
+- **`For`** / **`Index`** list components (keyed and index-stable) on top of `mapArray`.
+
+### Router & data
+
+- **`redirect()`** / **`notFound()`** from route `load` (typed errors).
+- **`createAction`** + form helper for write-path / mutations from UI.
+- **`configureRouter({ history })`**: `browser` | `hash` | `memory`.
+- Richer **`matchPath`**: optional `:id?`, rest `:path*`, prefix `/*`.
+- **`useParams`**, **`useSearchParams`** reactive helpers.
+- **`createMutation`**, query cache helpers, **`optimisticUpdate`**, **`persist`**.
+
+### Templates & UI
+
+- **Directives** (`directive`, `use:name`) and **`model`** two-way binding (plus existing `bind:`).
+- **`useHead`** merge: meta, links, JSON-LD.
+- **`Dialog`** primitive (focus trap, Esc, backdrop).
+- Nested **`createForm({ nested: true })`** path fields.
+- **`virtualList`** for large catalogs.
+
+### SSR
+
+- **`renderToStream`** (ReadableStream / async generator).
+- **`Island`** + **`hydrateIslands`** partial hydration.
+- **`getRequestEvent` / `setRequestEvent`** SSR request bag for loaders.
+
+### Compiler
+
+- Expanded generated imports (For, Index, actions, etc.).
+- Section-aware source maps; pragmatic **TypeScript strip** in `<script>`.
+
+### Docs
+
+- Public **`docs/ROADMAP.md`**.
+
 ## 0.3.0
 
 ### Runtime

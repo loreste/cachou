@@ -6,9 +6,9 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 
 | Package | Path | Current |
 |---------|------|---------|
-| `cachoujs` | repo root | 0.3.0 |
-| `@cachoujs/compiler` | `packages/compiler` | 0.3.1 |
-| `@cachoujs/create` | `packages/create-cachou` | 0.3.1 |
+| `cachoujs` | repo root | 0.4.0 |
+| `@cachoujs/compiler` | `packages/compiler` | 0.4.0 |
+| `@cachoujs/create` | `packages/create-cachou` | 0.4.0 |
 
 You must own the npm name / `@cachoujs` org (this project uses org **cachoujs**, owner **loreste**).
 
