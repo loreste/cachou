@@ -1,0 +1,126 @@
+<style scoped>
+  .pipeline-board {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+    overflow-x: auto;
+  }
+
+  .stage {
+    align-content: start;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 10px;
+    min-height: 420px;
+    padding: 14px;
+    transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  }
+
+  .stage.drop-ready {
+    border-color: rgba(15, 118, 110, 0.58);
+    box-shadow: 0 22px 54px rgba(15, 118, 110, 0.16);
+    transform: translateY(-2px);
+  }
+
+  .stage header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .empty-zone {
+    border: 1px dashed rgba(117, 139, 160, 0.42);
+    border-radius: 12px;
+    color: #667589;
+    min-height: 82px;
+    padding: 14px;
+  }
+
+  .deal {
+    background: rgba(248, 251, 252, 0.94);
+    border: 1px solid rgba(117, 139, 160, 0.18);
+    border-radius: 12px;
+    cursor: grab;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 12px;
+  }
+
+  .deal:active {
+    cursor: grabbing;
+  }
+
+  .deal:focus-visible {
+    border-color: rgba(15, 118, 110, 0.72);
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.18);
+    outline: none;
+  }
+
+  .deal small {
+    color: #667589;
+  }
+
+  .deal span {
+    color: #0f766e;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 800;
+  }
+
+  .mini {
+    grid-column: 1 / -1;
+    min-height: 32px;
+    padding: 0 10px;
+    width: max-content;
+  }
+
+  @media (max-width: 860px) {
+    .pipeline-board {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="pipeline-board">
+  {mapArray(props.pipeline, column => html`<article
+    class="stage"
+    ondragover=${props.allowDrop}
+    ondragleave=${props.clearDrop}
+    ondrop=${event => props.dropDeal(event, column.stage)}
+  >
+    <header>
+      <strong>${column.stage}</strong>
+      <span>${column.deals.length}</span>
+    </header>
+    ${column.deals.length === 0 ? html`<div class="empty-zone">Drop a deal here</div>` : null}
+    ${column.deals.map(deal => html`<div
+      class="deal"
+      draggable=${true}
+      role="group"
+      tabindex="0"
+      aria-label=${`${deal.name}, ${deal.company}, ${deal.stage}. Use arrow keys to move stage.`}
+      ondragstart=${event => props.dragDeal(event, deal.id)}
+      onkeydown=${event => props.keyboardDeal(event, deal)}
+    >
+      <div>
+        <strong>${deal.name}</strong>
+        <small>${deal.company}</small>
+      </div>
+      <span>${props.formatCurrency(Number(deal.value || 0))}</span>
+      <button
+        class="ghost mini"
+        disabled=${() => deal.stage === "Lost" || !props.canMoveDeals()}
+        onclick=${() => props.moveDeal(deal.id, props.nextStage(deal.stage))}
+      >Move</button>
+      <button
+        class="ghost mini"
+        disabled=${() => !props.canMoveDeals()}
+        onclick=${() => props.editDeal(deal)}
+      >Edit</button>
+    </div>`)}
+  </article>`, column => column.stage, { uniqueKeys: true, reactiveItems: false })}
+</section>

@@ -1,0 +1,132 @@
+<style scoped>
+  .overview-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.8fr);
+  }
+
+  .spotlight,
+  .insights {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 16px;
+    padding: 20px;
+    backdrop-filter: blur(18px);
+  }
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+
+  header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  header span {
+    color: #8193a7;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  .priority-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .bar-row {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 96px minmax(0, 1fr) 24px;
+  }
+
+  .bar-row span,
+  .bar-row strong {
+    font-size: 13px;
+  }
+
+  .bar-row div {
+    background: #e5edf3;
+    border-radius: 999px;
+    height: 10px;
+    overflow: hidden;
+  }
+
+  .bar-row i {
+    background: linear-gradient(90deg, #0f766e, #2f80ed);
+    display: block;
+    height: 100%;
+  }
+
+  .mini-pipeline {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  @media (max-width: 860px) {
+    .overview-grid,
+    .mini-pipeline {
+      grid-template-columns: 1fr;
+    }
+
+    .wide {
+      grid-column: auto;
+    }
+  }
+</style>
+
+<section class="overview-grid">
+  <article class="spotlight">
+    <header>
+      <div>
+        <span>Focus list</span>
+        <h2>Accounts needing attention</h2>
+      </div>
+      <button class="ghost" onclick={props.openContacts}>Open contacts</button>
+    </header>
+    <div class="priority-list">
+      {mapArray(props.hotContacts, contact => props.PriorityCard({
+        initial: contact.name.slice(0, 1),
+        name: contact.name,
+        company: contact.company,
+        status: contact.status,
+        onSelect: () => props.selectContact(contact)
+      }), contact => contact.id, { uniqueKeys: true, reactiveItems: false })}
+    </div>
+  </article>
+
+  <article class="insights">
+    <header>
+      <span>Owner load</span>
+      <h2>Coverage</h2>
+    </header>
+    {mapArray(props.ownerLoad, item => html`<div class="bar-row">
+      <span>${item.owner}</span>
+      <div><i style=${props.ownerBarStyle(item)}></i></div>
+      <strong>${item.count}</strong>
+    </div>`, item => item.owner, { uniqueKeys: true, reactiveItems: false })}
+  </article>
+
+  <article class="spotlight wide">
+    <header>
+      <div>
+        <span>Pipeline health</span>
+        <h2>Stage distribution</h2>
+      </div>
+      <button class="ghost" onclick={props.openPipeline}>Open pipeline</button>
+    </header>
+    <div class="mini-pipeline">
+      {mapArray(props.pipeline, column => props.StageTile({
+        stage: column.stage,
+        count: column.deals.length
+      }), column => column.stage, { uniqueKeys: true, reactiveItems: false })}
+    </div>
+  </article>
+</section>

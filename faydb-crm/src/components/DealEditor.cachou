@@ -1,0 +1,70 @@
+<style scoped>
+  .modal {
+    align-items: center;
+    background: rgba(16, 22, 36, 0.58);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 20px;
+    position: fixed;
+    z-index: 20;
+  }
+
+  .editor {
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 28px 80px rgba(16, 22, 36, 0.22);
+    display: grid;
+    gap: 12px;
+    max-width: 560px;
+    padding: 22px;
+    width: min(560px, 100%);
+  }
+
+  header,
+  footer {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  label {
+    color: #3d4b5e;
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .icon,
+  .ghost {
+    background: #edf3f7;
+    box-shadow: none;
+    color: #162033;
+  }
+
+  .icon {
+    min-height: 34px;
+    padding: 0;
+    width: 34px;
+  }
+</style>
+
+<div class="modal" role="dialog" aria-modal="true" aria-label="Deal editor">
+  <form class="editor" onsubmit={props.persistDeal}>
+    <header>
+      <h2>{props.current.name ? "Edit deal" : "New deal"}</h2>
+      <button type="button" class="icon" aria-label="Close deal editor" onclick={props.close}>x</button>
+    </header>
+    <label>Name<input value={props.current.name} oninput={event => props.setDraft({ ...props.draft(), name: event.target.value })} /></label>
+    <label>Company<input value={props.current.company} oninput={event => props.setDraft({ ...props.draft(), company: event.target.value })} /></label>
+    <label>Value<input type="number" value={props.current.value} oninput={event => props.setDraft({ ...props.draft(), value: Number(event.target.value || 0) })} /></label>
+    <label>Stage<select value={props.current.stage} onchange={event => props.setDraft({ ...props.draft(), stage: event.target.value })}>
+      {props.stages.map(stage => html`<option value=${stage}>${stage}</option>`)}
+    </select></label>
+    <footer>
+      <button type="button" class="ghost" onclick={props.close}>Cancel</button>
+      <button disabled={props.busy}>{() => props.busy() ? "Saving..." : "Save deal"}</button>
+    </footer>
+  </form>
+</div>

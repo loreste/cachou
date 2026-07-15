@@ -1,0 +1,42 @@
+<style scoped>
+  .activity-panel {
+    display: grid;
+    gap: 10px;
+  }
+
+  article {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 5px;
+    padding: 16px;
+    backdrop-filter: blur(18px);
+  }
+
+  time {
+    color: #6d5dfc;
+    font-size: 12px;
+    font-style: normal;
+  }
+
+  p {
+    color: #667589;
+    margin: 0;
+  }
+
+  button {
+    margin-top: 6px;
+    width: max-content;
+  }
+</style>
+
+<section class="activity-panel">
+  {mapArray(props.activities, item => html`<article>
+    <time>${item.due}</time>
+    <strong>${item.title}</strong>
+    <p>${item.contact}</p>
+    <button class="ghost" disabled=${() => item.due === "Done"} onclick=${() => props.completeActivity(item)}>Complete</button>
+  </article>`, item => item.id, { uniqueKeys: true, reactiveItems: false })}
+</section>

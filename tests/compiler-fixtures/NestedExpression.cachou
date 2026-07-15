@@ -1,0 +1,14 @@
+<style>
+  :host {
+    display: block;
+  }
+  @media (min-width: 600px) {
+    .label, :global(.external) {
+      color: blue;
+    }
+  }
+</style>
+
+<div data-json="literal">
+  {props.items.map(item => ({ label: item.label })).length}
+</div>

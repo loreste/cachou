@@ -1,0 +1,172 @@
+<style scoped>
+  .security-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+    max-width: 1320px;
+    width: 100%;
+  }
+
+  section {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 12px;
+    padding: 18px;
+    backdrop-filter: blur(18px);
+  }
+
+  article {
+    border: 1px solid rgba(117, 139, 160, 0.18);
+    border-radius: 12px;
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+  }
+
+  span,
+  time,
+  small {
+    color: #667589;
+    font-size: 12px;
+  }
+
+  code {
+    background: #edf3f7;
+    border-radius: 8px;
+    padding: 3px 6px;
+  }
+
+  form,
+  .diagnostics,
+  .ops-grid,
+  .filters {
+    border: 1px solid rgba(117, 139, 160, 0.18);
+    border-radius: 12px;
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .ops-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ops-grid code {
+    grid-column: 1 / -1;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  label {
+    color: #3d4b5e;
+    display: grid;
+    gap: 5px;
+    font-size: 13px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .timeline article {
+    border-left: 4px solid #0f766e;
+  }
+
+  @media (max-width: 860px) {
+    .security-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .ops-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="security-grid">
+  <section>
+    <span>RBAC matrix</span>
+    <h2>Roles and permissions</h2>
+    {mapArray(props.users, user => html`<article>
+      <strong>${user.name}</strong>
+      <small>${user.role}${user.disabled ? " - disabled" : ""} - ${user.sessionCount || 0} sessions</small>
+      <p>${(user.permissions || []).join(", ")}</p>
+      <div class="actions">
+        <button class="ghost" onclick=${() => props.editUser(user)}>Edit</button>
+        <button class="ghost" onclick=${() => props.toggleUser(user)}>${user.disabled ? "Enable" : "Disable"}</button>
+        <button class="ghost" onclick=${() => props.revokeSessions(user)}>Revoke sessions</button>
+      </div>
+    </article>`, user => user.id, { uniqueKeys: true, reactiveItems: false })}
+    <form onsubmit={props.saveUser}>
+      <strong>Admin user management</strong>
+      <label>Username<input value={props.userDraft().username} oninput={event => props.setUserDraft({ ...props.userDraft(), username: event.target.value })} /></label>
+      <label>Name<input value={props.userDraft().name} oninput={event => props.setUserDraft({ ...props.userDraft(), name: event.target.value })} /></label>
+      <label>Role<select value={props.userDraft().role} onchange={event => props.setUserDraft({ ...props.userDraft(), role: event.target.value })}>
+        <option value="Sales">Sales</option>
+        <option value="Manager">Manager</option>
+        <option value="Admin">Admin</option>
+      </select></label>
+      <label>Password<input type="password" value={props.userDraft().password} oninput={event => props.setUserDraft({ ...props.userDraft(), password: event.target.value })} /></label>
+      <div class="actions">
+        <button>Save user</button>
+        <button type="button" class="ghost" onclick={props.resetDemo}>Reset demo</button>
+      </div>
+    </form>
+    <div class="diagnostics">
+      <strong>Database diagnostics</strong>
+      <small>{props.diagnostics?.mode || "loading"}</small>
+      <code>{props.formatRows(props.diagnostics)}</code>
+      <code>{props.formatTyped(props.diagnostics)}</code>
+    </div>
+    <div class="ops-grid">
+      <strong>API operations</strong>
+      <small>{props.opsMetrics ? `${props.opsMetrics.websocketClients || 0} websocket clients` : "loading"}</small>
+      <article>
+        <span>Requests</span>
+        <strong>{props.opsMetrics?.requestsTotal || 0}</strong>
+      </article>
+      <article>
+        <span>Avg latency</span>
+        <strong>{props.opsMetrics?.averageDurationMs || 0}ms</strong>
+      </article>
+      <article>
+        <span>Inflight</span>
+        <strong>{props.opsMetrics?.inflight || 0}</strong>
+      </article>
+      <article>
+        <span>Sessions</span>
+        <strong>{props.opsMetrics?.sessionsCached || 0}</strong>
+      </article>
+      <code>{props.formatOpsRoutes(props.opsMetrics)}</code>
+    </div>
+  </section>
+  <section>
+    <span>Audit stream</span>
+    <h2>Timeline</h2>
+    <div class="filters">
+      <label>Actor<input value={props.auditFilter().actor} oninput={event => props.setAuditFilter({ ...props.auditFilter(), actor: event.target.value })} /></label>
+      <label>Action<input value={props.auditFilter().action} oninput={event => props.setAuditFilter({ ...props.auditFilter(), action: event.target.value })} /></label>
+      <label>Role<select value={props.auditFilter().role} onchange={event => props.setAuditFilter({ ...props.auditFilter(), role: event.target.value })}>
+        <option value="">Any role</option>
+        <option value="Sales">Sales</option>
+        <option value="Manager">Manager</option>
+        <option value="Admin">Admin</option>
+        <option value="Guest">Guest</option>
+      </select></label>
+      <button class="ghost" onclick={props.exportAudit}>Export audit log</button>
+    </div>
+    <div class="timeline">
+      {mapArray(props.audit, item => html`<article>
+        <strong>${props.auditTitle(item)}</strong>
+        <small>${item.actor} - ${item.role}</small>
+        <time>${new Date(item.createdAt || Date.now()).toLocaleString()}</time>
+        <p>${props.auditDescription(item)}</p>
+      </article>`, item => item.id, { uniqueKeys: true, reactiveItems: false })}
+    </div>
+  </section>
+</div>

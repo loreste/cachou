@@ -1,0 +1,148 @@
+{
+  "Cachou component scaffold": {
+    "prefix": ["cachou-component", "cc"],
+    "body": [
+      "<script>",
+      "  ${1:// setup — runs once}",
+      "  const [${2:value}, set${2/(.*)/${1:/capitalize}/}] = signal(${3:props.initial ?? 0});",
+      "</script>",
+      "",
+      "<style scoped>",
+      "  :host {",
+      "    display: block;",
+      "  }",
+      "  .${4:root} {",
+      "    ${5}",
+      "  }",
+      "</style>",
+      "",
+      "<div class=\"${4:root}\">",
+      "  <h2>{props.title}</h2>",
+      "  <button type=\"button\" onclick={() => set${2/(.*)/${1:/capitalize}/}(v => v + 1)}>",
+      "    {$2()}",
+      "  </button>",
+      "</div>",
+      ""
+    ],
+    "description": "Full .cachou component with script, scoped style, and template"
+  },
+  "Script section": {
+    "prefix": "script",
+    "body": [
+      "<script>",
+      "  $0",
+      "</script>"
+    ],
+    "description": "Top-level script section"
+  },
+  "Style scoped": {
+    "prefix": ["style-scoped", "scoped"],
+    "body": [
+      "<style scoped>",
+      "  :host {",
+      "    display: block;",
+      "  }",
+      "  $0",
+      "</style>"
+    ],
+    "description": "Scoped component styles"
+  },
+  "Style global": {
+    "prefix": "style",
+    "body": [
+      "<style>",
+      "  $0",
+      "</style>"
+    ],
+    "description": "Unscoped style section"
+  },
+  "Signal": {
+    "prefix": "signal",
+    "body": [
+      "const [${1:value}, set${1/(.*)/${1:/capitalize}/}] = signal(${2:null});"
+    ],
+    "description": "Create a signal"
+  },
+  "Memo": {
+    "prefix": "memo",
+    "body": [
+      "const ${1:derived} = memo(() => ${2:/* expression */});"
+    ],
+    "description": "Lazy memo"
+  },
+  "Effect": {
+    "prefix": "effect",
+    "body": [
+      "effect(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Reactive effect"
+  },
+  "onCleanup": {
+    "prefix": "onCleanup",
+    "body": [
+      "onCleanup(() => {",
+      "  $0",
+      "});"
+    ],
+    "description": "Register cleanup"
+  },
+  "Resource": {
+    "prefix": "resource",
+    "body": [
+      "const [${1:data}, { loading, error, refetch }] = createResource(async ({ signal, requestId }) => {",
+      "  const res = await fetch(`${2:/api/...}?r=${requestId}`, { signal });",
+      "  if (!res.ok) throw new Error(await res.text());",
+      "  return res.json();",
+      "});"
+    ],
+    "description": "createResource fetcher"
+  },
+  "mapArray keyed": {
+    "prefix": "mapArray",
+    "body": [
+      "{mapArray(",
+      "  ${1:items},",
+      "  ${2:item} => html`<li>{${2}.name}</li>`,",
+      "  ${2} => ${2}.id,",
+      "  { uniqueKeys: true }",
+      ")}"
+    ],
+    "description": "Keyed mapArray list"
+  },
+  "class toggle": {
+    "prefix": "class:",
+    "body": ["class:${1:active}={${2:isActive()}}"],
+    "description": "class: directive"
+  },
+  "bind value": {
+    "prefix": "bind:value",
+    "body": ["bind:value={[${1:text}, set${1/(.*)/${1:/capitalize}/}]}"],
+    "description": "Two-way bind:value"
+  },
+  "onclick handler": {
+    "prefix": "onclick",
+    "body": ["onclick={() => ${1:handler}()}"],
+    "description": "Click handler expression"
+  },
+  ":host rule": {
+    "prefix": ":host",
+    "body": [
+      ":host {",
+      "  display: block;",
+      "  $0",
+      "}"
+    ],
+    "description": "Scoped :host selector"
+  },
+  ":global rule": {
+    "prefix": ":global",
+    "body": [
+      ":global(.${1:theme}) {",
+      "  $0",
+      "}"
+    ],
+    "description": "Unscoped :global(...) selector"
+  }
+}

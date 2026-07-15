@@ -1,0 +1,91 @@
+<style scoped>
+  .split {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(300px, 430px) minmax(0, 1fr);
+    min-height: 520px;
+    max-width: 1320px;
+    width: 100%;
+  }
+
+  .list,
+  .detail,
+  .empty {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    backdrop-filter: blur(18px);
+  }
+
+  .list {
+    overflow: auto;
+    padding: 10px;
+  }
+
+  .row {
+    align-items: center;
+    background: transparent;
+    box-shadow: none;
+    color: #162033;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    min-height: 64px;
+    padding: 10px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .row.selected,
+  .row:hover {
+    background: #dcf6f0;
+    transform: translateY(-1px);
+  }
+
+  .row span {
+    display: grid;
+    gap: 4px;
+  }
+
+  small,
+  .empty {
+    color: #667589;
+  }
+
+  em {
+    color: #0f766e;
+    font-size: 12px;
+    font-style: normal;
+  }
+
+  .detail,
+  .empty {
+    padding: 24px;
+  }
+
+  @media (max-width: 860px) {
+    .split {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="split">
+  <div class="list">
+    {props.visibleContacts().length === 0 ? html`<div class="empty">No contacts match this search.</div>` : null}
+    {mapArray(props.visibleContacts, contact => html`<button
+      class=${() => props.selectedContact()?.id === contact.id ? "row selected" : "row"}
+      onclick=${() => props.setSelectedId(contact.id)}
+    >
+      <span>
+        <strong>${contact.name}</strong>
+        <small>${contact.company}</small>
+      </span>
+      <em>${contact.status}</em>
+    </button>`, contact => contact.id, { uniqueKeys: true, reactiveItems: false })}
+  </div>
+  <article class="detail">
+    {props.selectedContact() ? props.renderDetail(props.selectedContact()) : html`<div class="empty">Select a contact.</div>`}
+  </article>
+</section>

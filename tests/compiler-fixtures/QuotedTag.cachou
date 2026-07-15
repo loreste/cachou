@@ -1,0 +1,9 @@
+<style>
+  .label {
+    color: red;
+  }
+</style>
+
+<div class="label" data-rule="a > b">
+  {props.text}
+</div>

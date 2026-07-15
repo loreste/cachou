@@ -1,0 +1,78 @@
+<style scoped>
+  .collab {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 16px;
+    max-width: 1320px;
+    padding: 20px;
+    width: 100%;
+    backdrop-filter: blur(18px);
+  }
+
+  .columns {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  article,
+  li {
+    border: 1px solid rgba(117, 139, 160, 0.18);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  ul {
+    display: grid;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  span,
+  p {
+    color: #667589;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  @media (max-width: 900px) {
+    .columns {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="collab">
+  <header>
+    <span>Concurrency proof</span>
+    <h2>Two editors, one server version</h2>
+  </header>
+  <div class="columns">
+    <article>
+      <strong>Editor A</strong>
+      <p>{props.editorA}</p>
+    </article>
+    <article>
+      <strong>Editor B</strong>
+      <p>{props.editorB}</p>
+    </article>
+    <article>
+      <strong>Server state</strong>
+      <p>{props.serverState}</p>
+    </article>
+  </div>
+  <button onclick={props.runLab} disabled={props.running}>{() => props.running() ? "Running..." : "Run conflict demo"}</button>
+  <ul>
+    {props.log().map((item, index) => html`<li>
+      <strong>${index + 1}. ${item.title}</strong>
+      <p>${item.detail}</p>
+    </li>`)}
+  </ul>
+</section>

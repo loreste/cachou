@@ -1,0 +1,133 @@
+{
+  "name": "cachoujs",
+  "version": "0.3.0",
+  "description": "Ultra-fast fine-grained reactive JavaScript framework",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "types": "src/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./html": "./src/html.js",
+    "./reactivity": "./src/reactivity.js",
+    "./router": "./src/router.js",
+    "./forms": "./src/forms.js",
+    "./a11y": "./src/a11y.js",
+    "./files": "./src/files.js",
+    "./flow": "./src/flow.js",
+    "./devtools": "./src/devtools.js",
+    "./file-routes": "./src/file-routes.js",
+    "./vite": "./plugin/vite.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "cachou-compiler": "./bin/cachou-compiler.js",
+    "create-cachou": "./bin/create-cachou.js"
+  },
+  "workspaces": [
+    "packages/compiler",
+    "packages/create-cachou"
+  ],
+  "files": [
+    "src",
+    "plugin",
+    "scripts/run-compiler.mjs",
+    "scripts/ensure-compiler.mjs",
+    "compiler.go",
+    "go.mod",
+    "bin/cachou-compiler-wrapper.mjs",
+    "packages/compiler",
+    "packages/create-cachou",
+    "create-cachou",
+    "README.md",
+    "docs",
+    "CHANGELOG.md",
+    "examples/README.md",
+    "packages/README.md",
+    "bin/cachou-compiler.js",
+    "bin/create-cachou.js"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/ensure-compiler.mjs",
+    "dev": "CACHOU_DEMO=1 npm run compile && CACHOU_DEMO=1 vite --host",
+    "compiler": "node scripts/run-compiler.mjs",
+    "compile": "node scripts/run-compiler.mjs -dir demo/components -out demo/components -runtime cachoujs",
+    "compiler:build": "go build -o bin/cachou-compiler compiler.go",
+    "compiler:build:multiarch": "node scripts/build-multiarch-compiler.mjs",
+    "compiler:js": "node packages/compiler/bin/cachou-compiler.js",
+    "build": "npm run compile && vite build",
+    "preview": "vite preview",
+    "start": "NODE_ENV=production node server.js",
+    "check": "node scripts/check.mjs",
+    "test": "npm run test:unit && npm run test:browser",
+    "test:unit": "node --test tests/unit/*.test.js tests/files.test.js",
+    "test:browser": "node scripts/run-browser-tests.mjs",
+    "test:files": "node --test tests/files.test.js",
+    "guardrails": "node scripts/guardrails.mjs",
+    "bench": "node scripts/run-benchmarks.mjs",
+    "bench:memory": "node scripts/run-memory-benchmarks.mjs",
+    "bench:compare": "node scripts/run-competitive-benchmarks.mjs",
+    "crm:dev": "npm --prefix faydb-crm run dev",
+    "crm:demo": "npm --prefix faydb-crm run demo",
+    "crm:api": "npm --prefix faydb-crm run api",
+    "crm:api:faydb": "npm --prefix faydb-crm run api:faydb",
+    "crm:api:postgres": "npm --prefix faydb-crm run api:postgres",
+    "crm:compile": "node scripts/run-compiler.mjs -dir faydb-crm/src/components -out faydb-crm/src/components -runtime cachoujs",
+    "crm:check": "npm --prefix faydb-crm run check",
+    "crm:build": "npm --prefix faydb-crm run build",
+    "crm:smoke": "npm --prefix faydb-crm run smoke",
+    "crm:smoke:faydb": "npm --prefix faydb-crm run smoke:faydb",
+    "crm:smoke:postgres": "npm --prefix faydb-crm run smoke:postgres",
+    "crm:ui:smoke": "npm --prefix faydb-crm run ui:smoke",
+    "crm:visual:smoke": "npm --prefix faydb-crm run visual:smoke",
+    "crm:visual:baseline": "npm --prefix faydb-crm run visual:baseline",
+    "crm:stress": "npm --prefix faydb-crm run stress",
+    "crm:qa": "npm --prefix faydb-crm run qa",
+    "crm:ci": "npm --prefix faydb-crm run ci",
+    "crm:bench:report": "npm --prefix faydb-crm run bench:report",
+    "crm:demo:reset": "npm --prefix faydb-crm run demo:reset",
+    "crm:db:postgres:up": "npm --prefix faydb-crm run db:postgres:up",
+    "crm:db:postgres:start": "npm --prefix faydb-crm run db:postgres:start",
+    "crm:db:postgres:stop": "npm --prefix faydb-crm run db:postgres:stop",
+    "pack:dry": "npm pack --dry-run",
+    "publish:prep": "node scripts/publish-prep.mjs",
+    "create": "node create-cachou/index.js",
+    "ssr:starter": "node examples/ssr-starter/server.mjs",
+    "ext:package": "npm --prefix vscode-cachou run package",
+    "ext:readme": "node -e \"console.log('See vscode-cachou/README.md')\"",
+    "packages:pack": "npm pack -w @cachoujs/compiler --pack-destination ./tmp && npm pack -w @cachoujs/create --pack-destination ./tmp && npm pack --pack-destination ./tmp"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "playwright": "^1.61.1",
+    "preact": "^10.29.7",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "solid-js": "^1.9.14",
+    "svelte": "^5.56.5",
+    "vite": "^8.1.4",
+    "vue": "^3.5.39"
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loreste/cachou.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "reactive",
+    "signals",
+    "framework",
+    "javascript",
+    "ui",
+    "ssr"
+  ]
+}

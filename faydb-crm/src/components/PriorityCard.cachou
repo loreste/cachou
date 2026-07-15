@@ -1,0 +1,62 @@
+<style scoped>
+  .sfc-priority-card {
+    align-items: center;
+    background: rgba(248, 251, 252, 0.92);
+    border: 1px solid rgba(117, 139, 160, 0.18);
+    border-radius: 8px;
+    box-shadow: none;
+    color: #162033;
+    cursor: pointer;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    min-height: 72px;
+    padding: 0 16px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .sfc-priority-card:hover {
+    background: #dcf6f0;
+    transform: translateY(-1px);
+  }
+
+  .sfc-avatar {
+    align-items: center;
+    background: linear-gradient(135deg, #6d5dfc, #a78bfa);
+    border-radius: 50%;
+    color: white;
+    display: inline-flex;
+    font-weight: 900;
+    height: 40px;
+    justify-content: center;
+    width: 40px;
+  }
+
+  .identity {
+    display: grid;
+    gap: 4px;
+  }
+
+  .identity small {
+    color: #667589;
+  }
+
+  em {
+    background: #dcf6f0;
+    border-radius: 999px;
+    color: #0b5f59;
+    font-size: 12px;
+    font-style: normal;
+    padding: 6px 9px;
+  }
+</style>
+
+<button class="sfc-priority-card" onclick={props.onSelect}>
+  <span class="sfc-avatar">{props.initial}</span>
+  <span class="identity">
+    <strong>{props.name}</strong>
+    <small>{props.company}</small>
+  </span>
+  <em>{props.status}</em>
+</button>

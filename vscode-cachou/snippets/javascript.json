@@ -1,0 +1,116 @@
+{
+  "Import Cachou core": {
+    "prefix": ["cachou-import", "icachou"],
+    "body": [
+      "import { signal, effect, html, mount${1:, createResource, mapArray} } from \"cachoujs\";"
+    ],
+    "description": "Import common CachouJS APIs"
+  },
+  "Cachou mount app": {
+    "prefix": "cachou-mount",
+    "body": [
+      "import { signal, html, mount } from \"cachoujs\";",
+      "",
+      "function App() {",
+      "  const [count, setCount] = signal(0);",
+      "  return html`",
+      "    <main>",
+      "      <button type=\"button\" onclick=${() => setCount(c => c + 1)}>",
+      "        Count: ${() => count()}",
+      "      </button>",
+      "    </main>",
+      "  `;",
+      "}",
+      "",
+      "mount(App, document.getElementById(\"${1:app}\"));",
+      ""
+    ],
+    "description": "Minimal Cachou app with mount"
+  },
+  "Cachou signal": {
+    "prefix": "csignal",
+    "body": [
+      "const [${1:value}, set${1/(.*)/${1:/capitalize}/}] = signal(${2:0});"
+    ],
+    "description": "Cachou signal pair"
+  },
+  "Cachou html template": {
+    "prefix": "chtml",
+    "body": [
+      "html`",
+      "  $0",
+      "`"
+    ],
+    "description": "html tagged template"
+  },
+  "Cachou createResource": {
+    "prefix": "cresource",
+    "body": [
+      "const [${1:data}, { loading, error, refetch }] = createResource(async ({ signal, requestId }) => {",
+      "  const res = await fetch(`${2:/api}`, { signal });",
+      "  if (!res.ok) throw new Error(await res.text());",
+      "  return res.json();",
+      "});"
+    ],
+    "description": "createResource"
+  },
+  "Cachou mapArray": {
+    "prefix": "cmap",
+    "body": [
+      "mapArray(",
+      "  ${1:items},",
+      "  ${2:item} => html`<li>${${2}.name}</li>`,",
+      "  ${2} => ${2}.id,",
+      "  { uniqueKeys: true }",
+      ")"
+    ],
+    "description": "mapArray with unique keys"
+  },
+  "Cachou Router": {
+    "prefix": "crouter",
+    "body": [
+      "Router({",
+      "  children: [",
+      "    Route({ path: \"${1:/}\", component: ${2:Home} }),",
+      "    Layout({",
+      "      path: \"${3:/app}\",",
+      "      component: ${4:Shell},",
+      "      children: [",
+      "        Route({ path: \"${3}/settings\", component: ${5:Settings} })",
+      "      ]",
+      "    }),",
+      "    NotFound({ component: () => html`<h1>Not found</h1>` })",
+      "  ]",
+      "})"
+    ],
+    "description": "Router with Layout"
+  },
+  "Cachou Vite plugin": {
+    "prefix": "cachou-vite",
+    "body": [
+      "import { defineConfig } from \"vite\";",
+      "import { cachou } from \"cachoujs/vite\";",
+      "",
+      "export default defineConfig({",
+      "  plugins: [cachou({ dirs: [\"${1:src/components}\"], runtime: \"cachoujs\" })]",
+      "});",
+      ""
+    ],
+    "description": "Vite config with cachou plugin"
+  },
+  "Cachou production security": {
+    "prefix": "cachou-secure",
+    "body": [
+      "import { applyProductionSecurityDefaults, onFrameworkEvent } from \"cachoujs\";",
+      "",
+      "applyProductionSecurityDefaults();",
+      "onFrameworkEvent(event => {",
+      "  if (event.type === \"security-block\") {",
+      "    console.warn(event);",
+      "  }",
+      "});",
+      ""
+    ],
+    "description": "Production security defaults"
+  }
+}

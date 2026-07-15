@@ -1,0 +1,18 @@
+fn main() {
+    let fd = http_bind(5192)
+    print("mako CRM probe listening on :5192\n")
+    while true {
+        let c = http_accept(fd)
+        if c < 0 {
+            continue
+        }
+
+        let path = http_path(c)
+        if str_eq(path, "/health") {
+            let _ = http_respond_json(c, 200, "{\"ok\":true,\"backend\":\"mako\"}\n")
+        } else {
+            let _ = http_respond_json(c, 404, "{\"error\":\"not found\"}\n")
+        }
+        let _ = http_close(c)
+    }
+}

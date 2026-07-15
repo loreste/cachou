@@ -1,0 +1,37 @@
+{
+  "name": "@cachoujs/compiler",
+  "version": "0.3.1",
+  "description": "CachouJS .cachou SFC compiler (pure JS, optional native binaries)",
+  "type": "module",
+  "bin": {
+    "cachou-compiler": "./bin/cachou-compiler.js"
+  },
+  "main": "./lib/compile.mjs",
+  "exports": {
+    ".": "./lib/compile.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loreste/cachou.git",
+    "directory": "packages/compiler"
+  },
+  "keywords": [
+    "cachou",
+    "cachoujs",
+    "compiler",
+    "sfc"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

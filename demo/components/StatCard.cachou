@@ -1,0 +1,18 @@
+<script>
+  // StatCard shows a reactive value, title, and description
+</script>
+
+<style scoped>
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+  }
+</style>
+
+<div class="card">
+  <div class="card-title">
+    {props.title}
+    <span>{props.value}</span>
+  </div>
+  <p style="color: var(--text-muted); font-size: 14px;">{props.description}</p>
+</div>

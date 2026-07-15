@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+faydb-crm/node_modules/
+
+# Build outputs
+dist/
+bin/cachou-compiler
+bin/cachou-compiler-*
+*.exe
+
+# Local databases and env
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+# CI / demo artifacts
+faydb-crm/artifacts/
+**/artifacts/ci/
+**/screenshots/
+!faydb-crm/artifacts/screenshots-baseline/.gitkeep
+
+# Logs and coverage
+logs/
+*.log
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+.playwright/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Package / temp
+*.tgz
+*.vsix
+.npm/
+tmp/
+/private/tmp/
+.cache/
+.turbo/
+
+# VS Code extension build
+vscode-cachou/*.vsix
+
+# Optional multi-arch native compiler outputs
+bin/dist/
+
+# Generated compiler check output
+/tmp/

@@ -1,0 +1,8 @@
+{
+  "signal update fanout": 25,
+  "attribute binding fanout": 24,
+  "list append keyed": 24,
+  "list prepend keyed": 16,
+  "list reverse keyed": 18,
+  "list delete middle keyed": 8
+}

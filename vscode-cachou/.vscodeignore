@@ -1,0 +1,11 @@
+.git/**
+.github/**
+**/*.map
+**/.DS_Store
+.gitignore
+.vscode/**
+node_modules/**
+*.vsix
+tsconfig.json
+**/*.ts
+!**/package.json

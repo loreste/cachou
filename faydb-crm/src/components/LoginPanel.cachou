@@ -1,0 +1,71 @@
+<style scoped>
+  .login-card {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 28px 80px rgba(16, 22, 36, 0.18);
+    display: grid;
+    gap: 14px;
+    max-width: 430px;
+    padding: 28px;
+    width: min(430px, 100%);
+  }
+
+  span {
+    color: #0f766e;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  label {
+    color: #3d4b5e;
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .login-shortcuts {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .error-text {
+    color: #b4233c;
+    font-size: 13px;
+    margin: 0;
+  }
+
+  .status-line {
+    align-items: center;
+    color: #667589;
+    display: flex;
+    font-size: 13px;
+    gap: 8px;
+  }
+
+  .dot {
+    background: #b4233c;
+    border-radius: 999px;
+    height: 8px;
+    width: 8px;
+  }
+
+  .dot.online {
+    background: #0f766e;
+  }
+</style>
+
+<form class="login-card" onsubmit={props.signIn}>
+  <span>Cachou CRM</span>
+  <h1>Sign in</h1>
+  <p class="status-line"><i class={props.systemOnline() ? "dot online" : "dot"}></i>{props.systemMode()}</p>
+  <label>Username<input value={props.current.username} oninput={event => props.setLoginDraft({ ...props.loginDraft(), username: event.target.value })} /></label>
+  <label>Password<input type="password" value={props.current.password} oninput={event => props.setLoginDraft({ ...props.loginDraft(), password: event.target.value })} /></label>
+  <div class="login-shortcuts">
+    {props.accounts.map(username => html`<button type="button" class="ghost" onclick=${() => props.setLoginDraft({ username, password: username })}>${username}</button>`)}
+  </div>
+  {props.loginError() ? html`<p class="error-text">${props.loginError}</p>` : null}
+  <button disabled={props.loginBusy}>{() => props.loginBusy() ? "Signing in..." : "Sign in"}</button>
+</form>

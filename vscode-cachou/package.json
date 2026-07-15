@@ -1,0 +1,251 @@
+{
+  "name": "cachou",
+  "displayName": "CachouJS",
+  "description": "Language support, snippets, compile, and diagnostics for CachouJS (.cachou SFCs)",
+  "version": "0.3.0",
+  "publisher": "cachoujs",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "cachou",
+    "cachoujs",
+    "reactive",
+    "signals",
+    "sfc",
+    "javascript"
+  ],
+  "activationEvents": [
+    "onLanguage:cachou",
+    "workspaceContains:**/*.cachou",
+    "workspaceContains:**/package.json"
+  ],
+  "main": "./extension.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loreste/cachou.git",
+    "directory": "vscode-cachou"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "cachou",
+        "aliases": [
+          "Cachou",
+          "cachou",
+          "CachouJS"
+        ],
+        "extensions": [
+          ".cachou"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/cachou-file.svg",
+          "dark": "./media/cachou-file.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cachou",
+        "scopeName": "source.cachou",
+        "path": "./syntaxes/cachou.tmLanguage.json",
+        "embeddedLanguages": {
+          "source.js": "javascript",
+          "source.css": "css",
+          "text.html.basic": "html",
+          "meta.embedded.expression.js": "javascript"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "cachou",
+        "path": "./snippets/cachou.json"
+      },
+      {
+        "language": "javascript",
+        "path": "./snippets/javascript.json"
+      },
+      {
+        "language": "typescript",
+        "path": "./snippets/javascript.json"
+      },
+      {
+        "language": "javascriptreact",
+        "path": "./snippets/javascript.json"
+      },
+      {
+        "language": "typescriptreact",
+        "path": "./snippets/javascript.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "cachou.compileCurrent",
+        "title": "Cachou: Compile Current File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "cachou.compileWorkspace",
+        "title": "Cachou: Compile Workspace Components"
+      },
+      {
+        "command": "cachou.createComponent",
+        "title": "Cachou: Create Component…"
+      },
+      {
+        "command": "cachou.openDocs",
+        "title": "Cachou: Open Documentation"
+      },
+      {
+        "command": "cachou.openApi",
+        "title": "Cachou: Open API Reference"
+      },
+      {
+        "command": "cachou.openHowTo",
+        "title": "Cachou: Open How-To Guides"
+      },
+      {
+        "command": "cachou.openExamples",
+        "title": "Cachou: Open Examples README"
+      },
+      {
+        "command": "cachou.restartDiagnostics",
+        "title": "Cachou: Restart Diagnostics"
+      },
+      {
+        "command": "cachou.showOutput",
+        "title": "Cachou: Show Output Channel"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceExtname == .cachou",
+          "command": "cachou.compileCurrent",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceExtname == .cachou",
+          "command": "cachou.compileCurrent",
+          "group": "cachou@1"
+        },
+        {
+          "when": "resourceExtname == .cachou",
+          "command": "cachou.openDocs",
+          "group": "cachou@2"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .cachou",
+          "command": "cachou.compileCurrent",
+          "group": "cachou@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "cachou.compileCurrent",
+          "when": "resourceExtname == .cachou || editorLangId == cachou"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CachouJS",
+      "properties": {
+        "cachou.compilerPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the `cachou-compiler` binary or wrapper. Empty = auto-detect (`bin/cachou-compiler`, `scripts/run-compiler.mjs`, or `npx cachou-compiler`)."
+        },
+        "cachou.runtime": {
+          "type": "string",
+          "default": "cachoujs",
+          "description": "Module specifier written into generated JS (`-runtime` flag)."
+        },
+        "cachou.componentDirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "src/components",
+            "demo/components",
+            "faydb-crm/src/components"
+          ],
+          "description": "Relative workspace folders scanned by Compile Workspace."
+        },
+        "cachou.compileOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Compile the current .cachou file when it is saved."
+        },
+        "cachou.diagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the compiler for diagnostics on open/change/save."
+        },
+        "cachou.diagnosticsDebounceMs": {
+          "type": "number",
+          "default": 400,
+          "minimum": 0,
+          "description": "Debounce delay for change-triggered diagnostics."
+        },
+        "cachou.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a Cachou status bar item for the active .cachou editor."
+        },
+        "cachou.docsPath": {
+          "type": "string",
+          "default": "docs",
+          "description": "Workspace-relative path to documentation root."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[cachou]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": false,
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": false,
+          "strings": true
+        }
+      }
+    },
+    "problemMatchers": [
+      {
+        "name": "cachou",
+        "owner": "cachou",
+        "fileLocation": [
+          "autoDetect",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(?:Error compiling file )?(.+?):\\s*(?:.+? at )?(\\d+):(\\d+):?\\s*(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "package": "npx @vscode/vsce package --no-dependencies",
+    "lint": "node -e \"require('fs').accessSync('extension.js')\""
+  },
+  "devDependencies": {}
+}

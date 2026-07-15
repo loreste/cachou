@@ -1,0 +1,12 @@
+.metric-card[data-c-metriccard] { background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 8px;
+    padding: 18px;
+    backdrop-filter: blur(18px); }
+.metric-card span[data-c-metriccard] { color: #667589;
+    font-size: 13px; }
+.metric-card strong[data-c-metriccard] { color: #162033;
+    font-size: 26px; }

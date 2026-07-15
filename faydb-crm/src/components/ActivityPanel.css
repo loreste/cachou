@@ -1,0 +1,17 @@
+.activity-panel[data-c-activitypanel] { display: grid;
+    gap: 10px; }
+article[data-c-activitypanel] { background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 5px;
+    padding: 16px;
+    backdrop-filter: blur(18px); }
+time[data-c-activitypanel] { color: #6d5dfc;
+    font-size: 12px;
+    font-style: normal; }
+p[data-c-activitypanel] { color: #667589;
+    margin: 0; }
+button[data-c-activitypanel] { margin-top: 6px;
+    width: max-content; }

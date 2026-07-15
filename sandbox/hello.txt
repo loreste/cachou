@@ -1,0 +1,2 @@
+Hello from the Cachou sandbox.
+This file is safe for the demo Files API to read.

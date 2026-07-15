@@ -1,0 +1,101 @@
+<style scoped>
+  .companies {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+    max-width: 1320px;
+    width: 100%;
+  }
+
+  .list,
+  .detail,
+  article {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    backdrop-filter: blur(18px);
+  }
+
+  .list,
+  .detail {
+    padding: 14px;
+  }
+
+  .row {
+    background: transparent;
+    box-shadow: none;
+    color: #162033;
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+    margin-bottom: 6px;
+    padding: 12px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .row.selected,
+  .row:hover {
+    background: #dcf6f0;
+    transform: none;
+  }
+
+  .relationship-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 16px;
+  }
+
+  article {
+    box-shadow: none;
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+  }
+
+  small,
+  p {
+    color: #667589;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  ul {
+    display: grid;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  li {
+    border-top: 1px solid rgba(117, 139, 160, 0.18);
+    padding-top: 8px;
+  }
+
+  @media (max-width: 900px) {
+    .companies,
+    .relationship-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="companies">
+  <div class="list">
+    {mapArray(props.companies, company => html`<button
+      class=${() => props.selectedCompany()?.id === company.id ? "row selected" : "row"}
+      onclick=${() => props.setSelectedCompanyId(company.id)}
+    >
+      <strong>${company.name}</strong>
+      <small>${company.segment} - ${company.owner}</small>
+    </button>`, company => company.id, { uniqueKeys: true, reactiveItems: false })}
+  </div>
+  <div class="detail">
+    {props.selectedCompany() ? props.renderDetail(props.selectedCompany()) : html`<p>Select a company.</p>`}
+  </div>
+</section>

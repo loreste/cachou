@@ -1,0 +1,33 @@
+.login-card[data-c-loginpanel] { background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 28px 80px rgba(16, 22, 36, 0.18);
+    display: grid;
+    gap: 14px;
+    max-width: 430px;
+    padding: 28px;
+    width: min(430px, 100%); }
+span[data-c-loginpanel] { color: #0f766e;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase; }
+label[data-c-loginpanel] { color: #3d4b5e;
+    display: grid;
+    gap: 6px;
+    font-size: 13px; }
+.login-shortcuts[data-c-loginpanel] { display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.error-text[data-c-loginpanel] { color: #b4233c;
+    font-size: 13px;
+    margin: 0; }
+.status-line[data-c-loginpanel] { align-items: center;
+    color: #667589;
+    display: flex;
+    font-size: 13px;
+    gap: 8px; }
+.dot[data-c-loginpanel] { background: #b4233c;
+    border-radius: 999px;
+    height: 8px;
+    width: 8px; }
+.dot.online[data-c-loginpanel] { background: #0f766e; }

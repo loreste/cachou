@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CachouJS Benchmarks</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 24px;
+        color: #172033;
+      }
+      button {
+        margin-bottom: 16px;
+        padding: 8px 12px;
+      }
+      table {
+        border-collapse: collapse;
+        min-width: 520px;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #d7dce5;
+        padding: 8px 10px;
+        text-align: left;
+      }
+      .target {
+        position: absolute;
+        left: -10000px;
+        top: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CachouJS Benchmarks</h1>
+    <button id="run">Run benchmarks</button>
+    <table>
+      <thead>
+        <tr>
+          <th>Benchmark</th>
+          <th>Duration</th>
+          <th>Baseline</th>
+          <th>Delta</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody id="results"></tbody>
+    </table>
+    <div id="target" class="target"></div>
+    <script type="module" src="./perf.js"></script>
+  </body>
+</html>

@@ -1,0 +1,77 @@
+<style scoped>
+  .modal {
+    align-items: center;
+    background: rgba(16, 22, 36, 0.58);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 20px;
+    position: fixed;
+    z-index: 20;
+  }
+
+  .editor {
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 28px 80px rgba(16, 22, 36, 0.22);
+    display: grid;
+    gap: 12px;
+    max-height: calc(100vh - 40px);
+    max-width: 640px;
+    overflow: auto;
+    padding: 22px;
+    width: min(640px, 100%);
+  }
+
+  header,
+  footer {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  label {
+    color: #3d4b5e;
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+  }
+
+  .icon {
+    background: #edf3f7;
+    box-shadow: none;
+    color: #162033;
+    min-height: 34px;
+    padding: 0;
+    width: 34px;
+  }
+
+  .ghost {
+    background: #edf3f7;
+    box-shadow: none;
+    color: #162033;
+  }
+</style>
+
+<div class="modal" role="dialog" aria-modal="true" aria-label="Contact editor">
+  <form class="editor" onsubmit={props.persistDraft}>
+    <header>
+      <h2>{props.current.name ? "Edit contact" : "New contact"}</h2>
+      <button type="button" class="icon" aria-label="Close contact editor" onclick={props.close}>x</button>
+    </header>
+    <label>Name<input value={props.current.name} oninput={event => props.setDraft({ ...props.draft(), name: event.target.value })} /></label>
+    <label>Email<input value={props.current.email} oninput={event => props.setDraft({ ...props.draft(), email: event.target.value })} /></label>
+    <label>Phone<input value={props.current.phone} oninput={event => props.setDraft({ ...props.draft(), phone: event.target.value })} /></label>
+    <label>Company<input value={props.current.company} oninput={event => props.setDraft({ ...props.draft(), company: event.target.value })} /></label>
+    <label>Status<select value={props.current.status} onchange={event => props.setDraft({ ...props.draft(), status: event.target.value })}>
+      {props.statuses.map(status => html`<option value=${status}>${status}</option>`)}
+    </select></label>
+    <label>Owner<input value={props.current.owner} oninput={event => props.setDraft({ ...props.draft(), owner: event.target.value })} /></label>
+    <label>Notes<textarea oninput={event => props.setDraft({ ...props.draft(), notes: event.target.value })}>{props.current.notes}</textarea></label>
+    <footer>
+      <button type="button" class="ghost" onclick={props.close}>Cancel</button>
+      <button disabled={props.busy}>{() => props.busy() ? "Saving..." : "Save contact"}</button>
+    </footer>
+  </form>
+</div>

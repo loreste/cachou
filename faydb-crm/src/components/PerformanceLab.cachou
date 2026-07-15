@@ -1,0 +1,67 @@
+<style scoped>
+  .lab {
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(24, 32, 47, 0.10);
+    display: grid;
+    gap: 16px;
+    max-width: 1320px;
+    padding: 20px;
+    width: 100%;
+    backdrop-filter: blur(18px);
+  }
+
+  .lab-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  article {
+    border: 1px solid rgba(117, 139, 160, 0.18);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  span {
+    color: #667589;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  strong {
+    display: block;
+    font-size: 24px;
+    margin-top: 6px;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  @media (max-width: 860px) {
+    .lab-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<section class="lab">
+  <header>
+    <span>Performance Lab</span>
+    <h2>CRM-scale runtime proof</h2>
+  </header>
+  <div class="lab-grid">
+    <article><span>Contacts rendered</span><strong>{props.contactsCount}</strong></article>
+    <article><span>Pipeline stages</span><strong>{props.stageCount}</strong></article>
+    <article><span>Realtime messages</span><strong>{props.messageCount}</strong></article>
+    <article><span>Last local load</span><strong>{props.lastLoadMs}</strong></article>
+  </div>
+  <div class="actions">
+    <button onclick={props.loadStressContacts}>Load 5,000 contacts</button>
+    <button class="ghost" onclick={props.measureRouteChurn}>Route churn x40</button>
+  </div>
+</section>

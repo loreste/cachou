@@ -1,0 +1,30 @@
+.modal[data-c-companyeditor] { align-items: center;
+    background: rgba(16, 22, 36, 0.58);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 20px;
+    position: fixed;
+    z-index: 20; }
+.editor[data-c-companyeditor] { background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(117, 139, 160, 0.24);
+    border-radius: 14px;
+    box-shadow: 0 28px 80px rgba(16, 22, 36, 0.22);
+    display: grid;
+    gap: 12px;
+    max-width: 560px;
+    padding: 22px;
+    width: min(560px, 100%); }
+header[data-c-companyeditor], footer[data-c-companyeditor] { align-items: center;
+    display: flex;
+    justify-content: space-between; }
+label[data-c-companyeditor] { color: #3d4b5e;
+    display: grid;
+    gap: 6px;
+    font-size: 13px; }
+.icon[data-c-companyeditor], .ghost[data-c-companyeditor] { background: #edf3f7;
+    box-shadow: none;
+    color: #162033; }
+.icon[data-c-companyeditor] { min-height: 34px;
+    padding: 0;
+    width: 34px; }
