@@ -1,8 +1,13 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { createRequire } from "module";
 
 const port = Number(process.env.CACHOU_MEMORY_PORT || 5180);
 const url = `http://127.0.0.1:${port}/benchmarks/memory/`;
+const preferSafari = process.env.CACHOU_TEST_BROWSER === "safari";
+const preferPlaywright =
+  process.env.CACHOU_TEST_BROWSER === "chromium" ||
+  process.env.CACHOU_TEST_BROWSER === "playwright";
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -14,7 +19,9 @@ async function waitForServer() {
     try {
       const res = await fetch(url);
       if (res.ok) return;
-    } catch (err) {}
+    } catch {
+      // retry
+    }
     await wait(250);
   }
   throw new Error(`Timed out waiting for Vite at ${url}`);
@@ -27,15 +34,12 @@ function runOsascript(script) {
     });
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", chunk => stdout += chunk);
-    child.stderr.on("data", chunk => stderr += chunk);
+    child.stdout.on("data", chunk => (stdout += chunk));
+    child.stderr.on("data", chunk => (stderr += chunk));
     child.on("error", reject);
     child.on("close", code => {
-      if (code === 0) {
-        resolve(stdout.trim());
-      } else {
-        reject(new Error(stderr.trim() || `osascript exited with code ${code}`));
-      }
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(stderr.trim() || `osascript exited with code ${code}`));
     });
   });
 }
@@ -58,26 +62,77 @@ async function runSafariMemoryBenchmarks() {
   return {
     passed: Number(parts[1]),
     failed: Number(parts[2]),
-    failures: parts[3] ? parts[3].split(",").filter(Boolean).map(decodeURIComponent) : []
+    failures: parts[3] ? parts[3].split(",").filter(Boolean).map(decodeURIComponent) : [],
+    runner: "safari"
   };
 }
 
-const vite = spawn("./node_modules/.bin/vite", [
-  "--host", "127.0.0.1",
-  "--port", String(port),
-  "--strictPort"
-], {
-  stdio: ["ignore", "pipe", "pipe"]
-});
+async function runPlaywrightMemoryBenchmarks() {
+  const require = createRequire(import.meta.url);
+  let playwright;
+  try {
+    playwright = require("playwright");
+  } catch {
+    throw new Error(
+      "Playwright is not installed. Run: npx playwright install chromium\n" +
+        "Or set CACHOU_TEST_BROWSER=safari on macOS."
+    );
+  }
+
+  const browser = await playwright.chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForFunction(
+      () => typeof window.__CACHOU_MEMORY_RESULTS__ === "object" && window.__CACHOU_MEMORY_RESULTS__ !== null,
+      null,
+      { timeout: 120000 }
+    );
+    const results = await page.evaluate(() => window.__CACHOU_MEMORY_RESULTS__);
+    return {
+      passed: (results.summary || []).length,
+      failed: (results.failures || []).length,
+      failures: results.failures || [],
+      runner: "playwright-chromium"
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+async function runMemoryBenchmarks() {
+  if (preferSafari) return runSafariMemoryBenchmarks();
+  if (preferPlaywright) return runPlaywrightMemoryBenchmarks();
+
+  try {
+    return await runPlaywrightMemoryBenchmarks();
+  } catch (playwrightErr) {
+    if (process.platform === "darwin") {
+      console.warn(`Playwright unavailable (${playwrightErr.message}). Falling back to Safari.`);
+      return runSafariMemoryBenchmarks();
+    }
+    throw playwrightErr;
+  }
+}
+
+const vite = spawn(
+  "./node_modules/.bin/vite",
+  ["--host", "127.0.0.1", "--port", String(port), "--strictPort"],
+  {
+    stdio: ["ignore", "pipe", "pipe"]
+  }
+);
 
 let viteOutput = "";
-vite.stdout.on("data", chunk => viteOutput += chunk);
-vite.stderr.on("data", chunk => viteOutput += chunk);
+vite.stdout.on("data", chunk => (viteOutput += chunk));
+vite.stderr.on("data", chunk => (viteOutput += chunk));
 
 try {
   await waitForServer();
-  const summary = await runSafariMemoryBenchmarks();
-  console.log(`Memory benchmarks: ${summary.passed}/${summary.passed + summary.failed} passed`);
+  const summary = await runMemoryBenchmarks();
+  console.log(
+    `Memory benchmarks (${summary.runner}): ${summary.passed}/${summary.passed + summary.failed} passed`
+  );
   if (summary.failed > 0) {
     for (const failure of summary.failures) {
       console.error(`MEMORY ${failure}`);
@@ -92,8 +147,5 @@ try {
   process.exitCode = 1;
 } finally {
   vite.kill("SIGTERM");
-  await Promise.race([
-    once(vite, "close"),
-    wait(2000)
-  ]);
+  await Promise.race([once(vite, "close"), wait(2000)]);
 }
