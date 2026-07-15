@@ -1,31 +1,27 @@
 # CachouJS
 
-**v0.3.0** · experimental (0.x) · [npm: cachoujs](https://www.npmjs.com/package/cachoujs)
+**v0.3.0** · experimental (0.x)
+
+[npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · **[Get Started](./docs/GETTING_STARTED.md)**
 
 CachouJS is a small fine-grained reactive JavaScript framework: signals update the DOM directly (no virtual DOM), with an optional `.cachou` SFC compiler, Vite plugin, SSR/hydration, and a lightweight router.
 
 Privileged features in **this monorepo** (demo DB, files API, WebSockets) are **demo-gated** (`CACHOU_DEMO=1`) and are not part of a normal app install.
 
-## Install (npm)
+## Get started
+
+**New app (recommended):**
 
 ```bash
-# New app
 npx @cachoujs/create my-app
 cd my-app && npm install && npm run dev
-
-# Or add to an existing project
-npm install cachoujs
 ```
 
-| Package | Role |
-|---------|------|
-| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | Runtime + Vite plugin |
-| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | `.cachou` compiler (optional) |
-| [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | Project scaffold |
+**Add to an existing project:**
 
-**Full install guide:** [docs/INSTALL.md](./docs/INSTALL.md)
-
-### Minimal example
+```bash
+npm install cachoujs
+```
 
 ```js
 import { signal, html, mount } from "cachoujs";
@@ -41,6 +37,14 @@ function App() {
 
 mount(App, document.getElementById("app"));
 ```
+
+| Package | Role |
+|---------|------|
+| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | Runtime + Vite plugin |
+| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | `.cachou` compiler (optional) |
+| [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | Project scaffold |
+
+**Full guide:** [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md) · **Install details:** [docs/INSTALL.md](./docs/INSTALL.md)
 
 ## Why CachouJS
 
@@ -96,7 +100,7 @@ Static production assets can be served without Node. Use Node only for SSR or de
 For contributors working on the framework itself:
 
 ```bash
-git clone https://github.com/cachoujs/cachou.git
+git clone https://github.com/loreste/cachou.git
 cd cachou
 npm install
 npx playwright install chromium   # once, for browser tests
@@ -127,14 +131,14 @@ export default defineConfig({
 
 ## Documentation
 
-**Start at the [documentation home](./docs/README.md).**
+**Start here:** [**Get Started**](./docs/GETTING_STARTED.md) · [Documentation home](./docs/README.md)
 
 | Doc | Contents |
 |-----|----------|
-| [**Install from npm**](./docs/INSTALL.md) | User install, scaffold, imports |
+| [**Get Started**](./docs/GETTING_STARTED.md) | Scaffold, first app, core concepts |
+| [Install from npm](./docs/INSTALL.md) | Packages, imports, production tips |
 | [Publishing](./docs/PUBLISHING.md) | Maintainer release steps |
 | [Documentation home](./docs/README.md) | Full map of all docs |
-| [Getting started](./docs/GETTING_STARTED.md) | Monorepo / contributor setup |
 | [Developer guide](./docs/GUIDE.md) | Concepts: reactivity → SSR → scheduler |
 | [API reference](./docs/API.md) | Every public export |
 | [Templates](./docs/TEMPLATES.md) | `html` directives and bindings |

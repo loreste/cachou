@@ -11,8 +11,8 @@ CachouJS is a fine-grained reactive JavaScript UI framework. Components set up o
 
 | Audience | Read |
 |----------|------|
-| **Install from npm** | [INSTALL.md](./INSTALL.md) · [how-to](./how-to/install-from-npm.md) |
-| New / monorepo clone | [Getting started](./GETTING_STARTED.md) |
+| **Everyone (start here)** | **[Get Started](./GETTING_STARTED.md)** |
+| Install details | [INSTALL.md](./INSTALL.md) · [how-to](./how-to/install-from-npm.md) |
 | Building features | [Developer guide](./GUIDE.md) |
 | Maintainers releasing | [PUBLISHING.md](./PUBLISHING.md) |
 | Editor support | [VS Code extension](../vscode-cachou/README.md) · [how-to](./how-to/use-vscode-extension.md) |

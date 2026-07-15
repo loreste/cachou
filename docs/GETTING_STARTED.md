@@ -1,56 +1,33 @@
-# Getting Started
+# Get Started with CachouJS
 
-This guide covers the **monorepo** (contributors and demos).
+**CachouJS** is a fine-grained reactive JavaScript UI library: components set up once, and **signals** update the DOM directly (no virtual DOM).
 
-**If you only want to build an app with the published package**, use:
+| | |
+|--|--|
+| **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
+| **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
+| **Version** | 0.3.x (experimental 0.x) |
 
-→ **[Install from npm](./INSTALL.md)** (`npm install cachoujs` / `npx @cachoujs/create`)
+This page takes you from zero to a running app, then the first concepts you’ll use every day.
 
-## Prerequisites
+---
 
-| Tool | Required for |
-|------|----------------|
-| Node.js 20+ | Runtime, Vite, scripts, SSR server |
-| npm | Install dependencies |
-| Go 1.22+ | Optional native compiler binary (JS compiler needs no Go) |
-| Playwright Chromium | Browser tests in this repo (`npx playwright install chromium`) |
+## What you need
 
-## Option A — Use this repository
+- **Node.js 20+**
+- **npm** (or pnpm / yarn)
+- A browser
 
-Clone or open the monorepo and install:
+Optional later:
 
-```bash
-npm install
-npx playwright install chromium   # once, for tests
-npm run dev
-```
+- [Vite](https://vitejs.dev/) for a modern dev server (recommended)
+- [VS Code / Cursor extension](../vscode-cachou/README.md) for `.cachou` files
 
-Vite starts with demo APIs enabled (`CACHOU_DEMO=1`).
+---
 
-| URL | Purpose |
-|-----|---------|
-| http://localhost:5173/demo | Main demo application |
-| http://localhost:5173/examples/ | Runnable copy-paste examples |
-| http://localhost:5173/tests/ | In-browser test harness |
-| http://localhost:5173/benchmarks/ | Perf harness |
+## Path A — New project in 1 minute (recommended)
 
-CRM proving ground (separate app under `faydb-crm/`):
-
-```bash
-npm run crm:demo
-```
-
-Change port:
-
-```bash
-PORT=8080 npm run dev
-# or
-CACHOU_PORT=8080 npm run dev
-```
-
-## Option B — Scaffold a new app
-
-**From npm (recommended):**
+Scaffold a Vite app with routes already set up:
 
 ```bash
 npx @cachoujs/create my-app
@@ -59,37 +36,44 @@ npm install
 npm run dev
 ```
 
-**From this monorepo:**
+Open the URL Vite prints (usually **http://localhost:5173**).
+
+You get:
+
+- Home / About / dynamic user routes under `src/routes/`
+- `cachoujs` installed and ready
+- Optional place for `.cachou` components (`src/components/`)
+
+Stop with `Ctrl+C`.
+
+If `npx @cachoujs/create` cannot resolve the package, try:
 
 ```bash
-node packages/create-cachou/index.js my-app
-cd my-app
-npm install
-npm run dev
+npx --package=cachoujs create-cachou my-app
 ```
 
-Full user install guide: [INSTALL.md](./INSTALL.md).
+---
 
+## Path B — Add Cachou to an existing app
 
-### Minimal app (no scaffold)
-
-```html
-<!-- index.html -->
-<div id="app"></div>
-<script type="module" src="/src/main.js"></script>
+```bash
+npm install cachoujs
 ```
 
-```javascript
-// src/main.js
+### 1. Create an entry file
+
+`src/main.js`:
+
+```js
 import { signal, html, mount } from "cachoujs";
 
 function App() {
   const [count, setCount] = signal(0);
 
   return html`
-    <main>
+    <main style="font-family: system-ui; padding: 2rem">
       <h1>Hello CachouJS</h1>
-      <button onclick=${() => setCount(c => c + 1)}>
+      <button type="button" onclick=${() => setCount(c => c + 1)}>
         Count: ${() => count()}
       </button>
     </main>
@@ -99,125 +83,293 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-```javascript
-// vite.config.js
-import { defineConfig } from "vite";
-import { cachou } from "cachoujs/vite";
+### 2. HTML shell
 
-export default defineConfig({
-  plugins: [cachou({ dirs: ["src/components"] })]
-});
-```
-
-In this monorepo, Vite already aliases `cachoujs` → `./src/index.js`. In a published install, resolve comes from `node_modules/cachoujs`.
-
-## First concepts
-
-### Signals
-
-```javascript
-const [name, setName] = signal("Ada");
-name();        // read
-setName("Grace");
-setName(n => n + "!");
-```
-
-### Effects and roots
-
-```javascript
-import { effect, createRoot, onCleanup } from "cachoujs";
-
-const dispose = createRoot(() => {
-  effect(() => {
-    console.log(name());
-    onCleanup(() => console.log("cleanup"));
-  });
-});
-dispose(); // runs cleanups, disposes owned effects
-```
-
-### Templates
-
-Reactive interpolations are functions (or signals used as children/attrs). See [Templates](./TEMPLATES.md).
-
-```javascript
-html`<p>Hello ${() => name()}</p>`
-```
-
-### Mounting
-
-```javascript
-import { mount, unmount } from "cachoujs";
-
-const stop = mount(App, document.getElementById("app"));
-stop(); // or unmount(root)
-```
-
-## Working with `.cachou` files
+`index.html`:
 
 ```html
-<!-- src/components/Greeting.cachou -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Cachou app</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
+```
+
+### 3. Run with Vite (recommended)
+
+```bash
+npm install -D vite
+```
+
+`package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
+}
+```
+
+```bash
+npm run dev
+```
+
+---
+
+## Path C — Clone this repository (contributors / demos)
+
+```bash
+git clone https://github.com/loreste/cachou.git
+cd cachou
+npm install
+npm run dev
+```
+
+| URL | What |
+|-----|------|
+| http://localhost:5173/demo | Framework demo |
+| http://localhost:5173/examples/ | Copy-paste examples |
+| http://localhost:5173/tests/ | Browser tests page |
+
+```bash
+npm run crm:demo    # larger CRM showcase
+npm run test:unit   # Node unit tests
+```
+
+---
+
+## Core ideas (5 minutes)
+
+### 1. Signals hold state
+
+```js
+import { signal } from "cachoujs";
+
+const [count, setCount] = signal(0);
+
+count();           // read → 0
+setCount(1);       // write
+setCount(n => n + 1); // update from previous
+```
+
+### 2. Components run **once**
+
+Unlike React, the component function is **not** re-executed on every change. Setup (creating signals, wiring effects) runs once; the DOM updates through reactive bindings.
+
+### 3. Templates use `html` and reactive functions
+
+Dynamic text and attributes should be functions so Cachou can track dependencies:
+
+```js
+import { html, signal } from "cachoujs";
+
+const [name, setName] = signal("Ada");
+
+// ✅ updates when name changes
+html`<p>Hello ${() => name()}</p>`
+
+// ❌ usually will NOT update
+html`<p>Hello ${name()}</p>`
+```
+
+Events:
+
+```js
+html`<button type="button" onclick=${() => setName("Grace")}>Rename</button>`
+```
+
+### 4. Mount into the page
+
+```js
+import { mount } from "cachoujs";
+
+const dispose = mount(App, document.getElementById("app"));
+// later: dispose() to unmount and clean up
+```
+
+### 5. Lists need keys
+
+```js
+import { mapArray, html, signal } from "cachoujs";
+
+const [items, setItems] = signal([
+  { id: 1, text: "One" },
+  { id: 2, text: "Two" }
+]);
+
+html`
+  <ul>
+    ${mapArray(
+      items,
+      item => html`<li>${() => item.text}</li>`,
+      item => item.id,
+      { uniqueKeys: true }
+    )}
+  </ul>
+`
+```
+
+### 6. Async data with resources
+
+```js
+import { createResource, html } from "cachoujs";
+
+const [data, { loading, error, refetch }] = createResource(async ({ signal }) => {
+  const res = await fetch("/api/items", { signal });
+  return res.json();
+});
+
+html`
+  <div>
+    ${() => (loading() ? "Loading…" : "")}
+    ${() => (error() ? error().message : "")}
+    ${() => JSON.stringify(data() || [])}
+  </div>
+`
+```
+
+---
+
+## Optional: `.cachou` single-file components
+
+```html
+<!-- src/components/Counter.cachou -->
 <script>
   const [n, setN] = signal(props.initial ?? 0);
 </script>
 
 <style scoped>
-  .box { padding: 1rem; }
+  :host { display: block; }
+  button { font: inherit; }
 </style>
 
-<div class="box">
-  <button onclick={() => setN(v => v + 1)}>Hi {props.name}: {n()}</button>
-</div>
+<button type="button" onclick={() => setN(v => v + 1)}>
+  {n()}
+</button>
 ```
 
-Compile:
+`vite.config.js`:
+
+```js
+import { defineConfig } from "vite";
+import { cachou } from "cachoujs/vite";
+
+export default defineConfig({
+  plugins: [
+    cachou({
+      dirs: ["src/components"],
+      runtime: "cachoujs"
+    })
+  ]
+});
+```
+
+Manual compile:
 
 ```bash
-npm run compile
-# or
-node scripts/run-compiler.mjs -dir src/components -out src/components -runtime cachoujs
+npm install -D @cachoujs/compiler
+npx cachou-compiler -dir src/components -out src/components -runtime cachoujs
 ```
 
-With the Vite plugin, `.cachou` files recompile on change. Generated modules import from `"cachoujs"`. Details: [Compiler](./COMPILER.md).
+Literal braces in templates: write `{{` and `}}` for `{` and `}`.  
+Details: [Compiler](./COMPILER.md).
 
-## Production build (this repo)
+---
+
+## Optional: routing
+
+```js
+import { html, Router, Route, Link, navigate } from "cachoujs";
+
+function App() {
+  return html`
+    <nav>
+      ${Link({ href: "/", children: "Home" })}
+      ${Link({ href: "/about", children: "About" })}
+    </nav>
+    ${Router({
+      children: [
+        Route({ path: "/", component: () => html`<h1>Home</h1>` }),
+        Route({ path: "/about", component: () => html`<h1>About</h1>` })
+      ]
+    })}
+  `;
+}
+```
+
+File-based routes: [Use file-based routing](./how-to/use-file-based-routing.md)  
+Loaders: [Use route loaders](./how-to/use-route-loaders.md)
+
+---
+
+## Production checklist
+
+```js
+import { applyProductionSecurityDefaults, mount } from "cachoujs";
+
+applyProductionSecurityDefaults();
+mount(App, document.getElementById("app"));
+```
 
 ```bash
-npm run build
-NODE_ENV=production CACHOU_DEMO=0 npm start
+npm run build    # in a Vite app
+npm run preview
 ```
 
-Demo APIs are **disabled** unless you explicitly set `CACHOU_DEMO=1`. Do not enable that on public hosts. See [Deploy](./DEPLOY.md) and [Security](./SECURITY.md).
+- Use your own APIs and auth (not monorepo demo endpoints).  
+- Deploy static `dist/` to any host: [Deploy](./DEPLOY.md).  
+- Security notes: [Security](./SECURITY.md).
 
-## Quality checks
+---
 
-```bash
-npm run test:unit      # Node tests (no browser)
-npm run test:browser   # Playwright Chromium by default
-npm run check          # full CI-style pipeline
-```
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| UI doesn’t update | Use `${() => count()}` (function), not `${count()}` alone |
+| `Cannot find package 'cachoujs'` | Run `npm install cachoujs` in the app folder |
+| Scaffold / scoped package 404 | Retry later, or `npx --package=cachoujs create-cachou my-app` |
+| Effects / timers leak | Use `mount` and `onCleanup`; see [Prevent leaks](./how-to/prevent-leaks-and-races.md) |
+| Want DevTools | `installDevtoolsHotkey()` or [use DevTools](./how-to/use-devtools.md) |
+
+---
 
 ## Where to go next
 
-1. [How-to guides](./how-to/README.md) — task recipes (start with [create a component](./how-to/create-a-component.md))  
-2. [Developer guide](./GUIDE.md) — full mental model and feature tour  
-3. [API reference](./API.md) — lookup table for every export  
-4. [Examples](../examples/README.md) — live patterns at `/examples/`  
-5. [Scaffold a new app](./how-to/scaffold-a-new-app.md) — standalone Vite project  
+| Goal | Doc |
+|------|-----|
+| Task recipes | [How-to guides](./how-to/README.md) |
+| Full mental model | [Developer guide](./GUIDE.md) |
+| API lookup | [API reference](./API.md) |
+| Templates & directives | [Templates](./TEMPLATES.md) |
+| Install details | [Install](./INSTALL.md) |
+| Contribute to the framework | Clone [loreste/cachou](https://github.com/loreste/cachou) · [setup](./how-to/setup-local-development.md) |
 
-## Project map (this monorepo)
+### Suggested order of how-tos
 
-```text
-src/            Published browser runtime
-plugin/         Vite plugin (cachoujs/vite)
-compiler.go     .cachou compiler
-create-cachou/  App scaffold
-server/         Demo APIs (gated)
-sandbox/        Default files API root
-demo/           Demo application
-examples/       Runnable examples
-tests/          Browser + unit tests
-benchmarks/     Perf suites
-docs/           This documentation
-faydb-crm/      CRM proving ground (not published with the package)
+1. [Create a component](./how-to/create-a-component.md)  
+2. [Manage state](./how-to/manage-state.md)  
+3. [Templates & directives](./how-to/use-templates-and-directives.md)  
+4. [Keyed lists](./how-to/render-keyed-lists.md)  
+5. [Resources](./how-to/use-resources.md)  
+6. [Routing](./how-to/routing-and-lazy-pages.md)  
+
+---
+
+## Packages at a glance
+
+```bash
+npm install cachoujs                 # runtime + vite plugin
+npm install -D @cachoujs/compiler    # optional SFC compiler
+npx @cachoujs/create my-app          # scaffold
 ```

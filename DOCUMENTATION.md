@@ -4,10 +4,10 @@ Canonical documentation lives under **[`docs/`](./docs/README.md)**.
 
 | Start here | Link |
 |------------|------|
-| **Install from npm** | [docs/INSTALL.md](./docs/INSTALL.md) |
+| **Get Started** | [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md) |
+| Install from npm | [docs/INSTALL.md](./docs/INSTALL.md) |
 | Publishing (maintainers) | [docs/PUBLISHING.md](./docs/PUBLISHING.md) |
 | Documentation home | [docs/README.md](./docs/README.md) |
-| Getting started (monorepo) | [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md) |
 | Developer guide | [docs/GUIDE.md](./docs/GUIDE.md) |
 | API reference | [docs/API.md](./docs/API.md) |
 | Templates | [docs/TEMPLATES.md](./docs/TEMPLATES.md) |
