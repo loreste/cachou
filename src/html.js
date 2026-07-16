@@ -260,7 +260,8 @@ function normalizeVal(val) {
   if (Array.isArray(val)) {
     const nodes = [];
     for (const item of val) {
-      nodes.push(...normalizeVal(item));
+      const normalized = normalizeVal(item);
+      for (let i = 0; i < normalized.length; i++) nodes.push(normalized[i]);
     }
     return nodes;
   }

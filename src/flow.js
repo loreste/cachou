@@ -139,8 +139,8 @@ export function Index(props) {
 export function KeepAlive(props) {
   /** @type {Map<string, { fragment: DocumentFragment, dispose: Function|null, nodes: Node[] }>} */
   const cache = new Map();
-  /** @type {string[]} LRU order — most-recently-used at end */
-  const lruOrder = [];
+  /** LRU tracking via Map insertion order — delete + re-set = move to end (O(1)) */
+  const lruMap = new Map();
 
   const max = props.max || Infinity;
   const include = props.include || null;
@@ -165,17 +165,17 @@ export function KeepAlive(props) {
     return true;
   }
 
-  /** Touch an entry — move it to the end of the LRU list. */
+  /** Touch an entry — move it to the end of the LRU map (O(1)). */
   function touchLRU(key) {
-    const idx = lruOrder.indexOf(key);
-    if (idx !== -1) lruOrder.splice(idx, 1);
-    lruOrder.push(key);
+    if (lruMap.has(key)) lruMap.delete(key);
+    lruMap.set(key, true);
   }
 
   /** Evict the least-recently-used entry when over capacity. */
   function evictIfNeeded() {
-    while (cache.size > max && lruOrder.length > 0) {
-      const evictKey = lruOrder.shift();
+    while (cache.size > max && lruMap.size > 0) {
+      const evictKey = lruMap.keys().next().value;
+      lruMap.delete(evictKey);
       const entry = cache.get(evictKey);
       if (entry) {
         if (entry.dispose) entry.dispose();

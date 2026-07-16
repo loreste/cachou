@@ -1,8 +1,8 @@
 /**
- * Image optimization components for CachouJS.
+ * Media components for CachouJS.
  *
- * Provides `Image` and `Picture` components with lazy loading,
- * placeholder support, and responsive image handling.
+ * Provides `Image`, `Picture`, and `Video` components with lazy loading,
+ * placeholder support, responsive handling, and accessibility.
  *
  * @module cachoujs/image
  */
@@ -390,5 +390,224 @@ export function Picture(props) {
 
   picture.appendChild(img);
   container.appendChild(picture);
+  return container;
+}
+
+// ---------------------------------------------------------------------------
+// Video
+// ---------------------------------------------------------------------------
+
+/**
+ * Set up an IntersectionObserver to lazy-load a video when it enters the
+ * viewport.  On intersection, sources are applied from `data-src` and
+ * the video is loaded.
+ *
+ * @param {HTMLVideoElement} video
+ * @param {Array<{src: string, type?: string}>} sources
+ */
+function setupVideoLazy(video, sources) {
+  if (typeof IntersectionObserver === "undefined") {
+    applySources(video, sources);
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          applySources(/** @type {HTMLVideoElement} */ (entry.target), sources);
+          observer.unobserve(entry.target);
+        }
+      }
+    },
+    { rootMargin: "200px" }
+  );
+
+  observer.observe(video);
+  observerMap.set(video, observer);
+}
+
+/**
+ * Apply source elements to a video and trigger load.
+ *
+ * @param {HTMLVideoElement} video
+ * @param {Array<{src: string, type?: string}>} sources
+ */
+function applySources(video, sources) {
+  for (const s of sources) {
+    const source = document.createElement("source");
+    source.src = s.src;
+    if (s.type) source.type = s.type;
+    video.appendChild(source);
+  }
+  video.load();
+}
+
+/**
+ * `<video>` component with lazy loading, poster/placeholder support,
+ * multiple sources, and accessibility enforcement.
+ *
+ * @param {object} props
+ * @param {string} [props.src]                   - Video source URL (single source shorthand).
+ * @param {Array<{src: string, type?: string}>} [props.sources] - Multiple sources for format fallback.
+ * @param {number} [props.width]                 - Explicit width (prevents CLS).
+ * @param {number} [props.height]                - Explicit height.
+ * @param {string|number} [props.aspectRatio]    - Auto-calculate missing dimension (e.g. "16/9").
+ * @param {string} [props.poster]                - Poster image URL shown before playback.
+ * @param {boolean} [props.autoplay=false]        - Autoplay (muted required for most browsers).
+ * @param {boolean} [props.muted=false]           - Mute audio.
+ * @param {boolean} [props.loop=false]            - Loop playback.
+ * @param {boolean} [props.controls=true]         - Show native controls.
+ * @param {boolean} [props.playsinline=false]     - Inline playback on mobile.
+ * @param {boolean} [props.lazy=true]             - Defer loading until near viewport.
+ * @param {boolean} [props.priority=false]        - Eager load, skip lazy.
+ * @param {"auto"|"metadata"|"none"} [props.preload] - Preload hint. Defaults to "metadata", or "none" when lazy.
+ * @param {string} [props.fit="contain"]          - CSS object-fit value.
+ * @param {string} [props.class]                  - Additional CSS class.
+ * @param {Function} [props.onPlay]               - Callback on play.
+ * @param {Function} [props.onPause]              - Callback on pause.
+ * @param {Function} [props.onEnded]              - Callback on ended.
+ * @param {Function} [props.onError]              - Callback on error.
+ * @param {Function} [props.onLoadedMetadata]     - Callback when metadata loads.
+ * @param {string} [props.track]                  - Subtitles/captions track URL.
+ * @param {string} [props.trackLang="en"]         - Track language code.
+ * @param {string} [props.trackLabel]             - Track label for the UI.
+ * @param {"subtitles"|"captions"|"descriptions"} [props.trackKind="subtitles"] - Track kind.
+ * @returns {HTMLElement}
+ *
+ * @example
+ * ```js
+ * Video({
+ *   src: "/hero.mp4",
+ *   poster: "/hero-poster.jpg",
+ *   width: 1280,
+ *   aspectRatio: "16/9",
+ *   autoplay: true,
+ *   muted: true,
+ *   loop: true,
+ *   lazy: true
+ * })
+ * ```
+ */
+export function Video(props) {
+  const priority = Boolean(props.priority);
+  const lazy = priority ? false : (props.lazy !== false);
+  const controls = props.controls !== false;
+  const autoplay = Boolean(props.autoplay);
+  const muted = Boolean(props.muted) || autoplay; // autoplay requires muted in most browsers
+  const loop = Boolean(props.loop);
+  const playsinline = Boolean(props.playsinline) || autoplay;
+  const fit = props.fit || "contain";
+  const preload = props.preload || (lazy ? "none" : "metadata");
+
+  const dims = resolveAspectRatio(props.aspectRatio, props.width, props.height);
+
+  // Build sources array from either props.sources or props.src
+  const sources = props.sources || (props.src ? [{ src: props.src }] : []);
+
+  if (sources.length === 0) {
+    console.warn("[CachouJS Video]: no `src` or `sources` provided.");
+  }
+
+  // --- SSR path ---
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    const attrs = [];
+    if (dims.width != null) attrs.push(`width="${dims.width}"`);
+    if (dims.height != null) attrs.push(`height="${dims.height}"`);
+    if (props.poster) attrs.push(`poster="${props.poster}"`);
+    if (controls) attrs.push("controls");
+    if (autoplay) attrs.push("autoplay");
+    if (muted) attrs.push("muted");
+    if (loop) attrs.push("loop");
+    if (playsinline) attrs.push("playsinline");
+    attrs.push(`preload="${preload}"`);
+    attrs.push(`style="object-fit:${fit};"`);
+
+    let sourcesHTML = "";
+    for (const s of sources) {
+      sourcesHTML += `<source src="${s.src}"${s.type ? ` type="${s.type}"` : ""} />`;
+    }
+
+    let trackHTML = "";
+    if (props.track) {
+      const kind = props.trackKind || "subtitles";
+      const lang = props.trackLang || "en";
+      const label = props.trackLabel || lang;
+      trackHTML = `<track kind="${kind}" src="${props.track}" srclang="${lang}" label="${label}" default />`;
+    }
+
+    return htmlStatic(
+      `<div class="cachou-video${props.class ? " " + props.class : ""}" style="position:relative;display:inline-block;overflow:hidden;">` +
+      `<video ${attrs.join(" ")}>${sourcesHTML}${trackHTML}</video></div>`
+    );
+  }
+
+  // --- Client path ---
+  const container = document.createElement("div");
+  container.className = "cachou-video" + (props.class ? " " + props.class : "");
+  container.style.position = "relative";
+  container.style.display = "inline-block";
+  container.style.overflow = "hidden";
+
+  const video = document.createElement("video");
+  video.style.objectFit = fit;
+
+  if (dims.width != null) video.width = dims.width;
+  if (dims.height != null) video.height = dims.height;
+  if (props.poster) video.poster = props.poster;
+  if (controls) video.controls = true;
+  if (muted) video.muted = true;
+  if (loop) video.loop = true;
+  if (playsinline) video.setAttribute("playsinline", "");
+  if (autoplay) video.autoplay = true;
+  video.preload = preload;
+
+  // Captions/subtitles track
+  if (props.track) {
+    const track = document.createElement("track");
+    track.kind = props.trackKind || "subtitles";
+    track.src = props.track;
+    track.srclang = props.trackLang || "en";
+    track.label = props.trackLabel || track.srclang;
+    track.default = true;
+    video.appendChild(track);
+  }
+
+  // Event handlers
+  video.addEventListener("play", () => {
+    emitFrameworkEvent({ type: "video:play", src: props.src });
+    if (typeof props.onPlay === "function") props.onPlay({ target: video });
+  });
+
+  video.addEventListener("pause", () => {
+    emitFrameworkEvent({ type: "video:pause", src: props.src });
+    if (typeof props.onPause === "function") props.onPause({ target: video });
+  });
+
+  video.addEventListener("ended", () => {
+    emitFrameworkEvent({ type: "video:ended", src: props.src });
+    if (typeof props.onEnded === "function") props.onEnded({ target: video });
+  });
+
+  video.addEventListener("error", (e) => {
+    emitFrameworkEvent({ type: "video:error", src: props.src, error: e });
+    if (typeof props.onError === "function") props.onError({ target: video, error: e });
+  });
+
+  video.addEventListener("loadedmetadata", () => {
+    emitFrameworkEvent({ type: "video:metadata", src: props.src, duration: video.duration });
+    if (typeof props.onLoadedMetadata === "function") {
+      props.onLoadedMetadata({ target: video, duration: video.duration });
+    }
+  });
+
+  // Lazy loading via IntersectionObserver
+  if (lazy && sources.length > 0) {
+    setupVideoLazy(video, sources);
+  } else {
+    applySources(video, sources);
+  }
+
+  container.appendChild(video);
   return container;
 }

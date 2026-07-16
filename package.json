@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -20,11 +20,43 @@
     "./flow": "./src/flow.js",
     "./devtools": "./src/devtools.js",
     "./file-routes": "./src/file-routes.js",
-    "./styles": "./src/styles.js",
-    "./transitions": "./src/transitions.js",
+    "./styles": {
+      "types": "./src/styles.d.ts",
+      "import": "./src/styles.js"
+    },
+    "./transitions": {
+      "types": "./src/transitions.d.ts",
+      "import": "./src/transitions.js"
+    },
     "./image": "./src/image.js",
     "./content": "./src/content.js",
     "./plugin": "./src/plugin.js",
+    "./media": "./src/media.js",
+    "./ui": "./src/ui.js",
+    "./utils": {
+      "types": "./src/utils.d.ts",
+      "import": "./src/utils.js"
+    },
+    "./keys": "./src/keys.js",
+    "./i18n": "./src/i18n.js",
+    "./machine": "./src/machine.js",
+    "./test-utils": "./src/test-utils.js",
+    "./dnd": "./src/dnd.js",
+    "./seo": "./src/seo.js",
+    "./auth": "./src/auth.js",
+    "./feedback": "./src/feedback.js",
+    "./validate": {
+      "types": "./src/validate.d.ts",
+      "import": "./src/validate.js"
+    },
+    "./mask": {
+      "types": "./src/mask.d.ts",
+      "import": "./src/mask.js"
+    },
+    "./upload": {
+      "types": "./src/upload.d.ts",
+      "import": "./src/upload.js"
+    },
     "./vite": "./plugin/vite.js",
     "./package.json": "./package.json"
   },

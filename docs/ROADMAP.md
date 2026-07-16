@@ -112,7 +112,7 @@ Public plan for framework completeness. Status reflects the **0.4** line.
 
 Releases after **0.4.0** use **small increments** (patch-first):
 
-- **Current:** `0.4.2` · **Next ship:** `0.4.3`, …
+- **Current:** `0.4.3` · **Next ship:** `0.4.4`, …
 - **Default:** patch for fixes, docs, CI, and incremental APIs
 - **Minor** (`0.5.0`) only for a deliberate feature-line jump
 - All published packages share the same version

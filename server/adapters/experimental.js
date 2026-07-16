@@ -4,27 +4,19 @@
  */
 
 export function unsupported(name) {
+  const msg = `[cachou] The "${name}" adapter is not implemented. Supported adapters: sqlite, postgres, memory. ` +
+    `To use ${name}, build a custom adapter or contribute one at github.com/loreste/cachou.`;
+
+  function fail() {
+    throw Object.assign(new Error(msg), { statusCode: 501 });
+  }
+
   return {
-    async getTodos() {
-      throw new Error(
-        `Cachou adapter "${name}" is experimental and not implemented for production use. ` +
-          `Use sqlite/memory, or build your own API. Set CACHOU_DB_EXPERIMENTAL=1 only for local experiments.`
-      );
-    },
-    async addTodo() {
-      return this.getTodos();
-    },
-    async updateTodo() {
-      return this.getTodos();
-    },
-    async deleteTodo() {
-      return this.getTodos();
-    },
-    async runQuery() {
-      return this.getTodos();
-    },
-    async syncTable() {
-      return this.getTodos();
-    }
+    getTodos: fail,
+    addTodo: fail,
+    updateTodo: fail,
+    deleteTodo: fail,
+    runQuery: fail,
+    syncTable: fail
   };
 }

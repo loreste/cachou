@@ -78,8 +78,11 @@ export function guard(guardFn) {
   };
 }
 
-/** @deprecated Use `guard()` instead. */
-export const addMiddleware = guard;
+/** @deprecated Use `guard()` instead — will be removed in 1.0. */
+export function addMiddleware(guardFn) {
+  if (typeof console !== "undefined") console.warn("[cachou] addMiddleware() is deprecated. Use guard() instead.");
+  return guard(guardFn);
+}
 
 /**
  * Run a chain of middleware functions sequentially.
@@ -261,8 +264,8 @@ export function createAction(handler) {
 
 export function navigate(path, options = {}) {
   const from = currentPath() + currentSearch();
-  for (const guard of Array.from(navigationGuards)) {
-    const result = guard({ from, to: path, replace: Boolean(options.replace) });
+  for (const g of navigationGuards) {
+    const result = g({ from, to: path, replace: Boolean(options.replace) });
     if (result === false) {
       return false;
     }
@@ -482,11 +485,21 @@ function getNormalizedPath(p) {
  * - /docs/:path* (rest param)
  * - * (catch-all)
  */
+const _splitCache = new Map();
+function splitCached(path) {
+  let parts = _splitCache.get(path);
+  if (!parts) {
+    parts = path.split("/").filter(Boolean);
+    if (_splitCache.size < 500) _splitCache.set(path, parts);
+  }
+  return parts;
+}
+
 function matchPath(routePath, pathValue) {
   if (routePath === "*") return { matches: true, params: {} };
 
-  const routeParts = routePath.split("/").filter(Boolean);
-  const currentParts = pathValue.split("/").filter(Boolean);
+  const routeParts = splitCached(routePath).slice();
+  const currentParts = splitCached(pathValue);
 
   // trailing /* => prefix match
   let prefixWildcard = false;

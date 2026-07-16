@@ -1,15 +1,16 @@
-import { describe, it } from "node:test";
+import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
 // Image/Picture require DOM (html tagged template), so we test the module
 // imports successfully and test the resolveAspectRatio logic indirectly
 // by checking the exported API shape.
 
-describe("image module", () => {
-  it("exports Image and Picture", async () => {
+describe("media module exports", () => {
+  it("exports Image, Picture, and Video", async () => {
     const mod = await import("../../src/image.js");
     assert.equal(typeof mod.Image, "function");
     assert.equal(typeof mod.Picture, "function");
+    assert.equal(typeof mod.Video, "function");
   });
 });
 
@@ -107,5 +108,82 @@ describe("aspect ratio resolution (unit logic)", () => {
   it("handles very wide ratio", () => {
     const result = resolveAspectRatio("21/9", 2100, undefined);
     assert.equal(result.height, 900);
+  });
+});
+
+// Video component — SSR path (no DOM)
+describe("Video component (SSR)", () => {
+  let Video;
+  before(async () => {
+    const mod = await import("../../src/image.js");
+    Video = mod.Video;
+  });
+
+  it("renders with src", () => {
+    const result = Video({ src: "/hero.mp4" });
+    // In SSR, returns an htmlStatic node — just verify it doesn't throw
+    assert.ok(result != null);
+  });
+
+  it("renders with multiple sources", () => {
+    const result = Video({
+      sources: [
+        { src: "/video.webm", type: "video/webm" },
+        { src: "/video.mp4", type: "video/mp4" }
+      ]
+    });
+    assert.ok(result != null);
+  });
+
+  it("renders with poster", () => {
+    const result = Video({ src: "/v.mp4", poster: "/poster.jpg" });
+    assert.ok(result != null);
+  });
+
+  it("renders with dimensions and aspect ratio", () => {
+    const result = Video({ src: "/v.mp4", width: 1920, aspectRatio: "16/9" });
+    assert.ok(result != null);
+  });
+
+  it("renders with autoplay + muted", () => {
+    const result = Video({ src: "/bg.mp4", autoplay: true, muted: true, loop: true });
+    assert.ok(result != null);
+  });
+
+  it("renders with subtitles track", () => {
+    const result = Video({
+      src: "/v.mp4",
+      track: "/subs.vtt",
+      trackLang: "en",
+      trackLabel: "English",
+      trackKind: "captions"
+    });
+    assert.ok(result != null);
+  });
+
+  it("renders with controls disabled", () => {
+    const result = Video({ src: "/v.mp4", controls: false });
+    assert.ok(result != null);
+  });
+
+  it("renders with priority (eager loading)", () => {
+    const result = Video({ src: "/v.mp4", priority: true });
+    assert.ok(result != null);
+  });
+
+  it("renders with custom class and fit", () => {
+    const result = Video({ src: "/v.mp4", class: "hero-video", fit: "cover" });
+    assert.ok(result != null);
+  });
+
+  it("handles no src or sources gracefully", () => {
+    // Should warn but not crash
+    const result = Video({});
+    assert.ok(result != null);
+  });
+
+  it("handles empty sources array", () => {
+    const result = Video({ sources: [] });
+    assert.ok(result != null);
   });
 });

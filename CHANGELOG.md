@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.4.3
+
+Patch release expanding app primitives and media.
+
+### Added
+
+- **UI kit** — Toast, Drawer, Popover, Menu, DataTable, InfiniteScroll, Tabs, Accordion, Breadcrumbs, Tooltip, Avatar, Badge
+- **Auth** — `createAuth` primitives and route protection helpers
+- **i18n** — `createI18n` with locale loading and formatting
+- **State machine** — `machine()`
+- **Keys** — `hotkey`, `holdKey`
+- **Utils** — `debounce`, `throttle`, `useMedia`, `useBreakpoint`, `useColorMode`, `useClipboard`, `useOnline`, `useIdle`
+- **DnD** — `createDragDrop`
+- **SEO** — sitemap, robots, OG tags, structured data, canonical URL helpers
+- **Feedback** — Progress, Spinner, Skeleton, CommandPalette, CSV export
+- **Validate / mask** — form validators, input masks
+- **Upload** — `createUpload`, `DropZone`
+- **Media** — image/video compress helpers, srcset, blur placeholder, `Video`
+- **Test utils** — `renderTest`, `act`, `fireEvent`, `waitFor`
+- Module subpath exports + dedicated `.d.ts` for several packages
+- Postgres adapter and experimental adapter improvements
+
+### Tests
+
+- Expanded unit coverage (449 tests)
+
 ## 0.4.2
 
 Patch release with styling, transitions, content, images, plugins, and hardening.

@@ -6,7 +6,7 @@ let activeEffect = null;
 let activeOwner = null;
 const effectStack = [];
 let batchDepth = 0;
-const batchedUpdates = new Set();
+let batchedUpdates = new Set();
 let activeErrorHandlers = [];
 const frameworkEventListeners = new Set();
 const scheduledQueues = {
@@ -55,7 +55,7 @@ export function emitFrameworkEvent(event) {
     time: Date.now(),
     ...event
   };
-  for (const listener of Array.from(frameworkEventListeners)) {
+  for (const listener of frameworkEventListeners) {
     try {
       listener(normalized);
     } catch (err) {
@@ -378,8 +378,8 @@ export function signal(initialValue, options = {}) {
         }
       } else {
         const subs = Array.from(subscribers);
-        for (const sub of subs) {
-          runSubscriber(sub);
+        for (let i = 0; i < subs.length; i++) {
+          runSubscriber(subs[i]);
         }
       }
     }
@@ -585,8 +585,8 @@ export function memo(fn, options = {}) {
       if (this.disposed || dirty) return;
       dirty = true;
       const subs = Array.from(subscribers);
-      for (const sub of subs) {
-        sub.run();
+      for (let i = 0; i < subs.length; i++) {
+        subs[i].run();
       }
     }
   };
@@ -654,8 +654,8 @@ export function batch(fn) {
   } finally {
     batchDepth--;
     if (batchDepth === 0) {
-      const updates = Array.from(batchedUpdates);
-      batchedUpdates.clear();
+      const updates = batchedUpdates;
+      batchedUpdates = new Set();
       for (const sub of updates) {
         runSubscriber(sub);
       }

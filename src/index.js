@@ -137,7 +137,16 @@ export {
   easeInOut,
   cubicBezier
 } from "./transitions.js";
-export { Image, Picture } from "./image.js";
+export { createToast, Drawer, Popover, Menu, DataTable, InfiniteScroll, Tabs, Accordion, Breadcrumbs, Tooltip, Avatar, Badge } from "./ui.js";
+export { Image, Picture, Video } from "./image.js";
+export {
+  compressImage,
+  generateSrcSet,
+  blurPlaceholder,
+  compressVideo,
+  videoPoster,
+  generateVideoFormats
+} from "./media.js";
 export { launch, getApp, createApp, useApp } from "./plugin.js";
 export {
   z,
@@ -149,3 +158,30 @@ export {
   addEntries,
   clearCollection
 } from "./content.js";
+export {
+  debounce,
+  throttle,
+  useMedia,
+  useBreakpoint,
+  useColorMode,
+  useClipboard,
+  useOnline,
+  useIdle
+} from "./utils.js";
+export { hotkey, holdKey } from "./keys.js";
+export { createI18n } from "./i18n.js";
+export { machine } from "./machine.js";
+export { renderTest, act, fireEvent, waitFor } from "./test-utils.js";
+export { createDragDrop } from "./dnd.js";
+export {
+  generateSitemap,
+  generateRobots,
+  ogTags,
+  structuredData,
+  canonicalUrl
+} from "./seo.js";
+export { createAuth } from "./auth.js";
+export { Progress, Spinner, Skeleton, CommandPalette, csvExport, downloadCSV } from "./feedback.js";
+export { validators, compose, createValidator } from "./validate.js";
+export { mask, masks } from "./mask.js";
+export { createUpload, DropZone } from "./upload.js";
