@@ -219,7 +219,14 @@ describe("validators — other formats", () => {
 
   it("dateISO accepts YYYY-MM-DD", () => {
     assert.ok(validators.dateISO("2024-06-15").valid);
+    // Winter dates used to fail west of UTC when local midnight was mixed with UTC getters
+    assert.ok(validators.dateISO("2024-01-01").valid);
+    assert.ok(validators.dateISO("2024-12-31").valid);
+    assert.ok(validators.dateISO("2024-02-29").valid); // leap year
+    assert.ok(!validators.dateISO("2023-02-29").valid); // not a leap day
+    assert.ok(!validators.dateISO("2024-04-31").valid); // invalid calendar day
     assert.ok(!validators.dateISO("06/15/2024").valid);
+    assert.ok(!validators.dateISO("2024-6-15").valid); // must be zero-padded
     assert.ok(validators.dateISO("").valid); // optional
   });
 

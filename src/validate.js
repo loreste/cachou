@@ -328,6 +328,8 @@ export const validators = {
 
   /**
    * ISO date in YYYY-MM-DD format.
+   * Validates the calendar date (rejects e.g. 2023-02-29) without depending
+   * on the host timezone. Uses UTC components only — never local midnight.
    * @param {*} value
    * @returns {ValidationResult}
    */
@@ -335,11 +337,15 @@ export const validators = {
     if (value == null || value === "") return result(true);
     const str = String(value);
     if (!DATE_ISO_RE.test(str)) return result(false, "Must be a valid date (YYYY-MM-DD)");
-    const d = new Date(str + "T00:00:00");
-    const valid = !isNaN(d.getTime()) &&
-      d.getUTCFullYear() === parseInt(str.slice(0, 4), 10) &&
-      d.getUTCMonth() + 1 === parseInt(str.slice(5, 7), 10) &&
-      d.getUTCDate() === parseInt(str.slice(8, 10), 10);
+    const y = parseInt(str.slice(0, 4), 10);
+    const m = parseInt(str.slice(5, 7), 10);
+    const day = parseInt(str.slice(8, 10), 10);
+    // Date.UTC rolls over invalid days (e.g. Apr 31 → May 1); round-trip check catches that.
+    const d = new Date(Date.UTC(y, m - 1, day));
+    const valid =
+      d.getUTCFullYear() === y &&
+      d.getUTCMonth() + 1 === m &&
+      d.getUTCDate() === day;
     return result(valid, "Must be a valid date (YYYY-MM-DD)");
   },
 
