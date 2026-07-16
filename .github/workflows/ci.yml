@@ -28,6 +28,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
+          # No go.sum in this repo (compiler is a single-file build).
+          cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -50,9 +52,8 @@ jobs:
   verify-macos:
     name: Verify (macOS Safari optional)
     runs-on: macos-latest
-    # Safari automation is flaky on GitHub-hosted macOS (AppleEvent timeouts).
-    # Keep the signal without failing the required Linux gate.
-    continue-on-error: true
+    # Optional signal only. Step-level continue-on-error keeps the job (and
+    # commit check) green when Safari automation times out on GHA runners.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     env:
       npm_config_cache: /tmp/cachou-npm-cache
@@ -73,6 +74,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
+          cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -81,5 +83,15 @@ jobs:
         run: npm run test:unit
 
       - name: Browser tests (Safari)
-        run: npm run test:browser
+        id: safari
+        continue-on-error: true
         timeout-minutes: 10
+        run: npm run test:browser
+
+      - name: Note Safari outcome
+        run: |
+          if [ "${{ steps.safari.outcome }}" = "failure" ]; then
+            echo "::warning::Safari browser tests failed (optional on GHA macOS; Linux Chromium is the required gate)"
+          else
+            echo "Safari browser tests passed"
+          fi
