@@ -139,14 +139,7 @@ export {
 } from "./transitions.js";
 export { createToast, Drawer, Popover, Menu, DataTable, InfiniteScroll, Tabs, Accordion, Breadcrumbs, Tooltip, Avatar, Badge } from "./ui.js";
 export { Image, Picture, Video } from "./image.js";
-export {
-  compressImage,
-  generateSrcSet,
-  blurPlaceholder,
-  compressVideo,
-  videoPoster,
-  generateVideoFormats
-} from "./media.js";
+// Server-only media helpers: import from "cachoujs/media" (not the browser entry).
 export { launch, getApp, createApp, useApp } from "./plugin.js";
 export {
   z,

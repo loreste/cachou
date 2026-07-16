@@ -367,10 +367,16 @@ function quote(s) {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
-/** Dynamically load sharp, throwing a clear error if not installed. */
+/**
+ * Dynamically load sharp without a static import specifier so browser bundlers
+ * (Vite/Rolldown) do not try to resolve the optional Node-only dependency.
+ */
 async function loadSharp() {
   try {
-    const mod = await import("sharp");
+    // Variable specifier + Function form both avoid static analysis.
+    const specifier = "sharp";
+    const dynamicImport = new Function("s", "return import(s)");
+    const mod = await dynamicImport(specifier);
     return mod.default || mod;
   } catch {
     throw new Error(

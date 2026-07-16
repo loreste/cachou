@@ -217,10 +217,10 @@ export default defineConfig({
     __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false
   },
   optimizeDeps: {
-    exclude: ["pg", "mongodb", "mysql2/promise", "firebase-admin"]
+    exclude: ["pg", "mongodb", "mysql2/promise", "firebase-admin", "sharp"]
   },
   ssr: {
-    external: ["pg", "mongodb", "mysql2/promise", "firebase-admin"]
+    external: ["pg", "mongodb", "mysql2/promise", "firebase-admin", "sharp"]
   },
   server: {
     port: Number(PORT),
@@ -243,7 +243,15 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ["firebase-admin", "mongodb", "mysql2/promise", "pg"],
+      // Node-only optional peers — never bundle into browser demos/tests.
+      external: [
+        "firebase-admin",
+        "mongodb",
+        "mysql2/promise",
+        "pg",
+        "sharp",
+        /^node:/
+      ],
       input: {
         demo: path.resolve(__dirname, "demo", "index.html"),
         tests: path.resolve(__dirname, "tests", "index.html"),
