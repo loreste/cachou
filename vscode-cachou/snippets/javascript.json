@@ -112,5 +112,67 @@
       ""
     ],
     "description": "Production security defaults"
+  },
+  "Cachou launch app": {
+    "prefix": ["claunch", "cachou-launch"],
+    "body": [
+      "import { launch, html, signal } from \"cachoujs\";",
+      "",
+      "function App() {",
+      "  return html`<h1>${1:Hello Cachou}</h1>`;",
+      "}",
+      "",
+      "const app = launch(App);",
+      "app.mount(\"#${2:app}\");",
+      ""
+    ],
+    "description": "Launch a Cachou app with the plugin system"
+  },
+  "Cachou guard": {
+    "prefix": "cguard",
+    "body": [
+      "import { guard } from \"cachoujs\";",
+      "",
+      "guard(async (to, from, next) => {",
+      "  if (${1:!isAuthenticated()}) {",
+      "    next('${2:/login}');",
+      "  } else {",
+      "    next();",
+      "  }",
+      "});"
+    ],
+    "description": "Route guard"
+  },
+  "Cachou theme": {
+    "prefix": "ctheme",
+    "body": [
+      "import { theme } from \"cachoujs\";",
+      "",
+      "const ${1:appTheme} = theme({",
+      "  primary: '${2:#3b82f6}',",
+      "  bg: '${3:#ffffff}',",
+      "  text: '${4:#1e293b}',",
+      "  spacing: '${5:8px}',",
+      "  radius: '${6:6px}'",
+      "});"
+    ],
+    "description": "Create design tokens theme"
+  },
+  "Cachou transition": {
+    "prefix": "ctransition",
+    "body": [
+      "import { fade, slide, fly, scale } from \"cachoujs/transitions\";",
+      "",
+      "const t = ${1:fade}(${2:node}, { duration: ${3:300} });",
+      "t.enter();"
+    ],
+    "description": "Transition (fade/slide/fly/scale)"
+  },
+  "Cachou import styles": {
+    "prefix": ["cstyles", "ccss"],
+    "body": [
+      "import { css, cx, theme } from \"cachoujs/styles\";"
+    ],
+    "description": "Import Cachou styling utilities"
   }
 }

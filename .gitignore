@@ -33,6 +33,9 @@ playwright-report/
 test-results/
 .playwright/
 
+# Claude
+CLAUDE.md
+
 # OS / editor
 .DS_Store
 Thumbs.db

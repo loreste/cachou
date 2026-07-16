@@ -59,6 +59,27 @@ async function resolveSafePath(root, requestedPath) {
     err.statusCode = 403;
     throw err;
   }
+
+  // Check each path segment for symlinks to prevent TOCTOU symlink attacks
+  const segments = lexicalRel ? lexicalRel.split(path.sep) : [];
+  let current = rootReal;
+  for (const segment of segments) {
+    current = path.join(current, segment);
+    try {
+      const lstat = await fs.promises.lstat(current);
+      if (lstat.isSymbolicLink()) {
+        const err = new Error("Symbolic links are not allowed");
+        err.statusCode = 403;
+        throw err;
+      }
+    } catch (e) {
+      if (e.statusCode === 403) throw e;
+      const err = new Error("Path not found");
+      err.statusCode = 404;
+      throw err;
+    }
+  }
+
   const targetReal = await fs.promises.realpath(target);
   if (targetReal !== rootReal && !targetReal.startsWith(rootReal + path.sep)) {
     const err = new Error("Path is outside the configured files root");

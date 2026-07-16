@@ -135,6 +135,13 @@ func compileFile(path string, outDir string, runtimeImport string) error {
 		scopedHTML = htmlContent
 	}
 
+	// CSS reactive binding: transform bind(expr) in styles to CSS custom
+	// properties and generate reactive JS that sets them on the component root.
+	var vBindSetup string
+	if scopedCSS != "" {
+		scopedCSS, vBindSetup = compileVBindCSS(scopedCSS)
+	}
+
 	// Replace JSX-style {expression} with template literal ${expression}
 	compiledHTML, err := compileTemplateExpressions(scopedHTML)
 	if err != nil {
@@ -149,6 +156,20 @@ func compileFile(path string, outDir string, runtimeImport string) error {
 			return err
 		}
 		styleImport = fmt.Sprintf("import \"./%s.css\";\n", nameWithoutExt)
+	}
+
+	// Dead code elimination: skip setup section if script is empty
+	setupSection := ""
+	if strings.TrimSpace(scriptContent) != "" || vBindSetup != "" {
+		combinedSetup := scriptContent
+		if vBindSetup != "" {
+			if combinedSetup != "" {
+				combinedSetup += "\n\n  // --- CSS v-bind reactive bindings ---\n" + vBindSetup
+			} else {
+				combinedSetup = "// --- CSS v-bind reactive bindings ---\n" + vBindSetup
+			}
+		}
+		setupSection = "\n  // --- Component Setup ---\n" + indentLines(combinedSetup, "  ") + "\n"
 	}
 
 	// Format JS Component output
@@ -186,15 +207,12 @@ const {
   Match
 } = Cachou;
 
-export default function %s(props = {}) {
-  // --- Component Setup ---
-  %s
-
+export default function %s(props = {}) {%s
   // --- Render ---
   return %s;
 }
 //# sourceMappingURL=%s
-`, filepath.ToSlash(base), runtimeImport, styleImport, componentName, indentLines(scriptContent, "  "), renderExpression(compiledHTML), mapFile)
+`, filepath.ToSlash(base), runtimeImport, styleImport, componentName, setupSection, renderExpression(compiledHTML), mapFile)
 
 	err = os.WriteFile(outputPath, []byte(outputJS), 0644)
 	if err != nil {
@@ -210,12 +228,38 @@ export default function %s(props = {}) {
 	return nil
 }
 
+func vlqEncode(value int) string {
+	const vlqBase = 32
+	const vlqBaseMask = vlqBase - 1
+	const vlqContinuationBit = vlqBase
+	const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+	vlq := value << 1
+	if value < 0 {
+		vlq = ((-value) << 1) | 1
+	}
+	var encoded strings.Builder
+	for {
+		digit := vlq & vlqBaseMask
+		vlq >>= 5
+		if vlq > 0 {
+			digit |= vlqContinuationBit
+		}
+		encoded.WriteByte(base64Chars[digit])
+		if vlq == 0 {
+			break
+		}
+	}
+	return encoded.String()
+}
+
 func writeSourceMap(mapPath, fileName, sourceName, sourceContent, generated string) error {
 	// Line-level identity mapping: each generated line maps back to the same line
 	// number in the .cachou source when possible (best-effort for navigation).
 	genLines := strings.Split(generated, "\n")
 	srcLines := strings.Split(sourceContent, "\n")
 	var mappings []string
+	prevSrcLine := 0
 	for i := range genLines {
 		srcLine := i
 		if srcLine >= len(srcLines) {
@@ -224,10 +268,10 @@ func writeSourceMap(mapPath, fileName, sourceName, sourceContent, generated stri
 		if srcLine < 0 {
 			srcLine = 0
 		}
-		// VLQ segments are complex; emit empty per-line mappings with sourcesContent
-		// so tools still open the original file. Fine-grained column maps can come later.
-		_ = srcLine
-		mappings = append(mappings, "")
+		// VLQ: genCol=0, sourceIdx=0, srcLine=delta, srcCol=0
+		segment := vlqEncode(0) + vlqEncode(0) + vlqEncode(srcLine-prevSrcLine) + vlqEncode(0)
+		prevSrcLine = srcLine
+		mappings = append(mappings, segment)
 	}
 
 	escapedSource, err := jsonQuote(sourceContent)
@@ -283,7 +327,157 @@ func renderExpression(compiledHTML string) string {
 	if !strings.Contains(compiledHTML, "${") {
 		return "htmlStatic(" + strconv.Quote(compiledHTML) + ")"
 	}
+
+	// Static hoisting: if the template has large static regions around dynamic
+	// parts, try to split top-level sibling elements into static fragments
+	// where possible.  We look for top-level elements that contain no ${} and
+	// hoist them to htmlStatic() calls, wrapping the remaining dynamic parts
+	// in html`` and combining via an array.
+	fragments := splitStaticFragments(compiledHTML)
+	if len(fragments) > 1 {
+		var parts []string
+		for _, f := range fragments {
+			if f.dynamic {
+				parts = append(parts, "html`"+f.content+"`")
+			} else {
+				parts = append(parts, "htmlStatic("+strconv.Quote(f.content)+")")
+			}
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	}
+
 	return "html`" + "\n" + compiledHTML + "\n" + "`"
+}
+
+type templateFragment struct {
+	content string
+	dynamic bool
+}
+
+// splitStaticFragments splits a compiled HTML template into top-level
+// sibling fragments, marking each as static or dynamic based on whether
+// it contains ${} expressions.  Only splits when there are multiple
+// top-level elements (siblings) to avoid breaking single-root templates.
+func splitStaticFragments(html string) []templateFragment {
+	// Find top-level element boundaries.
+	type elementSpan struct {
+		start int
+		end   int
+	}
+	var spans []elementSpan
+	i := 0
+	for i < len(html) {
+		// Skip whitespace between top-level elements
+		for i < len(html) && isWhitespace(html[i]) {
+			i++
+		}
+		if i >= len(html) {
+			break
+		}
+		if html[i] != '<' {
+			// Text or expression at top level — not safe to split
+			return nil
+		}
+		if i+1 < len(html) && html[i+1] == '!' {
+			// Comment node — skip to end
+			endComment := strings.Index(html[i:], "-->")
+			if endComment == -1 {
+				return nil
+			}
+			i += endComment + 3
+			continue
+		}
+		// Find the tag name
+		tagStart := i
+		tagEnd := findTagEnd(html, i+1)
+		if tagEnd == -1 {
+			return nil
+		}
+		tagName := readTagName(html[i : tagEnd+1])
+		if tagName == "" {
+			return nil
+		}
+		// Self-closing?
+		if html[tagEnd-1] == '/' || isVoidElement(tagName) {
+			spans = append(spans, elementSpan{tagStart, tagEnd + 1})
+			i = tagEnd + 1
+			continue
+		}
+		// Find matching close tag
+		closeIdx := findTopLevelCloseTag(html, tagName, tagEnd+1)
+		if closeIdx == -1 {
+			return nil
+		}
+		closeEnd := closeIdx + len(tagName) + 3 // len("</") + tagName + len(">")
+		spans = append(spans, elementSpan{tagStart, closeEnd})
+		i = closeEnd
+	}
+
+	if len(spans) < 2 {
+		return nil
+	}
+
+	hasStatic := false
+	hasDynamic := false
+	var fragments []templateFragment
+	for _, span := range spans {
+		content := html[span.start:span.end]
+		isDynamic := strings.Contains(content, "${")
+		fragments = append(fragments, templateFragment{content: content, dynamic: isDynamic})
+		if isDynamic {
+			hasDynamic = true
+		} else {
+			hasStatic = true
+		}
+	}
+
+	// Only split if there's a mix of static and dynamic
+	if !hasStatic || !hasDynamic {
+		return nil
+	}
+
+	return fragments
+}
+
+func isVoidElement(tag string) bool {
+	switch strings.ToLower(tag) {
+	case "area", "base", "br", "col", "embed", "hr", "img", "input",
+		"link", "meta", "param", "source", "track", "wbr":
+		return true
+	}
+	return false
+}
+
+// findTopLevelCloseTag finds the closing </tagName> for a top-level element,
+// accounting for nested elements with the same tag name.
+func findTopLevelCloseTag(html string, tagName string, start int) int {
+	depth := 1
+	lowerName := strings.ToLower(tagName)
+	i := start
+	for i < len(html) {
+		if html[i] != '<' {
+			i++
+			continue
+		}
+		end := findTagEnd(html, i+1)
+		if end == -1 {
+			return -1
+		}
+		tag := html[i : end+1]
+		name := strings.ToLower(readTagName(tag))
+		if name == lowerName {
+			if len(tag) > 1 && tag[1] == '/' {
+				depth--
+				if depth == 0 {
+					return i
+				}
+			} else if tag[len(tag)-2] != '/' {
+				depth++
+			}
+		}
+		i = end + 1
+	}
+	return -1
 }
 
 type componentSections struct {
@@ -867,4 +1061,98 @@ func indentLines(str string, indent string) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// compileVBindCSS finds bind(expr) patterns in CSS, replaces them with
+// CSS custom properties (var(--cachou-v-<name>)), and returns the updated
+// CSS along with JS code that creates an effect to set those properties.
+//
+//	Input CSS:  .box { color: v-bind(textColor); }
+//	Output CSS: .box { color: var(--cachou-v-textColor); }
+//	Output JS:  effect(() => { const _el = document.querySelector("[data-c-...]");
+//	              if (_el) _el.style.setProperty("--cachou-v-textColor", textColor); });
+func compileVBindCSS(css string) (string, string) {
+	re := regexp.MustCompile(`bind\(([^)]+)\)`)
+	matches := re.FindAllStringSubmatch(css, -1)
+	if len(matches) == 0 {
+		return css, ""
+	}
+
+	// Deduplicate bindings
+	seen := make(map[string]bool)
+	type binding struct {
+		expr    string
+		varName string
+	}
+	var bindings []binding
+
+	result := re.ReplaceAllStringFunc(css, func(match string) string {
+		sub := re.FindStringSubmatch(match)
+		expr := strings.TrimSpace(sub[1])
+		// Sanitize expression to create a valid CSS custom property name
+		varName := sanitizeVBindName(expr)
+		if !seen[varName] {
+			seen[varName] = true
+			bindings = append(bindings, binding{expr: expr, varName: varName})
+		}
+		return "var(--cachou-v-" + varName + ")"
+	})
+
+	if len(bindings) == 0 {
+		return result, ""
+	}
+
+	// Generate reactive JS that sets the CSS custom properties on the root
+	// element.  The component root is the first child rendered, so we use a
+	// ref-style approach: onMount sets properties via the returned element.
+	var js strings.Builder
+	js.WriteString("onMount(() => {\n")
+	js.WriteString("  const _root = document.querySelector('[data-cachou-vbind]') || document.body;\n")
+	js.WriteString("  effect(() => {\n")
+	for _, b := range bindings {
+		// If the expression is a simple identifier (signal getter), auto-call it.
+		// If it already contains () or . or [], use as-is.
+		expr := b.expr
+		if isSimpleIdentifier(expr) {
+			expr = expr + "()"
+		}
+		js.WriteString(fmt.Sprintf("    _root.style.setProperty('--cachou-v-%s', String(%s));\n", b.varName, expr))
+	}
+	js.WriteString("  });\n")
+	js.WriteString("});\n")
+
+	return result, js.String()
+}
+
+// isSimpleIdentifier checks if a string is a plain JS identifier (no dots, brackets, parens).
+func isSimpleIdentifier(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if i == 0 && !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || r == '$') {
+			return false
+		}
+		if i > 0 && !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '$') {
+			return false
+		}
+	}
+	return true
+}
+
+// sanitizeVBindName creates a valid CSS custom property suffix from a JS expression.
+func sanitizeVBindName(expr string) string {
+	var out strings.Builder
+	for _, r := range expr {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+			out.WriteRune(r)
+		} else if r == '.' || r == '[' || r == ']' || r == '(' || r == ')' {
+			out.WriteByte('-')
+		}
+	}
+	result := strings.Trim(out.String(), "-")
+	if result == "" {
+		return "binding"
+	}
+	return result
 }

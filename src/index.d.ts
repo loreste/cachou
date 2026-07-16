@@ -171,6 +171,11 @@ declare module "cachoujs" {
     children: (item: () => any, index: number) => any;
     fallback?: any;
   }): () => any;
+  export function KeepAlive(props: {
+    id: string | (() => string);
+    max?: number;
+    children?: any;
+  }): () => any;
   export function splitProps(props: object, ...keyGroups: string[][]): object[];
   export function mergeProps(...sources: Array<object | null | undefined>): any;
   export function Dynamic(props: { component: any; children?: any; [key: string]: any }): () => any;
@@ -229,6 +234,19 @@ declare module "cachoujs" {
     history?: "browser" | "hash" | "memory";
     initialPath?: string;
   }): { history: string };
+  export function guard(
+    handler: (ctx: {
+      path: string;
+      params: Record<string, string>;
+      query: Record<string, string>;
+      next: () => Promise<any> | any;
+      redirect: (path: string, options?: { replace?: boolean }) => never;
+      cancel: () => never;
+    }) => any | Promise<any>
+  ): () => void;
+  export function addMiddleware(
+    handler: (ctx: any) => any | Promise<any>
+  ): () => void;
   export function getHistoryMode(): string;
   export function matchPath(routePath: string, path: string): { matches: boolean; params?: Record<string, string> };
   export function useParams(): SignalGetter<Record<string, string>>;
@@ -453,4 +471,71 @@ declare module "cachoujs" {
     class?: string;
     onSelect?: (entry: FileEntry) => void;
   }): HTMLElement;
+
+  // Styles (0.4.2)
+  export function css(strings: TemplateStringsArray, ...values: any[]): string;
+  export function cssVar(initial?: string | number): [() => string, (v: string | number) => void, string];
+  export function theme(tokens: Record<string, string | number | (() => string | number)>): string;
+  export function globalCSS(strings: TemplateStringsArray, ...values: any[]): void;
+  export function cx(...args: any[]): string;
+  export function keyframes(strings: TemplateStringsArray, ...values: any[]): string;
+
+  // Transitions (0.4.2)
+  export function linear(t: number): number;
+  export function easeIn(t: number): number;
+  export function easeOut(t: number): number;
+  export function easeInOut(t: number): number;
+  export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t: number) => number;
+  export function defineTransition(config: {
+    enter?: (node: Element, options: any) => Animation | void | Promise<void>;
+    leave?: (node: Element, options: any) => Animation | void | Promise<void>;
+  }): (options?: any) => any;
+  export function fade(options?: any): any;
+  export function slide(options?: any): any;
+  export function fly(options?: any): any;
+  export function scale(options?: any): any;
+  export function swap(options?: any): any;
+  export function transition(options?: any): any;
+
+  // Image (0.4.2)
+  export function Image(props: Record<string, any>): any;
+  export function Picture(props: Record<string, any>): any;
+
+  // App / plugins (0.4.2)
+  export interface App {
+    plug(plugin: any): App;
+    provide(key: string | symbol, value: any): App;
+    component(name: string, component: any): App;
+    directive(name: string, handler: any): App;
+    mount(target: string | HTMLElement): () => void;
+    unmount(): void;
+    config: Record<string, any>;
+  }
+  export function launch(rootComponent: any, rootProps?: object): App;
+  export function createApp(rootComponent: any, rootProps?: object): App;
+  export function getApp(): App | null;
+  /** @deprecated Use getApp() */
+  export function useApp(): App | null;
+
+  // Content collections (0.4.2)
+  export const z: {
+    string(): { validate(value: any): { valid: boolean; errors?: string[] } };
+    number(): { validate(value: any): { valid: boolean; errors?: string[] } };
+    boolean(): { validate(value: any): { valid: boolean; errors?: string[] } };
+    array(item?: any): { validate(value: any): { valid: boolean; errors?: string[] } };
+    object(shape?: Record<string, any>): { validate(value: any): { valid: boolean; errors?: string[] } };
+    optional(inner: any): { validate(value: any): { valid: boolean; errors?: string[] } };
+    [key: string]: any;
+  };
+  export function defineCollection(config: {
+    name: string;
+    schema?: any;
+    [key: string]: any;
+  }): any;
+  export function getCollection(collection: string | any): any[];
+  export function getEntry(collection: string | any, slug: string): any;
+  export function parseFrontmatter(content: string): { data: Record<string, any>; body: string };
+  export function loadContent(collectionConfigs: any[]): Promise<any>;
+  export function addEntries(collection: string | any, entries: any[]): void;
+  export function clearCollection(collection: string | any): void;
 }

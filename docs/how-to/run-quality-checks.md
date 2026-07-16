@@ -51,7 +51,7 @@ node scripts/check-compiler-diagnostics.mjs
 ```bash
 npm run bench              # regression vs benchmarks/baselines.json
 npm run bench:memory       # leak / memory stress
-npm run bench:compare      # vs React, Vue, Preact, Solid, Svelte, DOM floor
+npm run bench:compare      # vs other frameworks, DOM floor
 ```
 
 Publishable competitive runs:

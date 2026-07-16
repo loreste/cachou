@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -20,6 +20,11 @@
     "./flow": "./src/flow.js",
     "./devtools": "./src/devtools.js",
     "./file-routes": "./src/file-routes.js",
+    "./styles": "./src/styles.js",
+    "./transitions": "./src/transitions.js",
+    "./image": "./src/image.js",
+    "./content": "./src/content.js",
+    "./plugin": "./src/plugin.js",
     "./vite": "./plugin/vite.js",
     "./package.json": "./package.json"
   },

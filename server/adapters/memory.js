@@ -45,8 +45,18 @@ export function runQuery(sql) {
   throw new Error(`Memory query parser only supports simple SELECT * FROM <tableName> queries`);
 }
 
+const ALLOWED_TABLES = new Set(["todos"]);
+
+function validateTableName(name) {
+  const key = name.toLowerCase();
+  if (!ALLOWED_TABLES.has(key)) {
+    throw new Error(`Table "${name}" is not allowed`);
+  }
+  return key;
+}
+
 export function syncTable(tableName, data) {
-  const tableKey = tableName.toLowerCase();
+  const tableKey = validateTableName(tableName);
   dbStore[tableKey] = dbStore[tableKey] || [];
   const currentTable = dbStore[tableKey];
   const currentIds = new Set(currentTable.map(r => Number(r.id)));
@@ -85,6 +95,6 @@ export function syncTable(tableName, data) {
   }
 
   dbStore[tableKey] = updatedTable;
-  return runQuery(`SELECT * FROM ${tableName} ORDER BY id ASC`);
+  return runQuery(`SELECT * FROM ${tableKey} ORDER BY id ASC`);
 }
 

@@ -1,6 +1,6 @@
 # Install & use CachouJS (from npm)
 
-CachouJS is distributed on the **public npm registry**. You do not need to download a zip from GitHub to use it in an app—install from npm like React, Vue, or Vite.
+CachouJS is distributed on the **public npm registry**. You do not need to download a zip from GitHub to use it in an app — install from npm like any other package.
 
 ## Get it from npm
 

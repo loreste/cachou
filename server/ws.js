@@ -1,9 +1,20 @@
 import { WebSocketServer } from "ws";
+import os from "os";
+
+const MAX_WS_MESSAGE_SIZE = 256 * 1024; // 256 KB
+const LOG_LEVEL = process.env.CACHOU_LOG_LEVEL || "info";
+const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+
+function log(level, ...args) {
+  if (LOG_LEVELS[level] >= LOG_LEVELS[LOG_LEVEL]) {
+    const fn = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
+    fn(`[${new Date().toISOString()}] [ws] [${level}]`, ...args);
+  }
+}
 
 export function setupWebSocket(httpServer) {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WS_MESSAGE_SIZE });
 
-  // Handle upgrade of HTTP requests to WebSocket connection on '/ws-api'
   httpServer.on("upgrade", (request, socket, head) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
     if (url.pathname === "/ws-api") {
@@ -14,28 +25,36 @@ export function setupWebSocket(httpServer) {
   });
 
   wss.on("connection", (ws) => {
-    console.log("⚡ [CachouJS WS] Client connection opened");
+    log("info", "Client connection opened");
 
-    // Welcome message
     ws.send(JSON.stringify({
       type: "info",
       message: "Connected to CachouJS Real-Time WebSocket Channel",
       timestamp: new Date().toLocaleTimeString()
     }));
 
-    // Broadcast system logs / metrics to this socket periodically
     const timer = setInterval(() => {
       if (ws.readyState === ws.OPEN) {
-        const cpu = (Math.random() * 8 + 2).toFixed(1);
-        const mem = (Math.random() * 5 + 32).toFixed(1);
+        const cpus = os.cpus();
+        const cpuUsage = cpus.reduce((acc, cpu) => {
+          const total = Object.values(cpu.times).reduce((s, t) => s + t, 0);
+          return acc + ((total - cpu.times.idle) / total) * 100;
+        }, 0) / cpus.length;
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const memUsage = ((totalMem - freeMem) / totalMem) * 100;
         ws.send(JSON.stringify({
           type: "metric",
-          cpu,
-          mem,
+          cpu: cpuUsage.toFixed(1),
+          mem: memUsage.toFixed(1),
           timestamp: new Date().toLocaleTimeString()
         }));
       }
     }, 2000);
+
+    function cleanupTimer() {
+      clearInterval(timer);
+    }
 
     ws.on("message", async (rawMsg) => {
       const msgStr = rawMsg.toString();
@@ -44,9 +63,15 @@ export function setupWebSocket(httpServer) {
         return;
       }
 
+      let data;
       try {
-        const data = JSON.parse(msgStr);
-        
+        data = JSON.parse(msgStr);
+      } catch {
+        log("warn", "Received non-JSON message, ignoring");
+        return;
+      }
+
+      try {
         if (data.type === "db-sync" && data.table) {
           const { syncTable } = await import("./db.js");
           const updatedData = await syncTable(data.table, data.data);
@@ -66,11 +91,12 @@ export function setupWebSocket(httpServer) {
         }
 
         if (data.type === "chat") {
-          // Broadcast to all connected clients
+          const text = typeof data.text === "string" ? data.text.slice(0, 2000) : "";
+          const user = typeof data.user === "string" ? data.user.slice(0, 100) : "User";
           const payload = JSON.stringify({
             type: "chat",
-            user: data.user || "User",
-            text: data.text,
+            user,
+            text,
             timestamp: new Date().toLocaleTimeString()
           });
 
@@ -81,13 +107,18 @@ export function setupWebSocket(httpServer) {
           });
         }
       } catch (err) {
-        console.error("⚡ [CachouJS WS] Message handle error:", err.message);
+        log("error", "Message handle error:", err.message);
       }
     });
 
+    ws.on("error", (err) => {
+      log("error", "WebSocket error:", err.message);
+      cleanupTimer();
+    });
+
     ws.on("close", () => {
-      console.log("⚡ [CachouJS WS] Client connection closed");
-      clearInterval(timer);
+      log("info", "Client connection closed");
+      cleanupTimer();
     });
   });
 }

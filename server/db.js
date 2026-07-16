@@ -12,11 +12,11 @@ const EXPERIMENTAL = new Set(["postgres", "mysql", "mongodb", "firebase"]);
 let adapter;
 
 async function initAdapter() {
-  console.log(`⚡ [CachouJS Database] Initializing adapter for: ${DB_TYPE}`);
+  console.log(`[db] Initializing adapter: ${DB_TYPE}`);
   try {
     if (EXPERIMENTAL.has(DB_TYPE) && process.env.CACHOU_DB_EXPERIMENTAL !== "1") {
       console.warn(
-        `⚡ [CachouJS Database] Adapter "${DB_TYPE}" is experimental. Set CACHOU_DB_EXPERIMENTAL=1 to enable, falling back to memory.`
+        `[db] Adapter "${DB_TYPE}" is experimental. Set CACHOU_DB_EXPERIMENTAL=1 to enable; falling back to memory.`
       );
       adapter = await import("./adapters/memory.js");
       return;
@@ -35,7 +35,7 @@ async function initAdapter() {
       adapter = await import("./adapters/memory.js");
     }
   } catch (err) {
-    console.error(`⚡ [CachouJS Database] Failed to load adapter for ${DB_TYPE}. Falling back to in-memory store.`, err.message);
+    console.error(`[db] Failed to load adapter "${DB_TYPE}" (${err.message}). Falling back to in-memory store.`);
     adapter = await import("./adapters/memory.js");
   }
 }

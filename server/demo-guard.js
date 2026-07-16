@@ -47,6 +47,15 @@ export function sanitizeReadOnlySelect(sql) {
   }
 
   const normalized = cleaned.replace(/\s+/g, " ");
+
+  // Reject dangerous keywords that could appear between SELECT and FROM
+  if (/\b(into|insert|update|delete|drop|alter|create|grant|exec|execute)\b/i.test(normalized)) {
+    throw Object.assign(
+      new Error("Only simple SELECT queries against allowlisted tables are permitted"),
+      { statusCode: 400 }
+    );
+  }
+
   const match = normalized.match(/^select\s+([\w\s.*,]+)\s+from\s+([a-zA-Z_][a-zA-Z0-9_]*)(\s+order\s+by\s+[\w\s,]+)?(\s+limit\s+\d+)?$/i);
   if (!match) {
     throw Object.assign(

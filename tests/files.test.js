@@ -56,7 +56,7 @@ test("readFileContent blocks symlinks that resolve outside root", async () => {
 
   await assert.rejects(
     () => readFileContent("linked-secret.txt", { root }),
-    /outside the configured files root/
+    /outside the configured files root|Symbolic links are not allowed/
   );
 });
 

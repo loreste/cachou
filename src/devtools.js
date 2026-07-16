@@ -37,29 +37,37 @@ function renderPanel() {
   const body = panelEl.querySelector("[data-cachou-dt-body]");
   if (!body) return;
 
-  const eventsHtml = eventLog
-    .slice()
-    .reverse()
-    .map(e => {
-      const t = new Date(e.time || Date.now()).toLocaleTimeString();
-      return `<div style="padding:4px 0;border-bottom:1px solid #333;font-size:11px">
-        <span style="color:#94a3b8">${t}</span>
-        <strong style="color:#5eead4">${e.type || "?"}</strong>
-        <span style="color:#cbd5e1">${escapeAttr(summarize(e))}</span>
-      </div>`;
-    })
-    .join("");
+  body.replaceChildren();
 
-  body.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;font-size:12px">
-      <div>Signals <strong>${snap.signals}</strong></div>
-      <div>Live computations <strong>${snap.liveComputations}</strong></div>
-      <div>Live roots <strong>${snap.liveRoots}</strong></div>
-      <div>Orphans <strong style="color:${snap.orphanComputations ? "#f87171" : "inherit"}">${snap.orphanComputations}</strong></div>
-    </div>
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Recent framework events</div>
-    <div style="max-height:180px;overflow:auto">${eventsHtml || "<em>No events yet</em>"}</div>
-  `;
+  const statsGrid = el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", marginBottom: "8px", fontSize: "12px" } }, [
+    el("div", {}, [document.createTextNode("Signals "), el("strong", { text: String(snap.signals) })]),
+    el("div", {}, [document.createTextNode("Live computations "), el("strong", { text: String(snap.liveComputations) })]),
+    el("div", {}, [document.createTextNode("Live roots "), el("strong", { text: String(snap.liveRoots) })]),
+    el("div", {}, [document.createTextNode("Orphans "), el("strong", { text: String(snap.orphanComputations), style: { color: snap.orphanComputations ? "#f87171" : "inherit" } })])
+  ]);
+  body.appendChild(statsGrid);
+
+  body.appendChild(el("div", { text: "Recent framework events", style: { fontSize: "11px", color: "#94a3b8", marginBottom: "4px" } }));
+
+  const eventsContainer = el("div", { style: { maxHeight: "180px", overflow: "auto" } });
+  const reversed = eventLog.slice().reverse();
+  if (reversed.length === 0) {
+    eventsContainer.appendChild(el("em", { text: "No events yet" }));
+  } else {
+    for (const e of reversed) {
+      const t = new Date(e.time || Date.now()).toLocaleTimeString();
+      eventsContainer.appendChild(
+        el("div", { style: { padding: "4px 0", borderBottom: "1px solid #333", fontSize: "11px" } }, [
+          el("span", { text: t, style: { color: "#94a3b8" } }),
+          document.createTextNode(" "),
+          el("strong", { text: e.type || "?", style: { color: "#5eead4" } }),
+          document.createTextNode(" "),
+          el("span", { text: summarize(e).slice(0, 120), style: { color: "#cbd5e1" } })
+        ])
+      );
+    }
+  }
+  body.appendChild(eventsContainer);
 }
 
 function summarize(e) {

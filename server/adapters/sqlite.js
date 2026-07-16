@@ -19,7 +19,7 @@ export function getTodos() {
   return rows.map(r => ({
     id: Number(r.id),
     text: r.text,
-    completed: r.completed === 1
+    completed: Boolean(r.completed)
   }));
 }
 
@@ -48,7 +48,7 @@ export function runQuery(sql) {
   return rows.map(r => ({
     ...r,
     id: r.id !== undefined ? Number(r.id) : undefined,
-    completed: r.completed !== undefined ? (r.completed === 1) : undefined
+    completed: r.completed !== undefined ? Boolean(r.completed) : undefined
   }));
 }
 

@@ -26,7 +26,9 @@ export function persist(signalPair, options = {}) {
       if (raw != null) {
         untrack(() => set(deserialize(raw)));
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn(`[persist] Failed to read key "${key}" from storage:`, err);
+    }
   }
 
   const stop = effect(() => {
@@ -34,7 +36,9 @@ export function persist(signalPair, options = {}) {
     if (!storage) return;
     try {
       storage.setItem(key, serialize(value));
-    } catch (_) {}
+    } catch (err) {
+      console.warn(`[persist] Failed to write key "${key}" to storage:`, err);
+    }
   });
 
   let onStorage = null;
@@ -44,7 +48,9 @@ export function persist(signalPair, options = {}) {
       try {
         if (event.newValue == null) return;
         set(deserialize(event.newValue));
-      } catch (_) {}
+      } catch (err) {
+        console.warn(`[persist] Failed to sync key "${key}" from storage event:`, err);
+      }
     };
     window.addEventListener("storage", onStorage);
   }

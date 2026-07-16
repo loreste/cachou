@@ -25,6 +25,13 @@ Complete conceptual guide to CachouJS. For exhaustive signatures, see [API refer
 17. [Demo server features](#17-demo-server-features)
 18. [Testing strategy](#18-testing-strategy)
 19. [Performance practices](#19-performance-practices)
+20. [Styling and themes](#20-styling-and-themes)
+21. [Transitions and animations](#21-transitions-and-animations)
+22. [Plugin system](#22-plugin-system)
+23. [Content collections](#23-content-collections)
+24. [Image optimization](#24-image-optimization)
+25. [Router middleware](#25-router-middleware)
+26. [KeepAlive](#26-keepalive)
 
 ---
 
@@ -37,7 +44,7 @@ Traditional VDOM frameworks rebuild a virtual tree and diff it when state change
 3. When a signal changes, **only subscribed effects/bindings** re-run.
 4. Updates write directly to text nodes, attributes, or list slots.
 
-This is the same broad family as SolidJS. CachouJS additionally offers an optional `.cachou` SFC compiler (pure JS by default; native binary optional) and optional demo server adapters in this repository. The **0.4** line adds owner/`untrack`, `For`/`Index`, route actions, streaming SSR/islands, mutations, and more — see [Get Started](./GETTING_STARTED.md) and [0.4 APIs](./how-to/use-0.4-framework-apis.md).
+CachouJS takes this fine-grained approach and additionally offers an optional `.cachou` SFC compiler (pure JS by default; native binary optional) and optional demo server adapters in this repository. The **0.4** line adds owner/`untrack`, `For`/`Index`, route actions, streaming SSR/islands, mutations, and more — see [Get Started](./GETTING_STARTED.md) and [0.4 APIs](./how-to/use-0.4-framework-apis.md).
 
 **Design priorities** (see also [Performance targets](./PERFORMANCE_TARGETS.md)):
 
@@ -685,9 +692,275 @@ Write unit tests for pure reactive logic. Use browser tests for DOM bindings and
 
 ---
 
+## 20. Styling and themes
+
+Cachou has a built-in CSS system. No extra packages needed.
+
+### Scoped styles
+
+The `css` tagged template creates a `<style>` block and returns a scoping class name. Use `.self` to reference the scoped class:
+
+```javascript
+import { css, html } from "cachoujs";
+
+const cardClass = css`
+  .self { padding: 16px; border-radius: 8px; background: white; }
+  .self:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+`;
+
+html`<div class=${cardClass}>Content</div>`;
+```
+
+### Reactive CSS
+
+Signal getters in `css` interpolations become reactive CSS custom properties. When the signal changes, the style updates — no re-render:
+
+```javascript
+const [color, setColor] = signal("#3b82f6");
+const cls = css`.self { border-color: ${color}; }`;
+```
+
+### Themes
+
+`theme` turns a token map into CSS custom properties. Swap themes by switching a class:
+
+```javascript
+const light = theme({ bg: "#fff", text: "#1e293b" });
+const dark = theme({ bg: "#0f172a", text: "#f1f5f9" });
+
+html`<div class=${() => isDark() ? dark.className : light.className}>...</div>`;
+```
+
+### Conditional classes and keyframes
+
+`cx` joins class names conditionally. `keyframes` registers animations. `globalCSS` adds global CSS (de-duplicated).
+
+Full details: [Styling guide](./STYLING.md).
+
+---
+
+## 21. Transitions and animations
+
+Cachou includes built-in transitions that use the Web Animations API.
+
+### Built-in transitions
+
+```javascript
+import { fade, slide, fly, scale } from "cachoujs";
+
+const t = fade(element, { duration: 200 });
+t.enter();  // animate in
+t.leave();  // animate out
+```
+
+- `fade` — opacity
+- `slide` — height/width with overflow hidden
+- `fly` — translate + opacity
+- `scale` — scale transform + opacity
+
+### Transition directive
+
+Use `transition` as a `use:` directive to auto-animate on mount/unmount:
+
+```javascript
+html`<div use:transition=${[fly, { y: -20, duration: 300 }]}>Content</div>`;
+```
+
+### Swap
+
+`swap` creates `[send, receive]` pairs for FLIP animations between two locations (e.g. moving a todo from "active" to "done").
+
+### Custom transitions
+
+`defineTransition(enterFn, leaveFn)` lets you define transitions from scratch using the Web Animations API.
+
+Full details: [Transitions guide](./TRANSITIONS.md).
+
+---
+
+## 22. Plugin system
+
+`launch` gives you a structured bootstrap for your application — install plugins, register globals, and inject dependencies before anything renders.
+
+```javascript
+import { launch } from "cachoujs";
+
+const app = launch(App, { title: "My App" });
+app.plug(authPlugin, { apiUrl: "/api" });
+app.plug(analyticsPlugin);
+app.provide(ThemeContext, "dark");
+app.mount("#app");
+```
+
+### Plugins
+
+A plugin is a function or an object with an `install(app, ...options)` method. Each plugin is installed once, even if `plug` is called multiple times.
+
+### Dependency injection
+
+`app.provide(key, value)` registers values that components access with `useContext`. This is how plugins make services available without prop drilling.
+
+### App config
+
+```javascript
+app.config.errorHandler = (err, instance, info) => {
+  Sentry.captureException(err);
+};
+```
+
+### `getApp()`
+
+Returns the app instance from inside any component in the tree. Useful for library code that needs the registry.
+
+Full details: [Plugins guide](./PLUGINS.md).
+
+---
+
+## 23. Content collections
+
+Content collections provide structured content management for blogs, docs, and other file-based content. Define a schema, load files, query with validation.
+
+```javascript
+import { defineCollection, getCollection, z } from "cachoujs";
+
+const posts = defineCollection({
+  name: "posts",
+  schema: z.object({
+    title: z.string(),
+    date: z.date(),
+    tags: z.array(z.string())
+  }),
+  directory: "./content/posts"
+});
+
+const allPosts = getCollection("posts");
+const post = getEntry("posts", "hello-world");
+```
+
+### Schema builder
+
+The `z` object provides basic validation: `z.string()`, `z.number()`, `z.boolean()`, `z.date()`, `z.array()`, `z.object()`, `z.optional()`, `z.enum()`.
+
+### Server-side loading
+
+`loadContent` reads `.md`, `.mdx`, and `.json` files from the filesystem and populates collections. Frontmatter is parsed automatically.
+
+### Client-side
+
+Use `addEntries` to populate collections from API responses.
+
+Full details: [Content guide](./CONTENT.md).
+
+---
+
+## 24. Image optimization
+
+The `Image` and `Picture` components handle lazy loading, placeholders, responsive images, and CLS prevention.
+
+```javascript
+import { Image, Picture } from "cachoujs";
+
+Image({
+  src: "/hero.jpg",
+  alt: "Hero image",
+  width: 1200,
+  height: 600,
+  placeholder: "blur",
+  priority: true
+});
+
+Picture({
+  sources: [
+    { srcset: "/hero.webp", type: "image/webp" },
+    { srcset: "/hero.avif", type: "image/avif" }
+  ],
+  src: "/hero.jpg",
+  alt: "Hero image",
+  width: 1200,
+  height: 600
+});
+```
+
+Key features:
+- `loading="lazy"` by default with IntersectionObserver fallback
+- `placeholder="blur"` or `"color"` for loading states
+- `priority` sets eager loading + `fetchpriority="high"`
+- `aspectRatio` auto-calculates missing dimensions
+- Works in SSR
+
+Full details: [Image guide](./IMAGE.md).
+
+---
+
+## 25. Router middleware
+
+`guard` registers a function that runs before every route change. Middleware can proceed, cancel, or redirect.
+
+```javascript
+import { guard } from "cachoujs";
+
+const removeMiddleware = guard(async (to, from, next) => {
+  const user = getUser();
+  if (to.startsWith("/admin") && !user?.isAdmin) {
+    next("/login"); // redirect
+    return;
+  }
+  next(); // proceed
+});
+```
+
+Middleware receives three arguments:
+- `to` — the target path
+- `from` — the current path
+- `next` — call with no args to proceed, `false` to cancel, or a string to redirect
+
+The return value of `guard` is an unregister function. Call it to remove the middleware.
+
+This is different from `beforeNavigate`, which is a simpler guard. Middleware runs in sequence, supports async operations, and can redirect. Guards just return `true`/`false`.
+
+---
+
+## 26. KeepAlive
+
+`KeepAlive` caches inactive component trees instead of destroying and recreating them. When a component is deactivated, its DOM is moved to a DocumentFragment. When it's activated again, the cached DOM is restored — no setup functions re-run.
+
+```javascript
+import { KeepAlive, signal } from "cachoujs";
+
+const [currentPage, setCurrentPage] = signal(Dashboard);
+
+KeepAlive({
+  max: 5,
+  children: () => currentPage()
+});
+```
+
+### Options
+
+| Prop | Default | Description |
+|------|---------|-------------|
+| `max` | `Infinity` | Maximum cached entries (LRU eviction) |
+| `include` | — | Only cache components with these names |
+| `exclude` | — | Never cache components with these names |
+| `onActivate` | — | Called when a cached view is restored |
+| `onDeactivate` | — | Called when a view is moved to cache |
+
+### When to use it
+
+KeepAlive is useful for tab interfaces, wizard forms, and dashboard layouts where the user switches between views frequently. Without it, each switch destroys and recreates the component — losing scroll position, input state, and fetched data.
+
+Don't use it everywhere. Each cached view holds onto its DOM and signal subscriptions. Set `max` to a reasonable number and use `include`/`exclude` to be selective.
+
+---
+
 ## Next steps
 
 - [API reference](./API.md)  
 - [Compiler](./COMPILER.md)  
 - [Architecture](./ARCHITECTURE.md)  
 - [How-to index](./how-to/README.md)  
+- [Styling](./STYLING.md)  
+- [Transitions](./TRANSITIONS.md)  
+- [Plugins](./PLUGINS.md)  
+- [Content](./CONTENT.md)  
+- [Image](./IMAGE.md)  

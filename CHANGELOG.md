@@ -1,16 +1,30 @@
 # Changelog
 
-## Unreleased → 0.4.2
+## 0.4.2
 
-### Polish
+Patch release with styling, transitions, content, images, plugins, and hardening.
 
-- Scaffold (`@cachoujs/create`): pin **0.4.1** deps, base CSS (light/dark), `.gitignore`, clearer routes/README.
-- Docs: version numbers and claims aligned to 0.4.1 (Get Started, Install, how-tos, README).
-- **Get Started** rewritten for 0.4: `For`, `model`, `redirect`/`notFound`, search params, Dialog, scaffold notes.
-- **How-to** index reorganized; guides updated for 0.4 (lists, templates, routing, loaders, forms, a11y, install).
-- `KNOWN_LIMITATIONS`: reflect shipped islands/stream/router APIs; honest remaining gaps.
-- SSR/Deploy/Compiler docs: portable JS compiler default, streaming + islands notes.
-- VS Code extension and browser DevTools extension version labels → 0.4.1.
+### Added
+
+- **Styles** — `css`, `cssVar`, `theme`, `globalCSS`, `cx`, `keyframes` (`cachoujs/styles`)
+- **Transitions** — `fade`, `slide`, `fly`, `scale`, `swap`, `transition`, `defineTransition`, easings
+- **Image** — `Image`, `Picture` with lazy loading / placeholders
+- **Content collections** — `defineCollection`, `getCollection`, `getEntry`, `parseFrontmatter`, `loadContent`, `z`
+- **App plugins** — `launch` / `createApp`, `getApp`, `app.plug()`, provide / register APIs
+- **Router** — `guard` / `addMiddleware` async navigation chain
+- **KeepAlive** — LRU-cached component trees
+- Compiler enhancements for new surface (see `compiler.go`)
+- Docs: STYLING, TRANSITIONS, CONTENT, IMAGE, PLUGINS; expanded API/GUIDE/README/ROADMAP
+- VS Code snippets and grammar updates; more unit tests (styles, transitions, content, security, …)
+
+### Fixed / hardened
+
+- Demo server / files / adapters security and middleware improvements
+- `persist` and DevTools polish
+
+### Docs polish (carried from 0.4.1+)
+
+- Get Started + how-tos for 0.4; scaffold pins; CI benchmark path notes
 
 ## 0.4.1
 

@@ -1,6 +1,6 @@
 # Use Show / Switch / Match
 
-Lightweight control-flow helpers (Solid-inspired). They return reactive functions suitable for `${...}` slots in `html`.
+Lightweight control-flow helpers. They return reactive functions suitable for `${...}` slots in `html`.
 
 ## Show
 

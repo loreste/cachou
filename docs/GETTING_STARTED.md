@@ -6,7 +6,7 @@
 |--|--|
 | **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
 | **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
-| **Version** | **0.4.1** (experimental 0.x, patch-first) |
+| **Version** | **0.4.2** (experimental 0.x, patch-first) |
 | **License / maturity** | 0.x — pin versions; read the [changelog](../CHANGELOG.md) |
 
 This guide takes you from zero to a running app, then the concepts and patterns you’ll use every day. Task recipes live in the [how-to guides](./how-to/README.md).
@@ -189,7 +189,7 @@ setCount(n => n + 1); // update from previous
 
 ### 2. Components run **once**
 
-Unlike React, the component function is **not** re-executed on every change. Setup (creating signals, wiring effects) runs once; the DOM updates through reactive bindings.
+The component function is **not** re-executed on every change. Setup (creating signals, wiring effects) runs once; the DOM updates through reactive bindings.
 
 ### 3. Templates use `html` and reactive functions
 

@@ -12,6 +12,8 @@ import {
 const isClient = typeof window !== "undefined";
 export { setSSRPath, configureRouter, getHistoryMode };
 const navigationGuards = new Set();
+/** @type {Function[]} Global middleware chain (runs before route resolution). */
+const globalMiddleware = [];
 let lastRouteParams = {};
 let lastRouteData = undefined;
 let lastNotFound = false;
@@ -55,6 +57,63 @@ function decodePathSegment(segment) {
 export function beforeNavigate(handler) {
   navigationGuards.add(handler);
   return () => navigationGuards.delete(handler);
+}
+
+/**
+ * Register a global route guard that runs before every route resolution.
+ *
+ * Guard signature: `async (to, from, next) => {}`
+ * - Call `next()` to proceed to the next guard or route.
+ * - Call `next('/login')` to redirect to a different path.
+ * - Call `next(false)` to cancel the navigation.
+ *
+ * @param {Function} guardFn
+ * @returns {Function} Unregister function.
+ */
+export function guard(guardFn) {
+  globalMiddleware.push(guardFn);
+  return () => {
+    const idx = globalMiddleware.indexOf(guardFn);
+    if (idx !== -1) globalMiddleware.splice(idx, 1);
+  };
+}
+
+/** @deprecated Use `guard()` instead. */
+export const addMiddleware = guard;
+
+/**
+ * Run a chain of middleware functions sequentially.
+ *
+ * @param {Function[]} chain   Array of middleware functions.
+ * @param {string}     to      Target path.
+ * @param {string}     from    Current path.
+ * @returns {Promise<{ proceed: boolean, redirect: string|null }>}
+ * @private
+ */
+async function runMiddlewareChain(chain, to, from) {
+  let index = 0;
+  let result = { proceed: true, redirect: null };
+
+  async function next(arg) {
+    if (arg === false) {
+      result = { proceed: false, redirect: null };
+      return;
+    }
+    if (typeof arg === "string") {
+      result = { proceed: false, redirect: arg };
+      return;
+    }
+    if (index < chain.length) {
+      const mw = chain[index++];
+      await mw(to, from, next);
+    }
+  }
+
+  if (chain.length > 0) {
+    await next();
+  }
+
+  return result;
 }
 
 export function getRouteParams() {
@@ -209,27 +268,58 @@ export function navigate(path, options = {}) {
     }
   }
 
-  const updateDOM = () => {
-    applyNavigation(path, options);
-    if (options.scroll !== false && typeof window !== "undefined" && typeof window.scrollTo === "function") {
-      window.scrollTo(0, 0);
+  // Collect route-level middleware for the target path
+  const routeMiddleware = [];
+  const normalizedTarget = getNormalizedPath(path.split("?")[0]);
+  for (const route of registeredRoutes.values()) {
+    const m = matchPath(route.path, normalizedTarget);
+    if (m.matches && Array.isArray(route.middleware)) {
+      routeMiddleware.push(...route.middleware);
     }
-    if (options.focus !== false && typeof document !== "undefined") {
-      queueMicrotask(() => {
-        const target = document.querySelector("[data-cachou-route-focus], main, h1");
-        if (target && typeof target.focus === "function") {
-          if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
-          target.focus({ preventScroll: true });
-        }
-      });
+  }
+
+  // Build combined middleware chain: global first, then route-level
+  const chain = [...globalMiddleware, ...routeMiddleware];
+
+  const commitNavigation = () => {
+    const updateDOM = () => {
+      applyNavigation(path, options);
+      if (options.scroll !== false && typeof window !== "undefined" && typeof window.scrollTo === "function") {
+        window.scrollTo(0, 0);
+      }
+      if (options.focus !== false && typeof document !== "undefined") {
+        queueMicrotask(() => {
+          const target = document.querySelector("[data-cachou-route-focus], main, h1");
+          if (target && typeof target.focus === "function") {
+            if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+            target.focus({ preventScroll: true });
+          }
+        });
+      }
+    };
+
+    if (options.viewTransition === true && typeof document !== "undefined" && document.startViewTransition) {
+      document.startViewTransition(updateDOM);
+    } else {
+      updateDOM();
     }
   };
 
-  if (options.viewTransition === true && typeof document !== "undefined" && document.startViewTransition) {
-    document.startViewTransition(updateDOM);
-  } else {
-    updateDOM();
+  if (chain.length === 0) {
+    commitNavigation();
+    return true;
   }
+
+  // Run middleware asynchronously, then commit or cancel
+  runMiddlewareChain(chain, path, from).then((result) => {
+    if (result.redirect) {
+      navigate(result.redirect, { replace: true });
+    } else if (result.proceed) {
+      commitNavigation();
+    }
+  });
+
+  // Return true because cancellation is async; callers should use guards for sync blocking
   return true;
 }
 

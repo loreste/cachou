@@ -92,7 +92,9 @@ export {
   configureRouter,
   getHistoryMode,
   matchPath,
-  setSSRPath
+  setSSRPath,
+  guard,
+  addMiddleware
 } from "./router.js";
 export {
   filePathToRoutePath,
@@ -101,7 +103,7 @@ export {
   fileRoutes,
   normalizeGlobModules
 } from "./file-routes.js";
-export { Show, Switch, Match, For, Index } from "./flow.js";
+export { Show, Switch, Match, For, Index, KeepAlive } from "./flow.js";
 export { splitProps, mergeProps, Dynamic } from "./props.js";
 export { directive, applyDirective, getDirective, listDirectives } from "./directives.js";
 export {
@@ -120,3 +122,30 @@ export { createField, createForm } from "./forms.js";
 export { createLiveRegion, focusFirst, restoreFocusAfter, trapFocus, Dialog } from "./a11y.js";
 export { getRequestEvent, setRequestEvent } from "./ssr-context.js";
 export { FileBrowser } from "./components/FileBrowser.js";
+export { css, cssVar, theme, globalCSS, cx, keyframes } from "./styles.js";
+export {
+  fade,
+  slide,
+  fly,
+  scale,
+  swap,
+  transition,
+  defineTransition,
+  linear,
+  easeIn,
+  easeOut,
+  easeInOut,
+  cubicBezier
+} from "./transitions.js";
+export { Image, Picture } from "./image.js";
+export { launch, getApp, createApp, useApp } from "./plugin.js";
+export {
+  z,
+  defineCollection,
+  getCollection,
+  getEntry,
+  parseFrontmatter,
+  loadContent,
+  addEntries,
+  clearCollection
+} from "./content.js";

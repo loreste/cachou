@@ -10,11 +10,11 @@ Current adapters:
 
 - DOM floor
 - CachouJS
-- React
-- Vue
-- Preact
-- Solid
-- Svelte
+- Framework A
+- Framework B
+- Framework C
+- Framework D
+- Framework E
 
 The competitive runner records multiple samples per adapter/scenario and reports median, p95, min/max, mean, and standard deviation. Set `CACHOU_COMPARE_SAMPLES=30` for publishable local runs.
 
@@ -37,8 +37,8 @@ Interpretation:
 - CachouJS is within 1ms of the leading framework on keyed reverse and mount/unmount in the latest local run.
 - `render`/`mount` skip cleanup-tree traversal for roots that were never marked with node cleanups, and static `mount` disposers avoid the root-disposer map.
 - CachouJS now uses `mapArray(..., { reactiveItems: false, uniqueKeys: true })` for stable unique benchmark rows, plus a full-reverse list fast path.
-- Solid is the strongest framework competitor in these local scenarios.
-- React is consistently slower on these synchronous update-heavy cases.
+- The strongest framework competitor is close in these local scenarios.
+- Some established frameworks are consistently slower on these synchronous update-heavy cases.
 - DOM floor is included as a lower bound, not as a framework competitor.
 
 Next optimization targets:

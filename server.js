@@ -4,6 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 
+const MAX_BODY_SIZE = 1024 * 1024; // 1 MB
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -28,6 +30,60 @@ if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = "production";
 }
 
+function collectBody(req, maxSize = MAX_BODY_SIZE) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    let size = 0;
+    req.on("data", chunk => {
+      size += chunk.length;
+      if (size > maxSize) {
+        req.destroy();
+        reject(Object.assign(new Error("Payload too large"), { statusCode: 413 }));
+        return;
+      }
+      body += chunk;
+    });
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
+
+function safeJsonParse(str) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    throw Object.assign(new Error("Invalid JSON in request body"), { statusCode: 400 });
+  }
+}
+
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 120;
+
+function rateLimit(req, res) {
+  const ip = req.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  let entry = rateLimitMap.get(ip);
+  if (!entry || now - entry.start > RATE_LIMIT_WINDOW_MS) {
+    entry = { start: now, count: 0 };
+    rateLimitMap.set(ip, entry);
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) {
+    res.statusCode = 429;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: "Too many requests" }));
+    return true;
+  }
+  return false;
+}
+
+function setSecurityHeaders(res) {
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+}
+
 const PORT = process.env.PORT || process.env.CACHOU_PORT || 5173;
 
 function getMimeType(filePath) {
@@ -49,6 +105,8 @@ function getMimeType(filePath) {
 }
 
 const server = http.createServer(async (req, res) => {
+  if (rateLimit(req, res)) return;
+  setSecurityHeaders(res);
   const url = req.url.split("?")[0].split("#")[0];
 
   if (url === "/api/files" || url === "/api/files/content") {
@@ -89,34 +147,28 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST") {
-      let body = "";
-      req.on("data", chunk => (body += chunk));
-      req.on("end", async () => {
-        try {
-          const { text } = JSON.parse(body);
-          const newItem = await addTodo(text);
-          res.end(JSON.stringify(newItem));
-        } catch (e) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ error: e.message }));
-        }
-      });
+      try {
+        const raw = await collectBody(req);
+        const { text } = safeJsonParse(raw);
+        const newItem = await addTodo(text);
+        res.end(JSON.stringify(newItem));
+      } catch (e) {
+        res.statusCode = e.statusCode || 400;
+        res.end(JSON.stringify({ error: e.message }));
+      }
       return;
     }
 
     if (req.method === "PUT") {
-      let body = "";
-      req.on("data", chunk => (body += chunk));
-      req.on("end", async () => {
-        try {
-          const { id, completed } = JSON.parse(body);
-          const updatedItem = await updateTodo(id, completed);
-          res.end(JSON.stringify(updatedItem));
-        } catch (e) {
-          res.statusCode = 400;
-          res.end(JSON.stringify({ error: e.message }));
-        }
-      });
+      try {
+        const raw = await collectBody(req);
+        const { id, completed } = safeJsonParse(raw);
+        const updatedItem = await updateTodo(id, completed);
+        res.end(JSON.stringify(updatedItem));
+      } catch (e) {
+        res.statusCode = e.statusCode || 400;
+        res.end(JSON.stringify({ error: e.message }));
+      }
       return;
     }
 
@@ -124,6 +176,11 @@ const server = http.createServer(async (req, res) => {
       try {
         const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
         const id = parseInt(parsedUrl.searchParams.get("id"), 10);
+        if (Number.isNaN(id)) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "Invalid id parameter" }));
+          return;
+        }
         await deleteTodo(id);
         res.end(JSON.stringify({ success: true }));
       } catch (e) {

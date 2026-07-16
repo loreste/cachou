@@ -6,7 +6,7 @@ Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTUR
 
 ## Maturity
 
-- CachouJS is experimental compared with React, Vue, Svelte, Solid, Next, Nuxt, or SvelteKit.
+- CachouJS is experimental compared with established frameworks.
 - Ecosystem (UI kits, community examples, Stack Overflow depth) is small.
 - Prefer pinning `cachoujs@0.4.x` in production apps and reading the [changelog](../CHANGELOG.md).
 

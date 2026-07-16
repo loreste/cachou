@@ -1,28 +1,22 @@
 # CachouJS
 
-**v0.4.1** · experimental (0.x)
+**v0.4.2** · experimental (0.x)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · **[Get Started](./docs/GETTING_STARTED.md)**
 
-CachouJS is a small fine-grained reactive JavaScript framework: signals update the DOM directly (no virtual DOM), with an optional `.cachou` SFC compiler, Vite plugin, SSR/hydration, and a lightweight router.
+CachouJS is a fine-grained reactive JavaScript framework. Signals update the DOM directly — no virtual DOM, no diffing. It ships with a `.cachou` single-file component compiler, built-in styling and transitions, a router, SSR, and a plugin system. The goal is a framework that's genuinely fast without making you fight it.
 
-Privileged features in **this monorepo** (demo DB, files API, WebSockets) are **demo-gated** (`CACHOU_DEMO=1`) and are not part of a normal app install.
-
-## Get it from npm
-
-CachouJS is published on the [npm registry](https://www.npmjs.com/package/cachoujs). Install it like any other package (Node.js 20+):
+## Install
 
 ```bash
-# See the published version
-npm view cachoujs version
-
-# Add to a project
 npm install cachoujs
 
-# Or scaffold a full Vite app
+# Or scaffold a new project
 npx @cachoujs/create my-app
 cd my-app && npm install && npm run dev
 ```
+
+Requires Node.js 20+.
 
 | Package | Install | npm |
 |---------|---------|-----|
@@ -30,22 +24,7 @@ cd my-app && npm install && npm run dev
 | App scaffold | `npx @cachoujs/create my-app` | [@cachoujs/create](https://www.npmjs.com/package/@cachoujs/create) |
 | `.cachou` compiler (optional) | `npm install -D @cachoujs/compiler` | [@cachoujs/compiler](https://www.npmjs.com/package/@cachoujs/compiler) |
 
-**Full guide:** [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md) · **Install details:** [docs/INSTALL.md](./docs/INSTALL.md)
-
-## Get started
-
-**New app (recommended):**
-
-```bash
-npx @cachoujs/create my-app
-cd my-app && npm install && npm run dev
-```
-
-**Add to an existing project:**
-
-```bash
-npm install cachoujs
-```
+## Quick look
 
 ### Counter
 
@@ -64,46 +43,21 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### List
-
-```js
-import { signal, html, mount, mapArray } from "cachoujs";
-
-function App() {
-  const [items] = signal([
-    { id: 1, text: "Ship" },
-    { id: 2, text: "Document" }
-  ]);
-  return html`
-    <ul>
-      ${mapArray(
-        items,
-        item => html`<li>${() => item.text}</li>`,
-        item => item.id,
-        { uniqueKeys: true }
-      )}
-    </ul>
-  `;
-}
-
-mount(App, document.getElementById("app"));
-```
-
-### Fetch
+### Fetch data
 
 ```js
 import { createResource, html, mount } from "cachoujs";
 
 function App() {
   const [todo, { loading, error }] = createResource(async ({ signal }) => {
-    const res = await fetch("https://jsonplaceholder.typicode.com/todos/1", { signal });
+    const res = await fetch("/api/todo/1", { signal });
     return res.json();
   });
   return html`
     <div>
-      ${() => (loading() ? "Loading…" : "")}
-      ${() => (error() ? error().message : "")}
-      ${() => (todo() ? html`<p>${todo().title}</p>` : "")}
+      ${() => loading() ? "Loading..." : ""}
+      ${() => error() ? error().message : ""}
+      ${() => todo() ? html`<p>${todo().title}</p>` : ""}
     </div>
   `;
 }
@@ -111,221 +65,120 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-More examples: [Get Started → Code examples](./docs/GETTING_STARTED.md#code-examples).
-
-## Why CachouJS
-
-| | CachouJS | Typical VDOM framework |
-|---|---------|------------------------|
-| Update model | Fine-grained signals → exact DOM bindings | Rerun / diff trees |
-| Component setup | Runs once | Re-executes on state change |
-| Hooks | None (no ordering rules) | Hook rules apply |
-| Compiler | Small Go `.cachou` SFC compiler | Usually large / framework-specific |
-| Scope | Runtime-first; demo server is optional | Often full app platforms |
-
-Closest relatives: **Solid** (reactive model) and **Svelte** (compile + direct DOM). CachouJS is younger and smaller; treat the public API as evolving under 0.x.
-
-## Features
-
-**Runtime**
-
-- `signal`, `effect`, lazy `memo`, `store`, `batch`, `createRoot`, cleanup ownership
-- Tagged-template `html` with events, refs, class/style, two-way bind, transitions
-- Keyed `mapArray` with stable moves and in-place row updates
-- Race-safe `createResource` (abort, stale suppression, dedupe, timeouts)
-- Router: `Route` (+ optional `load`), `Layout` + `Outlet`, `Link`, guards, lazy routes
-- File-based routes: `fileRoutes` / `routes/` conventions (`[id]`, layouts, groups)
-- Control flow: `Show`, `Switch`, `Match`
-- SSR: `renderToStringAsync`, per-request isolation, `dehydrate` / `hydrate`
-- Forms, a11y helpers, error boundaries, security policy, framework events
-- Debug snapshots, leak assertions, in-page **DevTools** (`mountDevtools`)
-
-**Compiler & tooling**
-
-- `.cachou` single-file components with scoped CSS (`:host`, `:global`, nested at-rules)
-- Emits `import … from "cachoujs"` (override with `-runtime`)
-- Vite plugin: `cachoujs/vite` (watch + recompile)
-- Cross-platform compiler build via Go (`npm run compiler:build` / postinstall when Go is present)
-- `create-cachou` app scaffold
-
-**This repo also includes**
-
-- Demo app and runnable `/examples/`
-- Optional demo server APIs (SQLite, files, WS) behind `CACHOU_DEMO`
-- CRM proving ground with **PostgreSQL** (`npm run crm:demo`) — not part of the published package surface
-
-## Requirements
-
-- **Node.js 20+**
-- **Go** to build the `.cachou` compiler (optional if you only use the JS runtime)
-- **Playwright Chromium** for default browser tests: `npx playwright install chromium`
-
-Static production assets can be served without Node. Use Node only for SSR or demo APIs. **Never set `CACHOU_DEMO=1` on a public host.**
-
-## Quick start (this monorepo)
-
-For contributors working on the framework itself:
-
-```bash
-git clone https://github.com/loreste/cachou.git
-cd cachou
-npm install
-npx playwright install chromium   # once, for browser tests
-npm run dev                       # CACHOU_DEMO enabled automatically in Vite
-```
-
-| URL / command | What you get |
-|---------------|--------------|
-| `/demo` | Main demo |
-| `/examples/` | Copy-paste examples |
-| `npm run crm:demo` | Full CRM showcase |
-
-```bash
-npm run build
-NODE_ENV=production CACHOU_DEMO=0 npm start
-```
-
-## Vite plugin (apps using npm package)
+### App with plugins
 
 ```js
-import { defineConfig } from "vite";
-import { cachou } from "cachoujs/vite";
-
-export default defineConfig({
-  plugins: [cachou({ dirs: ["src/components"], runtime: "cachoujs" })]
-});
-```
-
-## Documentation
-
-**Start here:** [**Get Started**](./docs/GETTING_STARTED.md) · [Documentation home](./docs/README.md)
-
-| Doc | Contents |
-|-----|----------|
-| [**Get Started**](./docs/GETTING_STARTED.md) | Scaffold, first app, core concepts |
-| [Install from npm](./docs/INSTALL.md) | Packages, imports, production tips |
-| [Publishing](./docs/PUBLISHING.md) | Maintainer release steps |
-| [Documentation home](./docs/README.md) | Full map of all docs |
-| [Developer guide](./docs/GUIDE.md) | Concepts: reactivity → SSR → scheduler |
-| [API reference](./docs/API.md) | Every public export |
-| [Templates](./docs/TEMPLATES.md) | `html` directives and bindings |
-| [Compiler](./docs/COMPILER.md) | `.cachou` SFC format and CLI |
-| [Architecture](./docs/ARCHITECTURE.md) | Internals and package layers |
-| [How-to guides](./docs/how-to/README.md) | Short task recipes |
-| [Security](./docs/SECURITY.md) | Threat model, demo mode, policies |
-| [Deploy](./docs/DEPLOY.md) | Static SPA and Node SSR |
-| [Environment](./docs/ENVIRONMENT.md) | All environment variables |
-| [Known limitations](./docs/KNOWN_LIMITATIONS.md) | Gaps vs mature frameworks |
-| [Performance targets](./docs/PERFORMANCE_TARGETS.md) | Benchmark contract |
-| [Benchmark results](./docs/BENCHMARK_RESULTS.md) | Competitive notes |
-| [Examples](./examples/README.md) | Runnable `/examples/` |
-| [VS Code extension](./vscode-cachou/README.md) | `.cachou` language support, compile, diagnostics |
-| [Browser DevTools extension](./extensions/browser-devtools/README.md) | Chrome/Edge unpacked extension |
-| [Packages](./packages/README.md) | `@cachoujs/compiler`, `@cachoujs/create` |
-| [Changelog](./CHANGELOG.md) | Release history |
-
-## Core reactivity
-
-```javascript
-import { signal, effect, createRoot, memo, store, batch } from "cachoujs";
-
-const [count, setCount] = signal(0);
-
-effect(() => {
-  console.log("Count:", count());
-});
-
-const doubled = memo(() => count() * 2); // lazy; recomputes when read
-
-const state = store({ user: { name: "Ada" } });
-effect(() => console.log(state.user.name));
-state.user.name = "Grace";
-
-batch(() => {
-  setCount(1);
-  setCount(2);
-});
-
-const dispose = createRoot(() => {
-  effect(() => console.log(doubled()));
-});
-dispose();
-```
-
-## Rendering and lifecycle
-
-```javascript
-import { html, mount, render, unmount } from "cachoujs";
+import { launch, html, signal } from "cachoujs";
 
 function App() {
-  const [n, setN] = signal(0);
+  const [count, setCount] = signal(0);
   return html`
-    <button onclick=${() => setN(v => v + 1)}>
-      Count: ${() => n()}
+    <button onclick=${() => setCount(c => c + 1)}>
+      ${() => count()}
     </button>
   `;
 }
 
-const dispose = mount(App, document.getElementById("app"));
-dispose();
-
-render(App, root);
-unmount(root);
+const app = launch(App);
+app.plug(analyticsPlugin);
+app.mount("#app");
 ```
 
-`render`, `mount`, and `hydrate` create owned roots and dispose any previous root on the same container.
+More examples in [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md#code-examples).
 
-## Lists
+## What's in the box
 
-```javascript
-import { html, mapArray } from "cachoujs";
+### Core
 
-const view = html`
-  <ul>
-    ${mapArray(todos, todo => html`<li>${todo.text}</li>`, todo => todo.id, {
-      uniqueKeys: true
-    })}
-  </ul>
-`;
+- **Reactivity** — `signal`, `effect`, `memo`, `store`, `batch`, `createRoot`, ownership and cleanup
+- **Rendering** — Tagged template `html` with events, refs, class/style bindings, two-way bind
+- **Lists** — Keyed `mapArray` with stable moves and in-place updates
+- **Resources** — `createResource` with abort, stale suppression, dedup, timeouts, revalidation
+- **Router** — `Route`, `Layout` + `Outlet`, `Link`, `guard()`, lazy routes, file-based routing
+- **Control flow** — `Show`, `Switch`, `Match`, `For`, `Index`, `KeepAlive`
+- **SSR** — `renderToStringAsync`, streaming, per-request isolation, dehydration/hydration
+- **Forms** — `createField`, `createForm` with validation, dirty/touched state
+- **Error handling** — `ErrorBoundary`, `Suspense`, `onError`
+
+### Styling & transitions
+
+Built-in. No external CSS libraries needed.
+
+- **`css`** — Tagged template for scoped styles with reactive signal bindings
+- **`theme(tokens)`** — Design token system with CSS custom properties
+- **`cx()`** — Conditional class joiner
+- **`bind(expr)`** — Reactive CSS bindings in `.cachou` style blocks
+- **`fade`, `slide`, `fly`, `scale`** — Built-in transitions using Web Animations API
+- **`swap()`** — FLIP transitions between elements
+- **`defineTransition()`** — Build your own transitions
+- **`globalCSS()`** — Inject global styles (deduped)
+
+### Plugin system
+
+- **`launch(App)`** — Bootstrap your app
+- **`app.plug(plugin)`** — Install plugins
+- **`app.provide()` / `app.component()` / `app.directive()`** — Registration
+- **`getApp()`** — Access app instance from anywhere in the tree
+
+### Content collections
+
+For blogs, docs, marketing pages — structured content with schema validation.
+
+- **`defineCollection()`** — Define collections with schemas
+- **`z.string()`, `z.number()`, `z.object()`, etc.** — Built-in schema validation
+- **`loadContent()`** — Load markdown/JSON from the filesystem
+- **`parseFrontmatter()`** — Parse `---` frontmatter blocks
+
+### Image optimization
+
+- **`Image`** — Lazy loading, blur/color placeholders, responsive srcset, CLS prevention
+- **`Picture`** — Art direction with multiple sources
+
+### Compiler & tooling
+
+- `.cachou` single-file components with scoped CSS
+- **Static hoisting** — Pure HTML fragments skip reactivity entirely
+- **`bind()`** in style blocks — Compiled to reactive CSS custom properties
+- VLQ-encoded source maps for debugger navigation
+- Vite plugin: `cachoujs/vite`
+- VS Code extension with syntax highlighting, snippets, compile-on-save, diagnostics
+
+## `.cachou` component
+
+```html
+<script>
+  const [color, setColor] = signal('#3b82f6');
+</script>
+
+<style scoped>
+  .card {
+    padding: 16px;
+    border-radius: 8px;
+    background: bind(color);
+  }
+</style>
+
+<div class="card">
+  <h3>{props.title}</h3>
+  <p>{props.children}</p>
+</div>
 ```
 
-Use a key function for stable DOM moves. Prefer `uniqueKeys: true` when every key is unique (skips duplicate-key bookkeeping).
+The compiler turns this into plain JS with scoped CSS. The `bind()` syntax creates a reactive CSS custom property that updates when the signal changes.
 
-## Resources
+## Routing
 
-```javascript
-import { createResource, html } from "cachoujs";
+```js
+import { Router, Route, Layout, Outlet, Link, guard } from "cachoujs";
 
-const [todos, { loading, error, refetch }] = createResource(async ({ signal, requestId }) => {
-  const res = await fetch(`/api/todos?r=${requestId}`, { signal });
-  return res.json();
+// Protect routes
+guard(async (to, from, next) => {
+  if (to.startsWith("/admin") && !isLoggedIn()) {
+    next("/login");
+  } else {
+    next();
+  }
 });
-
-const view = html`
-  <section>
-    ${() => (loading() ? "Loading…" : "")}
-    ${() => (error() ? error().message : "")}
-    ${() => JSON.stringify(todos() || [])}
-  </section>
-`;
-```
-
-By default a new refetch aborts the previous request; older responses are ignored even if abort is ignored by the fetcher.
-
-## Routing (including nested layouts)
-
-```javascript
-import { html, Router, Route, Layout, Outlet, Link, navigate } from "cachoujs";
-
-function Shell() {
-  return html`
-    <nav>
-      ${Link({ href: "/app", children: "Home" })}
-      ${Link({ href: "/app/settings", children: "Settings" })}
-    </nav>
-    <main>${Outlet()}</main>
-  `;
-}
 
 function App() {
   return Router({
@@ -334,207 +187,74 @@ function App() {
         path: "/app",
         component: Shell,
         children: [
-          Route({ path: "/app", component: () => html`<h1>Dashboard</h1>` }),
-          Route({ path: "/app/settings", component: () => html`<h1>Settings</h1>` }),
-          Route({ path: "/app/users/:id", component: p => html`<h1>User ${p.id}</h1>` })
+          Route({ path: "/app", component: Dashboard }),
+          Route({ path: "/app/settings", component: Settings }),
+          Route({ path: "/app/users/:id", component: UserProfile })
         ]
       })
     ]
   });
 }
-
-navigate("/app/settings", { replace: true });
-```
-
-## SSR and hydration
-
-```javascript
-import { renderToStringAsync, dehydrate, hydrate, getSSRHead } from "cachoujs";
-import App from "./app.js";
-
-const appHtml = await renderToStringAsync(App, { path: "/demo" });
-const stateScript = dehydrate(); // sequential after render; per-request isolated
-const headHtml = getSSRHead();
-
-// Client
-hydrate(App, document.getElementById("app"));
-```
-
-Each `renderToStringAsync` uses an isolated SSR context (AsyncLocalStorage on Node when available). Call `dehydrate()` / `getSSRHead()` right after the matching render.
-
-## Security
-
-```javascript
-import {
-  configureSecurityPolicy,
-  applyProductionSecurityDefaults,
-  trustedHTML,
-  onFrameworkEvent
-} from "cachoujs";
-
-applyProductionSecurityDefaults(); // stricter URL protocols, no inline styles
-
-onFrameworkEvent(event => {
-  if (event.type === "security-block") {
-    console.warn(event.message);
-  }
-});
-
-// Explicit only — never pass unsanitized user HTML
-const markup = trustedHTML(alreadySanitizedHtml);
-```
-
-**Demo APIs** (`/api/todos`, `/api/db-query`, `/api/files`) require `CACHOU_DEMO=1`.  
-`/api/db-query` only allows simple read-only `SELECT`s on allowlisted tables.  
-Files default to `./sandbox` (`CACHOU_FILES_ROOT`), not the full repository.
-
-See [docs/SECURITY.md](./docs/SECURITY.md).
-
-## Filesystem API (demo)
-
-Read-only server endpoints (demo mode only):
-
-- `GET /api/files?path=...`
-- `GET /api/files/content?path=...`
-
-```javascript
-import { createFileBrowser, createFileContent, FileBrowser, signal, mapArray, html } from "cachoujs";
-
-const [directory, files] = createFileBrowser("");
-const [selectedPath, setSelectedPath] = signal("");
-const [file] = createFileContent(selectedPath);
-
-// Or the packaged component:
-const browser = FileBrowser({ initialPath: "", onSelect: e => console.log(e.path) });
-```
-
-- Confined to `CACHOU_FILES_ROOT` (default `./sandbox`)
-- Hidden files excluded unless requested
-- Size limit via `CACHOU_FILES_MAX_BYTES` (default 1 MB)
-
-## `.cachou` components
-
-```html
-<script>
-  const value = props.value;
-</script>
-
-<style scoped>
-  :host { display: block; }
-  .card { padding: 12px; }
-  :global(.theme) { color: teal; }
-</style>
-
-<div class="card">
-  <h3>{props.title}</h3>
-  <span>{value}</span>
-</div>
-```
-
-```bash
-npm run compile              # demo components
-npm run compiler:build       # rebuild native binary when Go is installed
-node scripts/run-compiler.mjs -dir src/components -out src/components -runtime cachoujs
-```
-
-The compiler fails the process if any file in a directory walk errors. Source comments and a minimal source map URL are emitted for navigation back to the `.cachou` file.
-
-## Demo server & adapters
-
-| Variable | Purpose |
-|----------|---------|
-| `CACHOU_DEMO` | `1` enables demo APIs; off for production start |
-| `CACHOU_DB_TYPE` | `sqlite` (default) or `memory` |
-| `CACHOU_DB_EXPERIMENTAL` | `1` to try postgres/mysql/mongodb/firebase adapters |
-| `CACHOU_FILES_ROOT` | Files API root (default `./sandbox`) |
-| `CACHOU_BACKEND_URL` | Proxy `/api` and `/ws-api` to another backend in Vite |
-
-Supported adapters for demos: **sqlite**, **memory**. Others are experimental stubs and need optional deps — see `server/adapters/README.md`.
-
-```bash
-CACHOU_BACKEND_URL=http://localhost:8080 npm run dev
-```
-
-## Debug mode
-
-```javascript
-import { enableDebug, getDebugSnapshot, assertNoReactiveLeaks, disableDebug } from "cachoujs";
-
-enableDebug({ slowEffectThresholdMs: 8, strict: true });
-console.log(getDebugSnapshot());
-assertNoReactiveLeaks("after route unmount");
-disableDebug();
-```
-
-## Quality checks
-
-```bash
-npm run test:unit       # Node unit tests (reactivity, guards, files)
-npm run test:browser    # Playwright Chromium (default)
-CACHOU_TEST_BROWSER=safari npm run test:browser   # macOS Safari fallback
-
-npm run bench           # regression vs baselines
-npm run bench:memory    # leak / memory stress
-npm run bench:compare   # vs React, Vue, Preact, Solid, Svelte, DOM floor
-CACHOU_COMPARE_SAMPLES=30 npm run bench:compare   # publishable local runs
-
-npm run check           # full pipeline used in CI
-npm run pack:dry        # inspect publish tarball (~60KB runtime package)
-npm run crm:ci          # CRM QA + evidence bundle under crm/artifacts/ci/
-```
-
-CI runs on **Ubuntu + Chromium**. Optional Safari job on macOS for `main` pushes.
-
-## Project layout
-
-```text
-cachou/
-├── src/                 # Browser runtime (published)
-│   ├── reactivity.js
-│   ├── html.js
-│   ├── router.js
-│   ├── ssr-context.js
-│   ├── forms.js
-│   ├── a11y.js
-│   ├── files.js
-│   └── index.js
-├── plugin/vite.js       # Vite plugin (cachoujs/vite)
-├── compiler.go          # .cachou compiler
-├── create-cachou/       # App scaffold
-├── server/              # Demo APIs + adapters (not the main package surface)
-├── sandbox/             # Default files API root
-├── demo/                # Demo app
-├── examples/            # Runnable examples
-├── tests/               # Browser + unit tests
-├── benchmarks/          # Perf + competitive suite
-├── docs/                # Canonical documentation
-├── crm/                 # CRM proving ground (PostgreSQL or memory)
-├── scripts/             # check, compiler, browser tests
-└── package.json         # cachoujs@0.4.1
 ```
 
 ## Package exports
 
-```text
-cachoujs            → full runtime
-cachoujs/html
-cachoujs/reactivity
-cachoujs/router
-cachoujs/forms
-cachoujs/a11y
-cachoujs/files
-cachoujs/vite       → Vite plugin
+```
+cachoujs             → full runtime
+cachoujs/styles      → css, theme, cx, globalCSS, keyframes, cssVar
+cachoujs/transitions → fade, slide, fly, scale, swap, transition, defineTransition
+cachoujs/plugin      → launch, getApp
+cachoujs/content     → defineCollection, getCollection, getEntry, z, loadContent
+cachoujs/image       → Image, Picture
+cachoujs/html        → html, htmlStatic, mount, unmount, render, hydrate
+cachoujs/reactivity  → signal, effect, memo, store, batch, createRoot, ...
+cachoujs/router      → Router, Route, Link, guard, navigate, ...
+cachoujs/forms       → createField, createForm
+cachoujs/a11y        → Dialog, trapFocus, createLiveRegion
+cachoujs/vite        → Vite plugin
 ```
 
-## Current notes
+## Documentation
 
-- Public version is **0.4.x** with **patch-first** releases (current: **0.4.1**, next: **0.4.2**). APIs may still change before 1.0; pin carefully and read the changelog.
-- The published npm package is the **runtime + Vite plugin + compiler helpers**, not the CRM or demo server.
-- Demo APIs are for local development only.
-- Nested layouts, file-based routing, route loaders/actions, streaming SSR, and islands are part of the 0.4 surface.
-- Devtools: in-page panel + framework events; optional browser extension in-repo (not store-listed yet).
+| Doc | What's in it |
+|-----|-------------|
+| [Get Started](./docs/GETTING_STARTED.md) | Scaffold, first app, core concepts |
+| [Developer Guide](./docs/GUIDE.md) | Reactivity, rendering, SSR, styling, plugins |
+| [API Reference](./docs/API.md) | Every public export |
+| [Styling](./docs/STYLING.md) | Built-in CSS system, themes, reactive bindings |
+| [Transitions](./docs/TRANSITIONS.md) | Animations and FLIP transitions |
+| [Plugins](./docs/PLUGINS.md) | Plugin system and app bootstrap |
+| [Content](./docs/CONTENT.md) | Content collections and schema validation |
+| [Image](./docs/IMAGE.md) | Image optimization components |
+| [Templates](./docs/TEMPLATES.md) | `html` directives and bindings |
+| [Compiler](./docs/COMPILER.md) | `.cachou` SFC format and CLI |
+| [How-to Guides](./docs/how-to/README.md) | Short task recipes |
+| [Security](./docs/SECURITY.md) | Threat model, demo mode, policies |
+
+## Working on the framework
+
+For contributors:
+
+```bash
+git clone https://github.com/loreste/cachou.git
+cd cachou
+npm install
+npx playwright install chromium
+npm run dev
+```
+
+```bash
+npm run test:unit        # Node unit tests
+npm run test:browser     # Playwright browser tests
+npm run bench            # Performance benchmarks
+npm run check            # Full CI pipeline
+npm run compiler:build   # Build Go compiler binary
+```
+
+## Current state
+
+This is **0.4.x** — the API is still evolving. Things work, tests pass, but pin your version and check the changelog before upgrading. The published npm package is the runtime, Vite plugin, and compiler helpers. The demo server and CRM app in this repo are not part of the published package.
 
 ## License
 
-See the repository license file if present; otherwise treat as source-available until a license is added.
-```
+MIT

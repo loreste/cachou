@@ -72,6 +72,15 @@
               "name": "entity.other.attribute-name.pseudo-class.css.cachou",
               "match": ":(host|global)\\b"
             },
+            {
+              "name": "meta.function-call.css.cachou",
+              "begin": "\\b(bind)\\s*\\(",
+              "beginCaptures": {
+                "1": { "name": "support.function.cachou.css" }
+              },
+              "end": "\\)",
+              "patterns": [{ "include": "source.js" }]
+            },
             { "include": "source.css" }
           ]
         },

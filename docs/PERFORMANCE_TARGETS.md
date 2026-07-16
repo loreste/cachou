@@ -24,11 +24,11 @@ Current built-in adapters:
 
 - `DOM floor`: imperative DOM baseline. This is not a framework competitor.
 - `CachouJS`: the framework runtime under test.
-- `React`
-- `Vue`
-- `Preact`
-- `Solid`
-- `Svelte`
+- `Framework A`
+- `Framework B`
+- `Framework C`
+- `Framework D`
+- `Framework E`
 
 ## Required Scenarios
 

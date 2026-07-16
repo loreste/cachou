@@ -144,5 +144,85 @@
       "}"
     ],
     "description": "Unscoped :global(...) selector"
+  },
+  "bind() in style": {
+    "prefix": "bind",
+    "body": ["bind(${1:signalName})"],
+    "description": "Reactive CSS binding — bind a signal to a CSS property"
+  },
+  "Theme tokens": {
+    "prefix": "theme",
+    "body": [
+      "const ${1:myTheme} = theme({",
+      "  primary: '${2:#3b82f6}',",
+      "  spacing: '${3:8px}',",
+      "  radius: '${4:6px}',",
+      "  font: '${5:Inter, sans-serif}'",
+      "});"
+    ],
+    "description": "Create a theme with design tokens"
+  },
+  "Launch app": {
+    "prefix": ["launch", "app"],
+    "body": [
+      "const app = launch(${1:App}, ${2:{}});",
+      "app.plug(${3:plugin});",
+      "app.mount('${4:#app}');"
+    ],
+    "description": "Launch a Cachou application with plugins"
+  },
+  "Route guard": {
+    "prefix": "guard",
+    "body": [
+      "const unreg = guard(async (to, from, next) => {",
+      "  if (${1:condition}) {",
+      "    next('${2:/login}');",
+      "  } else {",
+      "    next();",
+      "  }",
+      "});"
+    ],
+    "description": "Register a route guard"
+  },
+  "Fade transition": {
+    "prefix": "fade",
+    "body": [
+      "const t = fade(${1:node}, { duration: ${2:300} });",
+      "t.enter();"
+    ],
+    "description": "Fade transition"
+  },
+  "Content collection": {
+    "prefix": "collection",
+    "body": [
+      "const ${1:posts} = defineCollection({",
+      "  name: '${2:blog}',",
+      "  schema: z.object({",
+      "    title: z.string(),",
+      "    date: z.date(),",
+      "    draft: z.optional(z.boolean())",
+      "  })",
+      "});"
+    ],
+    "description": "Define a content collection with schema validation"
+  },
+  "Scoped CSS with signal": {
+    "prefix": ["css", "scoped-css"],
+    "body": [
+      "const ${1:cls} = css`",
+      "  .self {",
+      "    ${2:color}: \\${${3:colorSignal}};",
+      "    ${4}",
+      "  }",
+      "`;"
+    ],
+    "description": "Scoped CSS with reactive signal binding"
+  },
+  "KeepAlive": {
+    "prefix": "keepalive",
+    "body": [
+      "KeepAlive({ max: ${1:10}, children: () => ${2:currentPage()} })"
+    ],
+    "description": "Cache component instances across renders"
   }
 }
