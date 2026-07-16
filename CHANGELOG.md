@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.4
+
+Patch release: validation and CI hardening.
+
+### Fixed
+
+- **`dateISO`**: timezone-safe calendar validation (no longer rejects valid winter dates west of UTC)
+- **CI**: clear timers in `test-utils` / transitions for guardrails
+- **CI**: keep optional `sharp` out of browser Vite builds; media helpers via `cachoujs/media` only
+- **CI**: Safari job no longer paints the commit status red
+
+### Tests
+
+- Expanded `dateISO` cases (Jan 1, leap day, invalid calendar days)
+
 ## 0.4.3
 
 Patch release expanding app primitives and media.

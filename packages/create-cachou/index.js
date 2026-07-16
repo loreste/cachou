@@ -43,7 +43,7 @@ const files = {
           cachoujs: "^0.4.1"
         },
         devDependencies: {
-          "@cachoujs/compiler": "^0.4.3",
+          "@cachoujs/compiler": "^0.4.4",
           vite: "^6.0.0"
         }
       },

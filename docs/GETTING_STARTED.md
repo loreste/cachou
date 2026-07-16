@@ -6,7 +6,7 @@
 |--|--|
 | **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
 | **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
-| **Version** | **0.4.3** (experimental 0.x, patch-first) |
+| **Version** | **0.4.4** (experimental 0.x, patch-first) |
 | **License / maturity** | 0.x — pin versions; read the [changelog](../CHANGELOG.md) |
 
 This guide takes you from zero to a running app, then the concepts and patterns you’ll use every day. Task recipes live in the [how-to guides](./how-to/README.md).

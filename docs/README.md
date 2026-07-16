@@ -1,6 +1,6 @@
 # CachouJS Documentation
 
-**Version:** 0.4.3 (experimental 0.x)  
+**Version:** 0.4.4 (experimental 0.x)  
 **Package:** `cachoujs`
 
 CachouJS is a fine-grained reactive JavaScript UI framework. Components set up once; signals update exact DOM bindings without a virtual DOM. An optional `.cachou` SFC compiler (pure JS by default; native Go binary optional) turns components into JS modules. Privileged server features in this repo are demo-only and gated by `CACHOU_DEMO`.
@@ -94,4 +94,4 @@ import { cachou } from "cachoujs/vite" // Vite plugin
 
 ## Versioning
 
-CachouJS is **0.x**. Published line is **0.4.x**; releases use **small patch increments** (current: **0.4.3**, next: **0.4.4**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.
+CachouJS is **0.x**. Published line is **0.4.x**; releases use **small patch increments** (current: **0.4.4**, next: **0.4.5**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.
