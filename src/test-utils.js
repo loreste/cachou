@@ -416,17 +416,28 @@ export function waitFor(assertion, options = {}) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     let lastError;
+    let timer = null;
+
+    function clearTimer() {
+      if (timer != null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
 
     function check() {
       try {
         assertion();
+        clearTimer();
         resolve();
       } catch (err) {
         lastError = err;
         if (Date.now() - start >= timeout) {
+          clearTimer();
           reject(lastError);
         } else {
-          setTimeout(check, interval);
+          clearTimer();
+          timer = setTimeout(check, interval);
         }
       }
     }

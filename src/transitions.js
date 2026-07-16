@@ -118,9 +118,10 @@ function animate(node, keyframes, opts) {
     });
   }
 
+  let delayTimer = null;
   if (onStart) {
     if (delay > 0) {
-      setTimeout(onStart, delay);
+      delayTimer = setTimeout(onStart, delay);
     } else {
       onStart();
     }
@@ -128,6 +129,10 @@ function animate(node, keyframes, opts) {
 
   const finished = animation.finished
     .then(() => {
+      if (delayTimer != null) {
+        clearTimeout(delayTimer);
+        delayTimer = null;
+      }
       if (!cancelled) {
         // Commit final styles and clean up
         commitFinalStyles(node, keyframes[keyframes.length - 1]);
@@ -137,6 +142,10 @@ function animate(node, keyframes, opts) {
     })
     .catch(() => {
       // Animation was cancelled
+      if (delayTimer != null) {
+        clearTimeout(delayTimer);
+        delayTimer = null;
+      }
     });
 
   return {
@@ -144,6 +153,10 @@ function animate(node, keyframes, opts) {
     cancel() {
       if (cancelled) return;
       cancelled = true;
+      if (delayTimer != null) {
+        clearTimeout(delayTimer);
+        delayTimer = null;
+      }
       animation.cancel();
     }
   };
