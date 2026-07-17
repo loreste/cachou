@@ -53,22 +53,27 @@ Do **not** jump versions (e.g. 0.4.0 → 0.5.0) for routine work. Prefer many sm
 
 ## Release checklist
 
-### 1. Bump version
+### 1. Changelog (**required — never skip**)
 
-npm **forbids** republishing the same version. Always bump (next: **0.4.5**):
+Update root [CHANGELOG.md](../CHANGELOG.md) **first**, under a new version heading (e.g. `## 0.4.8`):
+
+- Short release summary line
+- Bullet sections as needed: **Added**, **Fixed / improved**, **Docs / tests**
+- User-facing wording (what changed and why it matters), not only file names
+
+No version bump or publish without a matching changelog section. GitHub release notes copy/summarize that section.
+
+### 2. Bump version
+
+npm **forbids** republishing the same version. Always bump (next: **0.4.8**):
 
 - Root: `package.json` → `cachoujs`  
 - `packages/compiler/package.json`  
 - `packages/create-cachou/package.json`  
 
-Keep [CHANGELOG.md](../CHANGELOG.md) updated under the new version heading.
+Same version on all three packages.
 
-```bash
-# example for the next release — same version on every package
-# # keep
-```
-
-### 2. Verify
+### 3. Verify
 
 ```bash
 cd /path/to/cachou
@@ -76,7 +81,7 @@ npm run test:unit
 npm run publish:prep    # unit + compiler build + pack dry-run
 ```
 
-### 3. Publish
+### 4. Publish
 
 ```bash
 # Main runtime (public)
@@ -93,7 +98,7 @@ If 2FA requires OTP in the terminal:
 npm publish --access public --otp=123456
 ```
 
-### 4. Confirm
+### 5. Confirm
 
 ```bash
 npm view cachoujs version
@@ -107,11 +112,12 @@ Pages:
 - https://www.npmjs.com/package/@cachoujs/compiler  
 - https://www.npmjs.com/package/@cachoujs/create  
 
-### 5. Git tag
+### 6. Git tag + GitHub release
 
 ```bash
-git tag v0.4.7
-git push origin v0.4.7
+git tag v0.4.8
+git push origin v0.4.8
+# gh release create with notes from CHANGELOG.md for this version
 ```
 
 ---

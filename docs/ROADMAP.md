@@ -221,5 +221,6 @@ Do not skip versions for marketing. Prefer boring releases.
 2. Default merge path is **patch** on `0.4.x` until 0.5 criteria are met.
 3. Update this file when a theme completes or is deferred — do not leave “shipped” tables pretending to be a future plan.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
+5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
 Last updated for **0.4.7** (2026-07).
