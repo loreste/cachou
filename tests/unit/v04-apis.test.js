@@ -303,6 +303,188 @@ describe("createMutation optimistic", () => {
   });
 });
 
+describe("createMutation abort edges", () => {
+  it("passes a real AbortSignal to mutationFn", async () => {
+    let seenSignal = null;
+    const m = createMutation(async (_input, ctx) => {
+      seenSignal = ctx.signal;
+      return "ok";
+    });
+    await m.mutate({ x: 1 });
+    assert.ok(seenSignal, "signal is provided");
+    assert.equal(typeof seenSignal.aborted, "boolean");
+    assert.equal(seenSignal.aborted, false);
+  });
+
+  it("aborts the previous in-flight mutate when a newer one starts", async () => {
+    const aborted = [];
+    let resolveFirst;
+    let resolveSecond;
+    let calls = 0;
+    const m = createMutation(async (input, { signal }) => {
+      const id = ++calls;
+      signal.addEventListener(
+        "abort",
+        () => {
+          aborted.push(id);
+        },
+        { once: true }
+      );
+      await new Promise(resolve => {
+        if (id === 1) resolveFirst = resolve;
+        else resolveSecond = resolve;
+      });
+      if (signal.aborted) {
+        const err = new Error("aborted");
+        err.name = "AbortError";
+        throw err;
+      }
+      return input;
+    });
+
+    const first = m.mutate("a");
+    const second = m.mutate("b");
+    // Let the second mutate start and abort the first
+    await new Promise(r => setTimeout(r, 5));
+    assert.deepEqual(aborted, [1]);
+
+    resolveFirst("stale");
+    resolveSecond("fresh");
+    await assert.rejects(() => first, err => err && err.name === "AbortError");
+    assert.equal(await second, "b");
+    assert.equal(m.data(), "b");
+    assert.equal(m.pending(), false);
+    assert.equal(m.error(), null);
+  });
+
+  it("reset aborts in-flight work and clears state", async () => {
+    let aborted = false;
+    let resolveMut;
+    const m = createMutation(async (_input, { signal }) => {
+      signal.addEventListener(
+        "abort",
+        () => {
+          aborted = true;
+        },
+        { once: true }
+      );
+      await new Promise(resolve => {
+        resolveMut = resolve;
+      });
+      if (signal.aborted) {
+        const err = new Error("aborted");
+        err.name = "AbortError";
+        throw err;
+      }
+      return "done";
+    });
+
+    const p = m.mutate();
+    assert.equal(m.pending(), true);
+    m.reset();
+    assert.equal(m.pending(), false);
+    assert.equal(m.data(), undefined);
+    assert.equal(m.error(), null);
+    resolveMut();
+    await assert.rejects(() => p, err => err && err.name === "AbortError");
+    assert.equal(aborted, true);
+  });
+
+  it("dispose freezes further mutates and aborts in-flight", async () => {
+    let aborted = false;
+    let resolveMut;
+    const m = createMutation(async (_input, { signal }) => {
+      signal.addEventListener(
+        "abort",
+        () => {
+          aborted = true;
+        },
+        { once: true }
+      );
+      await new Promise(resolve => {
+        resolveMut = resolve;
+      });
+      return "done";
+    });
+
+    const p = m.mutate();
+    m.dispose();
+    m.dispose(); // idempotent
+    assert.equal(aborted, true);
+    resolveMut();
+    await assert.rejects(() => p, err => err && err.name === "AbortError");
+    await assert.rejects(() => m.mutate("x"), err => err && err.name === "AbortError");
+  });
+
+  it("external mutate signal aborts and rolls back optimistic state", async () => {
+    setQueryData("mut-opt", { n: 0 });
+    let resolveMut;
+    const ac = new AbortController();
+    const m = createMutation(
+      async (_input, { signal }) => {
+        await new Promise((resolve, reject) => {
+          resolveMut = resolve;
+          signal.addEventListener(
+            "abort",
+            () => {
+              const err = new Error("aborted");
+              err.name = "AbortError";
+              reject(err);
+            },
+            { once: true }
+          );
+        });
+        return { n: 99 };
+      },
+      {
+        onMutate() {
+          return optimisticUpdate("mut-opt", { n: 1 });
+        }
+      }
+    );
+
+    const p = m.mutate(undefined, { signal: ac.signal });
+    assert.equal(getQueryData("mut-opt").n, 1);
+    ac.abort();
+    await assert.rejects(() => p, err => err && err.name === "AbortError");
+    assert.equal(getQueryData("mut-opt").n, 0, "optimistic update rolled back on abort");
+    assert.equal(m.error(), null, "abort is not a mutation error");
+    assert.equal(m.pending(), false);
+    resolveMut?.();
+  });
+
+  it("does not call onSuccess for superseded mutations", async () => {
+    const successes = [];
+    let resolveFirst;
+    let resolveSecond;
+    let calls = 0;
+    const m = createMutation(
+      async (input) => {
+        const id = ++calls;
+        await new Promise(resolve => {
+          if (id === 1) resolveFirst = resolve;
+          else resolveSecond = resolve;
+        });
+        return input;
+      },
+      {
+        onSuccess(data) {
+          successes.push(data);
+        }
+      }
+    );
+
+    const first = m.mutate("old");
+    const second = m.mutate("new");
+    await new Promise(r => setTimeout(r, 5));
+    resolveFirst();
+    resolveSecond();
+    await assert.rejects(() => first, err => err && err.name === "AbortError");
+    assert.equal(await second, "new");
+    assert.deepEqual(successes, ["new"]);
+  });
+});
+
 describe("nested createForm", () => {
   it("uses path fields", () => {
     const form = createForm({ address: { city: "Paris" }, tags: ["a"] }, { nested: true });

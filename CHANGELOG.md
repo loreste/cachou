@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.7
+
+Patch release: mutation/resource abort edges and remaining UI kit dispose hardening.
+
+### Fixed / improved
+
+- **`createMutation`** — real `AbortSignal` per call; concurrent `mutate` aborts the previous request; `reset()` aborts in-flight work; new `dispose()` freezes further mutates; external `mutate(input, { signal })`; optimistic rollback on abort without treating abort as a mutation error
+- **`createResource`** — dispose clears stuck `loading`; late responses after dispose still do not commit
+- **`prefetchResource`** — optional `options.signal` aborts the prefetch (including already-aborted signals)
+- **UI** — toast exit timers cleared on `destroy()`; Drawer cleanup nulls trap/scroll state; InfiniteScroll aborts in-flight `load` on dispose/reset and passes `{ signal }` as the second load arg; Accordion cancels rAF / `transitionend` on effect cleanup
+
+### Docs / tests
+
+- API/GUIDE/how-tos for mutation abort + dispose and prefetch `signal`
+- Adversarial unit tests for mutation races, resource dispose/prefetch abort, and UI dispose surfaces
+- Unit suite expanded for abort/dispose edges
+
 ## 0.4.6
 
 Patch release: correctness fixes for auth guards, middleware, KeepAlive, and UI disposal.

@@ -1457,11 +1457,26 @@ export async function prefetchResource(key, fetcher, options = {}) {
   if (cachedResource && options.force !== true) {
     return cachedResource.data;
   }
+  if (options.signal?.aborted) {
+    const err = new Error("The operation was aborted.");
+    err.name = "AbortError";
+    throw err;
+  }
   if (options.dedupe !== false && inflight.has(key)) {
     return inflight.get(key);
   }
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
   let timeoutId = null;
+  let removeExternalAbortListener = null;
+  if (controller && options.signal) {
+    const abortFromExternal = () => {
+      try {
+        controller.abort();
+      } catch (_) {}
+    };
+    options.signal.addEventListener("abort", abortFromExternal, { once: true });
+    removeExternalAbortListener = () => options.signal.removeEventListener("abort", abortFromExternal);
+  }
   const context = controller ? { signal: controller.signal, requestId: 0 } : { requestId: 0 };
   let requestToken;
   const promise = (async () => {
@@ -1470,12 +1485,19 @@ export async function prefetchResource(key, fetcher, options = {}) {
     }
     try {
       const res = await fetcher(context);
+      if (controller?.signal?.aborted || options.signal?.aborted) {
+        const err = new Error("The operation was aborted.");
+        err.name = "AbortError";
+        throw err;
+      }
       if (requestToken?.invalidated) return res;
       setResourceCacheEntry(cache, key, { data: res, timestamp: Date.now() });
       emitFrameworkEvent({ type: "resource-prefetch", key });
       return res;
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
+      removeExternalAbortListener?.();
+      removeExternalAbortListener = null;
       if (inflight.get(key) === promise) inflight.delete(key);
     }
   })();
@@ -1743,6 +1765,8 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
       activeController.abort();
       activeController = null;
     }
+    // Leave loading false so disposed resources never look "stuck" mid-flight.
+    setLoading(false);
     if (onFocus) {
       focusListeners.delete(onFocus);
       onFocus = null;

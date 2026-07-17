@@ -100,8 +100,8 @@ Also: [Route loaders](./use-route-loaders.md) · [Routing](./routing-and-lazy-pa
 import { createAction, createMutation, optimisticUpdate, setQueryData } from "cachoujs";
 
 const addToCart = createMutation(
-  async item =>
-    fetch("/api/cart", { method: "POST", body: JSON.stringify(item) }).then(r => r.json()),
+  async (item, { signal }) =>
+    fetch("/api/cart", { method: "POST", body: JSON.stringify(item), signal }).then(r => r.json()),
   {
     onMutate(item) {
       return optimisticUpdate("cart", cart => [...(cart || []), item]);
@@ -111,6 +111,9 @@ const addToCart = createMutation(
     }
   }
 );
+
+// Concurrent mutate aborts the previous request. reset()/dispose() abort too.
+// Optional external signal: await addToCart.mutate(item, { signal: ac.signal });
 
 const checkout = createAction(async formData => {
   // form POST body

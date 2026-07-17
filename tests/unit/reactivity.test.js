@@ -516,6 +516,122 @@ describe("createResource", () => {
     firstControls.dispose();
     secondControls.dispose();
   });
+
+  it("clears loading when disposed mid-flight", async () => {
+    let resolveFetch;
+    const [, controls] = createResource(
+      () =>
+        new Promise(resolve => {
+          resolveFetch = resolve;
+        }),
+      { revalidateOnFocus: false, revalidateOnReconnect: false }
+    );
+    assert.equal(controls.loading(), true);
+    controls.dispose();
+    assert.equal(controls.loading(), false, "dispose clears stuck loading");
+    resolveFetch("late");
+    await new Promise(r => setTimeout(r, 5));
+    assert.equal(controls.loading(), false);
+  });
+
+  it("does not commit after dispose when a late response arrives", async () => {
+    let resolveFetch;
+    const [data, controls] = createResource(
+      () =>
+        new Promise(resolve => {
+          resolveFetch = resolve;
+        }),
+      { revalidateOnFocus: false, revalidateOnReconnect: false }
+    );
+    controls.dispose();
+    resolveFetch("should-not-apply");
+    await new Promise(r => setTimeout(r, 5));
+    assert.equal(data(), undefined);
+    assert.equal(controls.error(), null);
+  });
+
+  it("prefetchResource aborts when the external signal fires", async () => {
+    let aborted = false;
+    const ac = new AbortController();
+    const promise = prefetchResource(
+      "prefetch-abort-" + Date.now(),
+      ({ signal }) =>
+        new Promise((resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              aborted = true;
+              const err = new Error("aborted");
+              err.name = "AbortError";
+              reject(err);
+            },
+            { once: true }
+          );
+        }),
+      { force: true, signal: ac.signal, dedupe: false }
+    );
+    ac.abort();
+    await assert.rejects(() => promise, err => err && err.name === "AbortError");
+    assert.equal(aborted, true);
+  });
+
+  it("prefetchResource rejects immediately when signal is already aborted", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    let calls = 0;
+    await assert.rejects(
+      () =>
+        prefetchResource(
+          "prefetch-already-aborted",
+          () => {
+            calls++;
+            return Promise.resolve("nope");
+          },
+          { force: true, signal: ac.signal }
+        ),
+      err => err && err.name === "AbortError"
+    );
+    assert.equal(calls, 0);
+  });
+
+  it("source-driven resource aborts previous fetch on source change", async () => {
+    const [query, setQuery] = signal("a");
+    const aborted = [];
+    const seen = [];
+    let resolveA;
+    let resolveB;
+    await createRoot(async dispose => {
+      const [data] = createResource(
+        query,
+        (q, { signal }) =>
+          new Promise((resolve, reject) => {
+            seen.push(q);
+            signal.addEventListener(
+              "abort",
+              () => {
+                aborted.push(q);
+                const err = new Error("aborted");
+                err.name = "AbortError";
+                reject(err);
+              },
+              { once: true }
+            );
+            if (q === "a") resolveA = resolve;
+            else resolveB = resolve;
+          }),
+        { revalidateOnFocus: false, revalidateOnReconnect: false }
+      );
+      await new Promise(r => setTimeout(r, 5));
+      setQuery("b");
+      await new Promise(r => setTimeout(r, 5));
+      assert.ok(aborted.includes("a"), "previous source fetch aborted");
+      resolveA?.("stale-a");
+      resolveB?.("fresh-b");
+      await new Promise(r => setTimeout(r, 10));
+      assert.equal(data(), "fresh-b");
+      dispose();
+    });
+  });
 });
 
 describe("owned scheduler work", () => {

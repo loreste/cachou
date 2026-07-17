@@ -1,6 +1,6 @@
 # API Reference
 
-Public APIs exported from **`cachoujs`** (v0.4.6). Types also live in `src/index.d.ts`.
+Public APIs exported from **`cachoujs`** (v0.4.7). Types also live in `src/index.d.ts`.
 
 Subpath imports: `cachoujs/browser`, `cachoujs/html`, `cachoujs/reactivity`, `cachoujs/router`, `cachoujs/forms`, `cachoujs/a11y`, `cachoujs/files`, `cachoujs/styles`, `cachoujs/transitions`, `cachoujs/plugin`, `cachoujs/content`, `cachoujs/image`, `cachoujs/media`, `cachoujs/ui`, `cachoujs/utils`, `cachoujs/vite`, and more.
 
@@ -208,9 +208,11 @@ Clears cached data for `key`.
 function prefetchResource<T>(
   key: string,
   fetcher: (ctx?: { signal?: AbortSignal; requestId: number }) => Promise<T>,
-  options?: { force?: boolean; dedupe?: boolean; timeoutMs?: number }
+  options?: { force?: boolean; dedupe?: boolean; timeoutMs?: number; signal?: AbortSignal }
 ): Promise<T>;
 ```
+
+Pass `signal` to cancel a prefetch (already-aborted signals reject immediately).
 
 ---
 

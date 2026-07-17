@@ -282,6 +282,10 @@ import {
 } from "cachoujs";
 
 await prefetchResource("items", fetcher);
+// Cancel a prefetch with an AbortSignal
+const ac = new AbortController();
+const pending = prefetchResource("items", fetcher, { force: true, signal: ac.signal });
+ac.abort(); // pending rejects with AbortError
 invalidateResource("items");
 
 // Bound the browser resolved-data LRU (default maxEntries: 256)
@@ -291,7 +295,8 @@ configureResourceCache({ maxEntries: 128 });
 
 Resources created under a mounted root are disposed with that root. For unowned
 resources (created outside an owner), call `controls.dispose()` to release
-in-flight work and focus/reconnect listeners.
+in-flight work and focus/reconnect listeners. Dispose also clears `loading` so
+disposed resources never look stuck mid-flight.
 
 ### Stale response safety
 

@@ -165,7 +165,7 @@ declare module "cachoujs" {
   export function prefetchResource<T>(
     key: string,
     fetcher: (context?: { signal?: AbortSignal; requestId: number }) => Promise<T>,
-    options?: { force?: boolean; dedupe?: boolean; timeoutMs?: number }
+    options?: { force?: boolean; dedupe?: boolean; timeoutMs?: number; signal?: AbortSignal }
   ): Promise<T>;
 
   export function webSocketSignal<T>(url: string, initialValue: T): Signal<T>;
@@ -278,11 +278,12 @@ declare module "cachoujs" {
       invalidateKeys?: string[];
     }
   ): {
-    mutate: (input: TInput) => Promise<TResult>;
+    mutate: (input: TInput, mutateOptions?: { signal?: AbortSignal }) => Promise<TResult>;
     pending: SignalGetter<boolean>;
     error: SignalGetter<any>;
     data: SignalGetter<TResult | undefined>;
     reset: () => void;
+    dispose: () => void;
   };
   export function getQueryData(key: string): any;
   export function setQueryData(key: string, data: any): void;

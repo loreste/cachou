@@ -101,6 +101,11 @@ await prefetchResource("todos", async ({ signal }) => {
   const res = await fetch("/api/todos", { signal });
   return res.json();
 });
+
+// Cancel an in-flight prefetch
+const ac = new AbortController();
+const p = prefetchResource("todos", fetcher, { force: true, signal: ac.signal });
+ac.abort(); // p rejects with AbortError
 ```
 
 Useful on `Link` hover or route intent.

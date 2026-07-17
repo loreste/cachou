@@ -250,6 +250,9 @@ export function createToast(options = {}) {
    * Dismiss a toast by id with exit animation.
    * @param {string} id
    */
+  /** @type {Set<ReturnType<typeof setTimeout>>} */
+  const exitTimers = new Set();
+
   function dismiss(id) {
     const idx = toasts.findIndex(t => t.id === id);
     if (idx === -1) return;
@@ -260,11 +263,15 @@ export function createToast(options = {}) {
       entry.el.classList.add("cachou-toast-exit");
       const onEnd = () => {
         entry.el.removeEventListener("animationend", onEnd);
-        entry.el.remove();
+        try { entry.el.remove(); } catch (_) { /* swallow */ }
       };
       entry.el.addEventListener("animationend", onEnd);
       // Fallback if animation doesn't fire
-      setTimeout(() => entry.el.remove(), 300);
+      const exitTimer = setTimeout(() => {
+        exitTimers.delete(exitTimer);
+        onEnd();
+      }, 300);
+      exitTimers.add(exitTimer);
     }
   }
 
@@ -285,6 +292,8 @@ export function createToast(options = {}) {
 
   /** Clear timers, remove all toasts, and detach the container. */
   function destroy() {
+    for (const timer of exitTimers) clearTimeout(timer);
+    exitTimers.clear();
     for (const entry of toasts) {
       if (entry.timer) clearTimeout(entry.timer);
       if (entry.el) {
@@ -492,9 +501,18 @@ export function Drawer(props) {
 
     onCleanup(() => {
       document.removeEventListener("keydown", onKey);
-      if (disposeTrap) disposeTrap();
-      if (restoreScroll) { restoreScroll(); restoreScroll = null; }
-      wrapper.remove();
+      if (disposeTrap) {
+        disposeTrap();
+        disposeTrap = null;
+      }
+      if (restoreScroll) {
+        restoreScroll();
+        restoreScroll = null;
+      }
+      previousFocus = null;
+      try {
+        wrapper.remove();
+      } catch (_) { /* swallow */ }
     });
 
     return document.createComment("cachou-drawer");
@@ -1367,7 +1385,7 @@ function injectInfiniteScrollStyles() {
  * Infinite scroll component using IntersectionObserver.
  *
  * @param {Object} props
- * @param {(cursor: any) => Promise<{ items: Array, nextCursor: any }>} props.load - Async load function.
+ * @param {(cursor: any, ctx?: { signal?: AbortSignal }) => Promise<{ items: Array, nextCursor: any }>} props.load - Async load function (optional abort signal).
  * @param {(items: () => Array) => Node} props.children - Render function receiving an items accessor.
  * @param {number} [props.threshold] - Pixels from bottom to trigger load (default 200).
  * @param {() => Node} [props.loader] - Loading indicator render function.
@@ -1377,8 +1395,8 @@ function injectInfiniteScrollStyles() {
  * @example
  * ```js
  * InfiniteScroll({
- *   load: async (cursor) => {
- *     const res = await fetch(`/api/items?cursor=${cursor || ""}`);
+ *   load: async (cursor, { signal } = {}) => {
+ *     const res = await fetch(`/api/items?cursor=${cursor || ""}`, { signal });
  *     const data = await res.json();
  *     return { items: data.items, nextCursor: data.nextCursor };
  *   },
@@ -1400,6 +1418,8 @@ export function InfiniteScroll(props) {
   let cursor = undefined;
   let loadInProgress = false;
   let disposed = false;
+  /** @type {AbortController | null} */
+  let activeLoadController = null;
 
   const threshold = props.threshold || 200;
 
@@ -1408,9 +1428,18 @@ export function InfiniteScroll(props) {
     loadInProgress = true;
     setLoading(true);
 
+    if (activeLoadController) {
+      try {
+        activeLoadController.abort();
+      } catch (_) {}
+    }
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    activeLoadController = controller;
+
     try {
-      const result = await props.load(cursor);
-      if (disposed) return;
+      // Second arg is optional for backward compatibility: load(cursor, { signal })
+      const result = await props.load(cursor, { signal: controller ? controller.signal : undefined });
+      if (disposed || controller?.signal?.aborted) return;
       const newItems = result.items || [];
 
       batch(() => {
@@ -1421,10 +1450,14 @@ export function InfiniteScroll(props) {
         }
       });
     } catch (err) {
+      if (err && err.name === "AbortError") return;
       if (!disposed && typeof console !== "undefined") {
         console.error("InfiniteScroll load error:", err);
       }
     } finally {
+      if (activeLoadController === controller) {
+        activeLoadController = null;
+      }
       loadInProgress = false;
       if (!disposed) setLoading(false);
     }
@@ -1433,6 +1466,12 @@ export function InfiniteScroll(props) {
   /** Reset scroll state and reload from the beginning. */
   function reset() {
     if (disposed) return;
+    if (activeLoadController) {
+      try {
+        activeLoadController.abort();
+      } catch (_) {}
+      activeLoadController = null;
+    }
     cursor = undefined;
     batch(() => {
       setItems([]);
@@ -1508,11 +1547,23 @@ export function InfiniteScroll(props) {
 
     onCleanup(() => {
       disposed = true;
+      if (activeLoadController) {
+        try {
+          activeLoadController.abort();
+        } catch (_) {}
+        activeLoadController = null;
+      }
       observer.disconnect();
     });
   } else {
     onCleanup(() => {
       disposed = true;
+      if (activeLoadController) {
+        try {
+          activeLoadController.abort();
+        } catch (_) {}
+        activeLoadController = null;
+      }
     });
   }
 
@@ -1937,6 +1988,28 @@ export function Accordion(props) {
       const isOpen = openKeys().has(item.key);
       header.setAttribute("aria-expanded", String(isOpen));
 
+      /** @type {(() => void) | null} */
+      let removeTransitionEnd = null;
+      /** @type {number | null} */
+      let openRaf = null;
+      /** @type {number | null} */
+      let closeRaf = null;
+
+      onCleanup(() => {
+        if (openRaf != null && typeof cancelAnimationFrame === "function") {
+          cancelAnimationFrame(openRaf);
+          openRaf = null;
+        }
+        if (closeRaf != null && typeof cancelAnimationFrame === "function") {
+          cancelAnimationFrame(closeRaf);
+          closeRaf = null;
+        }
+        if (removeTransitionEnd) {
+          removeTransitionEnd();
+          removeTransitionEnd = null;
+        }
+      });
+
       if (isOpen) {
         // Render content
         contentInner.textContent = "";
@@ -1948,22 +2021,26 @@ export function Accordion(props) {
 
         // Animate open
         contentWrapper.style.height = "0px";
-        requestAnimationFrame(() => {
+        openRaf = requestAnimationFrame(() => {
+          openRaf = null;
           contentWrapper.style.height = contentWrapper.scrollHeight + "px";
           const onEnd = () => {
             contentWrapper.removeEventListener("transitionend", onEnd);
+            removeTransitionEnd = null;
             if (openKeys().has(item.key)) {
               contentWrapper.style.height = "auto";
             }
           };
           contentWrapper.addEventListener("transitionend", onEnd);
+          removeTransitionEnd = () => contentWrapper.removeEventListener("transitionend", onEnd);
         });
       } else {
         // Animate close
         if (contentWrapper.style.height === "auto") {
           contentWrapper.style.height = contentWrapper.scrollHeight + "px";
         }
-        requestAnimationFrame(() => {
+        closeRaf = requestAnimationFrame(() => {
+          closeRaf = null;
           contentWrapper.style.height = "0px";
         });
       }

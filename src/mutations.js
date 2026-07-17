@@ -7,6 +7,12 @@ import { signal, batch, invalidateResource } from "./reactivity.js";
 const queryCache = new Map();
 const queryListeners = new Map();
 
+function makeAbortError(message = "The operation was aborted.") {
+  const err = new Error(message);
+  err.name = "AbortError";
+  return err;
+}
+
 export function getQueryData(key) {
   return queryCache.get(key);
 }
@@ -40,6 +46,9 @@ export function invalidateQuery(key) {
 
 /**
  * Create a mutation with optional optimistic update + rollback.
+ * Concurrent `mutate` calls abort the previous in-flight request.
+ * `reset()` and `dispose()` also abort work and freeze callbacks for that generation.
+ *
  * @param {(input: any, ctx: { signal?: AbortSignal }) => Promise<any>} mutationFn
  * @param {{
  *   onMutate?: (input: any) => any | Promise<any>,
@@ -54,25 +63,82 @@ export function createMutation(mutationFn, options = {}) {
   const [error, setError] = signal(null);
   const [data, setData] = signal(undefined);
   let requestId = 0;
+  let activeController = null;
+  let disposed = false;
 
-  async function mutate(input) {
+  function abortActive() {
+    if (activeController) {
+      try {
+        activeController.abort();
+      } catch (_) {}
+      activeController = null;
+    }
+  }
+
+  /**
+   * @param {any} input
+   * @param {{ signal?: AbortSignal }} [mutateOptions]
+   */
+  async function mutate(input, mutateOptions = {}) {
+    if (disposed) {
+      throw makeAbortError("Mutation disposed");
+    }
+
     const id = ++requestId;
+    abortActive();
+
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    activeController = controller;
+    let removeExternalAbortListener = null;
+
+    if (controller && mutateOptions.signal) {
+      if (mutateOptions.signal.aborted) {
+        controller.abort();
+      } else {
+        const abortFromExternal = () => {
+          try {
+            controller.abort();
+          } catch (_) {}
+        };
+        mutateOptions.signal.addEventListener("abort", abortFromExternal, { once: true });
+        removeExternalAbortListener = () =>
+          mutateOptions.signal.removeEventListener("abort", abortFromExternal);
+      }
+    }
+
     setPending(true);
     setError(null);
     let context;
     let previousSnapshots = null;
+    let result;
+    let settledError = null;
+
+    const isCurrent = () => id === requestId && !disposed;
+    const isAborted = () => Boolean(controller?.signal?.aborted);
 
     try {
       if (typeof options.onMutate === "function") {
         context = await options.onMutate(input);
       }
+      if (!isCurrent()) {
+        throw makeAbortError("Mutation superseded");
+      }
+      if (isAborted()) {
+        throw makeAbortError();
+      }
+
       // Support simple optimistic: onMutate may return { rollback, snapshots }
       if (context && context.snapshots) {
         previousSnapshots = context.snapshots;
       }
 
-      const result = await mutationFn(input, { signal: undefined });
-      if (id !== requestId) return result;
+      result = await mutationFn(input, { signal: controller ? controller.signal : undefined });
+
+      if (!isCurrent() || isAborted()) {
+        // Superseded by a newer mutate/reset/dispose, or aborted externally —
+        // do not commit UI state; surface AbortError so callers can distinguish cancel.
+        throw makeAbortError("Mutation superseded");
+      }
 
       setData(result);
       if (typeof options.onSuccess === "function") {
@@ -86,7 +152,28 @@ export function createMutation(mutationFn, options = {}) {
       }
       return result;
     } catch (err) {
-      if (id !== requestId) throw err;
+      settledError = err;
+      if (!isCurrent()) {
+        throw err;
+      }
+
+      // Aborts from reset/dispose/supersede/external signal: roll back optimistic
+      // state but do not treat as a mutation error signal.
+      if (err && err.name === "AbortError") {
+        if (typeof context?.rollback === "function") {
+          try {
+            context.rollback();
+          } catch (_) {}
+        } else if (previousSnapshots && typeof previousSnapshots === "object") {
+          batch(() => {
+            for (const [key, value] of Object.entries(previousSnapshots)) {
+              setQueryData(key, value);
+            }
+          });
+        }
+        throw err;
+      }
+
       setError(err);
       if (typeof context?.rollback === "function") {
         try {
@@ -107,8 +194,36 @@ export function createMutation(mutationFn, options = {}) {
       }
       throw err;
     } finally {
-      if (id === requestId) setPending(false);
+      removeExternalAbortListener?.();
+      removeExternalAbortListener = null;
+      if (activeController === controller) {
+        activeController = null;
+      }
+      if (id === requestId) {
+        setPending(false);
+      }
+      // Avoid unused-variable lint noise if tree-shaken in some builds
+      void settledError;
+      void result;
     }
+  }
+
+  function reset() {
+    requestId++;
+    abortActive();
+    setPending(false);
+    setError(null);
+    setData(undefined);
+  }
+
+  /**
+   * Abort in-flight work and prevent further mutates.
+   * Safe to call multiple times.
+   */
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    reset();
   }
 
   return {
@@ -116,12 +231,8 @@ export function createMutation(mutationFn, options = {}) {
     pending,
     error,
     data,
-    reset() {
-      requestId++;
-      setPending(false);
-      setError(null);
-      setData(undefined);
-    }
+    reset,
+    dispose
   };
 }
 
