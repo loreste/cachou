@@ -233,6 +233,45 @@ declare module "cachoujs" {
     res: { setHeader: (name: string, value: string) => void },
     headers: Record<string, string>
   ): void;
+
+  export type StabilityLabel = "stable" | "candidate" | "experimental" | "unlisted";
+  export const STABLE_EXPORTS: readonly string[];
+  export const CANDIDATE_EXPORTS: readonly string[];
+  export const EXPERIMENTAL_EXPORTS: readonly string[];
+  export function getExportStability(name: string): StabilityLabel;
+  export function listExportsByStability(
+    label?: StabilityLabel
+  ): string[] | Array<{ name: string; stability: StabilityLabel }>;
+
+  export function renderApplication(
+    Component: any,
+    options?: {
+      path?: string;
+      request?: any;
+      signal?: AbortSignal | null;
+      context?: SSRContext;
+      preload?: (args: { request: any; signal?: AbortSignal | null }) => any | Promise<any>;
+      traceparent?: string;
+      nonce?: string;
+      mode?: "async" | "stream";
+    }
+  ): Promise<{
+    html: string;
+    head: string;
+    state: string;
+    context: SSRContext;
+    stream?: ReadableStream | AsyncGenerator<any, any, any>;
+  }>;
+  export function htmlDocument(parts: {
+    html: string;
+    head?: string;
+    state?: string;
+    title?: string;
+    lang?: string;
+    bodyAttrs?: string;
+    scripts?: string;
+    styles?: string;
+  }): string;
   export type RouteLoadContext = {
     params: Record<string, string>;
     path: string;

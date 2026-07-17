@@ -2,7 +2,16 @@
 
 CachouJS is a **browser runtime first**. Deploy only the pieces you need.
 
-Full checklist companion: [Security](./SECURITY.md), [Environment](./ENVIRONMENT.md).
+Full checklist companion: [Security](./SECURITY.md) · [Environment](./ENVIRONMENT.md) · [Stability](./STABILITY.md)
+
+**Supported recipes (0.5+):**
+
+| Recipe | When |
+|--------|------|
+| [Static SPA](#option-1--static-spa-recommended-for-most-apps) | No server render |
+| [Node SSR](#option-2--node-ssr-supported) | Concurrent-safe HTML from Node |
+
+Repo demo `server.js` is **not** the supported product path — it is a proving ground.
 
 ---
 
@@ -33,21 +42,56 @@ Configure a strict **Content-Security-Policy** at the edge.
 
 ---
 
-## SSR notes (0.4+)
+## Option 2 — Node SSR (supported)
 
-- Prefer **`renderToStringAsync`** or **`renderToStream`** with per-request isolation.
-- Use **`Island` + `hydrateIslands`** when only part of the page needs client JS.
-- For sequential handlers, call **`dehydrate()`** / **`getSSRHead()`** immediately after each render.
-- For concurrent handlers, create **`createSSRContext()`** per request and pass it to render + serialize calls (implicit serialize fails closed under ambiguity).
-- Pass **`request`**, **`signal`**, and optional **`traceparent`** / **`preload`** for abort, tracing, and one-pass data.
-- Client bundles should resolve **`cachoujs/browser`** (Vite plugin default) so server-only modules stay out of the browser graph.
-- See [SSR & hydration](./how-to/ssr-and-hydration.md) and [0.4 APIs](./how-to/use-0.4-framework-apis.md).
+Use the high-level helpers + explicit per-request context. Full walkthrough:
+[Deploy Node SSR](./how-to/deploy-node-ssr.md) · runnable example: `examples/node-ssr/`.
+
+```bash
+node examples/node-ssr/server.mjs
+```
+
+```javascript
+import {
+  applyProductionSecurityDefaults,
+  createCSPNonce,
+  buildSecurityHeaders,
+  applySecurityHeaders,
+  renderApplication,
+  htmlDocument,
+  installSSRAsyncHooks
+} from "cachoujs";
+import { createRequire } from "node:module";
+
+applyProductionSecurityDefaults();
+try {
+  installSSRAsyncHooks(createRequire(import.meta.url)("node:async_hooks"));
+} catch { /* sequential still ok */ }
+
+// per request
+const nonce = createCSPNonce();
+const { html, head, state } = await renderApplication(App, {
+  path: req.url,
+  request: req,
+  nonce
+});
+applySecurityHeaders(res, buildSecurityHeaders({ nonce, allowInlineStyles: false }));
+res.end(htmlDocument({ html, head, state, title: "App" }));
+```
+
+### SSR notes
+
+- Prefer **`renderApplication`** (or `renderToStringAsync` + explicit context).
+- Use **`Island` + `hydrateIslands`** when only part of the page needs client JS (candidate API).
+- Implicit `dehydrate()` / `getSSRHead()` fail closed under concurrent ambiguity — always pass context (or use `renderApplication`).
+- Client bundles: **`cachoujs/browser`**.
+- See [SSR & hydration](./how-to/ssr-and-hydration.md).
 
 ---
 
-## Option 2 — Node SSR + static assets (this repo’s `server.js`)
+## Option 3 — Monorepo demo server (not product)
 
-Use only after you understand the demo surface area.
+The root `server.js` is a proving ground. Only use it if you understand demo gates.
 
 ```bash
 npm run build
@@ -59,28 +103,6 @@ NODE_ENV=production CACHOU_DEMO=0 npm start
 | `NODE_ENV` | `production` |
 | `CACHOU_DEMO` | unset or `0` |
 | `PORT` / `CACHOU_PORT` | your listen port |
-| `CACHOU_DB_TYPE` | `sqlite` or `memory` if you still use demo DB code paths |
-| `CACHOU_FILES_ROOT` | only if you intentionally enable files in a locked-down demo |
-
-### Concurrent SSR
-
-`renderToStringAsync` creates a per-request context. Production Node installs AsyncLocalStorage so concurrent renders do not share resource/head state.
-
-```javascript
-import { createSSRContext, renderToStringAsync, dehydrate, getSSRHead } from "cachoujs";
-
-export async function handle(req, res) {
-  const context = createSSRContext();
-  const appHtml = await renderToStringAsync(App, {
-    path: req.url,
-    request: req,
-    signal: req.signal,
-    context,
-    traceparent: req.headers["traceparent"]
-  });
-  res.end(htmlShell(appHtml, dehydrate(context), getSSRHead(context)));
-}
-```
 
 ### Reverse proxy sketch (Nginx)
 

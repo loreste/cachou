@@ -2,7 +2,7 @@
 
 Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTURE.md), the [Developer guide](./GUIDE.md), and the [Roadmap](./ROADMAP.md).
 
-**Current line:** 0.4.x (patch-first; current **0.4.13**). Public APIs may still change before 1.0.
+**Current line:** 0.4.x (patch-first; current **0.5.0**). Public APIs may still change before 1.0.
 
 ## Maturity
 
@@ -30,7 +30,7 @@ Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTUR
 - Per-request isolation, `renderToStringAsync`, **`renderToStream`**, **`Island` / `hydrateIslands`**, request context (`getRequestEvent`), concurrent **`createSSRContext`**, and **`preload`** are shipped.
 - Implicit `dehydrate()` / `getSSRHead()` fail closed under ambiguous concurrent renders — pass an explicit context in concurrent servers.
 - Streaming SSR (`renderToStream`) emits a fast head shell, then body after resources settle (two-pass). Nested boundary interleaving beyond that shell model is still limited.
-- Control-flow helpers (`Show` / `For` / `Switch`) are unwrapped correctly on SSR and as mount roots (0.4.13+).
+- Control-flow helpers (`Show` / `For` / `Switch`) are unwrapped correctly on SSR and as mount roots (0.5.0+).
 - Deployment conventions are intentionally minimal — see [DEPLOY.md](./DEPLOY.md). No first-class Workers/Deno/static adapters yet.
 
 ## Bundling

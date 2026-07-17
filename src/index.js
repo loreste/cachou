@@ -88,6 +88,14 @@ export {
   sanitizeAuthToken
 } from "./security.js";
 export {
+  getExportStability,
+  listExportsByStability,
+  STABLE_EXPORTS,
+  CANDIDATE_EXPORTS,
+  EXPERIMENTAL_EXPORTS
+} from "./stability.js";
+export { renderApplication, htmlDocument } from "./ssr-render.js";
+export {
   Router,
   Route,
   Layout,

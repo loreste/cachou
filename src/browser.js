@@ -90,6 +90,14 @@ export {
   sanitizeAuthToken
 } from "./security.js";
 export {
+  getExportStability,
+  listExportsByStability,
+  STABLE_EXPORTS,
+  CANDIDATE_EXPORTS,
+  EXPERIMENTAL_EXPORTS
+} from "./stability.js";
+// renderApplication / htmlDocument are SSR-oriented; import from "cachoujs" on the server.
+export {
   Router,
   Route,
   Layout,

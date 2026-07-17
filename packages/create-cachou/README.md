@@ -13,7 +13,7 @@ npm run dev
 
 ## What you get
 
-- `cachoujs@^0.4.13` + Vite 6
+- `cachoujs@^0.5.0` + Vite 6
 - App shell with `Router` + `fileRoutes`
 - Routes: `/`, `/about`, `/users/:id` (with `load`)
 - Base CSS (light/dark), `.gitignore`

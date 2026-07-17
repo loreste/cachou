@@ -1,15 +1,30 @@
 # API Reference
 
-Public APIs exported from **`cachoujs`** (v0.4.13). Types also live in `src/index.d.ts`.
+Public APIs exported from **`cachoujs`** (v0.5.0). Types also live in `src/index.d.ts`.
+
+**Stability:** see [STABILITY.md](./STABILITY.md). Labels below:
+
+| Badge | Meaning |
+|-------|---------|
+| **stable** | Core production contract |
+| **candidate** | Shipped; may refine in minors |
+| **experimental** | Primitives; pin versions |
 
 Subpath imports: `cachoujs/browser`, `cachoujs/html`, `cachoujs/reactivity`, `cachoujs/router`, `cachoujs/forms`, `cachoujs/a11y`, `cachoujs/files`, `cachoujs/styles`, `cachoujs/transitions`, `cachoujs/plugin`, `cachoujs/content`, `cachoujs/image`, `cachoujs/media`, `cachoujs/ui`, `cachoujs/utils`, `cachoujs/vite`, and more.
+
+```js
+import { getExportStability } from "cachoujs";
+getExportStability("signal");     // "stable"
+getExportStability("createAuth"); // "experimental"
+```
 
 ---
 
 ## Table of contents
 
 1. [Package entries](#package-entries)
-2. [Reactivity](#reactivity)
+2. [Stability](#stability-labels)
+3. [Reactivity](#reactivity)
 3. [Lists](#lists)
 4. [Resources](#resources)
 5. [Rendering & DOM](#rendering--dom)
@@ -37,11 +52,11 @@ Subpath imports: `cachoujs/browser`, `cachoujs/html`, `cachoujs/reactivity`, `ca
 
 ## Package entries
 
-| Import | Use when |
-|--------|----------|
-| `cachoujs` | Full runtime, including Node-oriented content/media helpers |
-| `cachoujs/browser` | Client bundles — same UI/runtime surface without server-only modules |
-| `cachoujs/*` | Narrow subpaths (`reactivity`, `html`, `router`, `styles`, …) |
+| Import | Use when | Stability |
+|--------|----------|-----------|
+| `cachoujs` | Full runtime, including Node-oriented content/media helpers | mixed (see labels) |
+| `cachoujs/browser` | Client bundles — same UI/runtime surface without server-only modules | mixed (no content/media) |
+| `cachoujs/*` | Narrow subpaths (`reactivity`, `html`, `router`, `styles`, …) | per export |
 
 The Vite plugin aliases `cachoujs` to the browser entry by default so generated
 `.cachou` components and app code do not pull Node built-ins into the client
@@ -49,9 +64,21 @@ graph. Override with `cachou({ runtimeEntry: "…" })` if you need the full entr
 
 ---
 
+## Stability labels
+
+| API | Stability |
+|-----|-----------|
+| `getExportStability(name)` | **stable** |
+| `listExportsByStability(label?)` | **stable** |
+| `STABLE_EXPORTS` / `CANDIDATE_EXPORTS` / `EXPERIMENTAL_EXPORTS` | **stable** |
+
+Full policy: [STABILITY.md](./STABILITY.md).
+
+---
+
 ## Reactivity
 
-### `signal(initialValue, options?)`
+### `signal(initialValue, options?)` · **stable**
 
 ```ts
 function signal<T>(initialValue: T, options?: {
@@ -386,8 +413,32 @@ See [use-file-based-routing](./how-to/use-file-based-routing.md).
 
 ## SSR
 
+**stable:** `renderToString`, `renderToStringAsync`, `createSSRContext`, `dehydrate`, `getSSRHead`, `renderApplication`, `htmlDocument`, `installSSRAsyncHooks`  
+**candidate:** `renderToStream`, `Island`, `hydrateIslands`
+
 ```ts
-function dehydrate(context?: SSRContext): string; // <script id="__CACHOU_STATE__">…
+function renderApplication(Component: any, options?: {
+  path?: string;
+  request?: any;
+  signal?: AbortSignal | null;
+  context?: SSRContext;
+  preload?: (ctx: { request: any; signal?: AbortSignal | null }) => any | Promise<any>;
+  traceparent?: string;
+  nonce?: string;
+  mode?: "async" | "stream";
+}): Promise<{ html: string; head: string; state: string; context: SSRContext; stream?: ReadableStream | AsyncGenerator }>;
+
+function htmlDocument(parts: {
+  html: string;
+  head?: string;
+  state?: string;
+  title?: string;
+  lang?: string;
+  scripts?: string;
+  styles?: string;
+}): string;
+
+function dehydrate(context?: SSRContext, options?: { nonce?: string }): string;
 function resolvePendingResources(): Promise<void>;
 function resetResourceCounter(): void;
 function getSSRHead(context?: SSRContext): string;
@@ -408,7 +459,19 @@ function runWithSSRContextAsync<T>(ctx: SSRContext, fn: () => Promise<T>): Promi
 function installSSRAsyncHooks(asyncHooksModule: { AsyncLocalStorage: new () => any }): void;
 ```
 
-Typical server sequence (sequential handler — one request at a time):
+Preferred concurrent-safe sequence (**stable**):
+
+```javascript
+const nonce = createCSPNonce();
+const { html, head, state } = await renderApplication(App, {
+  path: url,
+  request: req,
+  nonce
+});
+res.end(htmlDocument({ html, head, state, title: "App" }));
+```
+
+Low-level sequential handler (one request at a time):
 
 ```javascript
 const appHtml = await renderToStringAsync(App, { path: url });
@@ -420,8 +483,8 @@ const headHtml = getSSRHead();
 
 For concurrent request handlers, treat the context as **request-scoped**:
 
-1. `const context = createSSRContext()` once per request.
-2. Pass `{ context, path, request, signal }` into `renderToStringAsync` / `renderToStream`.
+1. Prefer `renderApplication` (creates/uses one context per call), or `const context = createSSRContext()` once per request.
+2. Pass `{ context, path, request, signal }` into `renderToStringAsync` / `renderToStream` when not using `renderApplication`.
 3. Pass the **same** `context` into `dehydrate(context)` and `getSSRHead(context)`.
 4. Do **not** rely on implicit `dehydrate()` / `getSSRHead()` while other requests may be in flight — when the last completed render is ambiguous, those helpers **fail closed** (throw) instead of returning another request’s state.
 5. Abort via `signal` (or stream cancel) releases pending resource work for that context.

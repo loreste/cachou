@@ -4,9 +4,9 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.4.x** (published: **0.4.13**) |
-| **Next publish** | **0.4.14** (patch by default) |
-| **Next minor** | **0.5.0** when a coherent theme lands |
+| **Current line** | **0.5.x** (published: **0.5.0**) |
+| **Next publish** | **0.5.1** (patch by default) |
+| **Next minor** | **0.6.0** when ecosystem theme lands |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
 Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS.md) · [Publishing](./PUBLISHING.md) · [Architecture](./ARCHITECTURE.md)
@@ -24,7 +24,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 
 ---
 
-## Where we are (0.4.13)
+## Where we are (0.5.0)
 
 ### Mature enough to build on
 
@@ -86,23 +86,35 @@ Theme: **harden what we already ship.** No large new product surface unless it u
 
 - [x] Keep README / API / how-tos in sync with each patch (modest tone) *(ongoing; 0.4.9 how-to index + new guides)*
 - [x] Fill remaining how-to gaps only where users hit real friction (SSR concurrent servers, browser entry, logger/tracing) *(0.4.9)*
-- [x] Benchmark results and performance targets refreshed when numbers move for real reasons *(0.4.13)*
+- [x] Benchmark results and performance targets refreshed when numbers move for real reasons *(0.5.0)*
 
 ### Repo hygiene
 
 - [x] CRM and demo stay examples — do not pull them into the published package *(0.4.9: package-surface tests)*
-- [x] CI: Chromium primary; Safari remains non-blocking if flaky *(0.4.13: documented + continue-on-error)*
-- [x] No token/secret leakage; publish checklist remains manual and small *(0.4.13: publish-prep secret scan + version/changelog gates)*
+- [x] CI: Chromium primary; Safari remains non-blocking if flaky *(0.5.0: documented + continue-on-error)*
+- [x] No token/secret leakage; publish checklist remains manual and small *(0.5.0: publish-prep secret scan + version/changelog gates)*
 
 **Exit criteria for “0.4 line is done enough”:** core APIs feel boring, docs match code, `npm run check` is reliable on clean machines, no known data races in SSR/router under documented patterns.
 
-**Status (0.4.13):** Near-term 0.4 checklist is complete. Further **0.4.x** patches ship only for regressions/security. The next **theme** is **0.5 — Production library line**.
+**Status (0.5.0):** Near-term 0.4 checklist is complete. Further **0.4.x** patches ship only for regressions/security. The next **theme** is **0.5 — Production library line**.
 
 ---
 
 ## 0.5 — Production library line
 
-Theme: **trust and deploy.** A deliberate minor when the 0.4 core is calm.
+Theme: **trust and deploy.**
+
+### Shipped in 0.5.0
+
+- [x] Stability labels in docs/API (`stable` / `candidate` / `experimental`)
+- [x] One supported SSR deploy recipe (Node) with concurrent context examples (`renderApplication`, `examples/node-ssr`)
+
+### Still planned in 0.5.x
+
+- [ ] Improved streaming + island hydration story
+- [ ] Compiler diagnostics pass that developers can act on without reading source
+- [ ] Explicit experimental boundary callouts on experimental subpath package READMEs
+- [ ] Optional: first-class static export notes for SPA + hash history
 
 ### Planned focus
 
@@ -225,4 +237,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.4.13** (2026-07).
+Last updated for **0.5.0** (2026-07) (2026-07).

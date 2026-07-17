@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.4.13",
+  "version": "0.5.0",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -117,6 +117,7 @@
     "publish:prep": "node scripts/publish-prep.mjs",
     "create": "node create-cachou/index.js",
     "ssr:starter": "node examples/ssr-starter/server.mjs",
+    "ssr:node": "node examples/node-ssr/server.mjs",
     "ext:package": "npm --prefix vscode-cachou run package",
     "ext:readme": "node -e \"console.log('See vscode-cachou/README.md')\"",
     "packages:pack": "npm pack -w @cachoujs/compiler --pack-destination ./tmp && npm pack -w @cachoujs/create --pack-destination ./tmp && npm pack --pack-destination ./tmp",

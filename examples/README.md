@@ -22,6 +22,8 @@ Open [http://localhost:5173/examples/](http://localhost:5173/examples/).
 | Forms | `/examples/forms` | `createForm` validation + submit |
 | Nested router | `/examples/router` | `Layout`, `Outlet`, `Route`, `Link` |
 | Security | `/examples/security` | URL sanitization, `onFrameworkEvent` |
+| **Node SSR (supported)** | `examples/node-ssr/` | `renderApplication`, CSP nonces, concurrent-safe SSR |
+| SSR starter | `examples/ssr-starter/` | Minimal Node SSR shell |
 
 ## Docs
 

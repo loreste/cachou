@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.0
+
+Minor release: **production library line** — API stability labels and a supported Node SSR deploy path.
+
+### Added
+
+- **Stability labels** — `getExportStability`, `listExportsByStability`, `STABLE_EXPORTS` / `CANDIDATE_EXPORTS` / `EXPERIMENTAL_EXPORTS` (`src/stability.js`); policy in [docs/STABILITY.md](./docs/STABILITY.md)
+- **`renderApplication(Component, options)`** — concurrent-safe SSR helper returning `{ html, head, state, context }`
+- **`htmlDocument(parts)`** — minimal HTML document assembler
+- **Supported Node SSR recipe** — `examples/node-ssr/` + how-to [deploy-node-ssr.md](./docs/how-to/deploy-node-ssr.md); `npm run ssr:node`
+- API reference stability section; Deploy docs promote the Node recipe over the monorepo demo server
+
+### Docs
+
+- Clear **stable / candidate / experimental** boundaries so core trust is not diluted by UI/auth/i18n kits
+- DEPLOY.md restructured: SPA, Node SSR (supported), monorepo demo (not product)
+
+
 ## 0.4.13
 
 Patch release: finish 0.4-line hygiene — benchmarks refreshed, publish-prep hardened, Safari CI policy explicit.
