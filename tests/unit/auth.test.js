@@ -83,6 +83,102 @@ describe("createAuth", () => {
     });
   });
 
+  it("requireAuth uses guard(to, from, next) and redirects when logged out", async () => {
+    const { configureRouter, navigate, getPath, guard } = await import("../../src/router.js");
+    configureRouter({ history: "memory", initialPath: "/" });
+
+    await new Promise((resolve, reject) => {
+      createRoot(dispose => {
+        const auth = createAuth({ storage: mockStorage() });
+        const unreg = guard(auth.requireAuth("/login"));
+        navigate("/secret");
+        setTimeout(() => {
+          try {
+            assert.equal(auth.isLoggedIn(), false);
+            assert.equal(getPath(), "/login", "anonymous traffic must redirect");
+            unreg();
+            dispose();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }, 40);
+      });
+    });
+  });
+
+  it("requireAuth allows navigation when logged in", async () => {
+    const { configureRouter, navigate, getPath, guard } = await import("../../src/router.js");
+    configureRouter({ history: "memory", initialPath: "/" });
+
+    await new Promise((resolve, reject) => {
+      createRoot(async dispose => {
+        try {
+          const auth = createAuth({
+            storage: mockStorage(),
+            fetchFn: async () => ({
+              ok: true,
+              text: async () => JSON.stringify({ token: "t", user: { id: 1, role: "user" } }),
+              json: async () => ({ token: "t", user: { id: 1, role: "user" } })
+            })
+          });
+          await auth.login({ email: "a@b.c", password: "x" });
+          assert.equal(auth.isLoggedIn(), true);
+
+          const unreg = guard(auth.requireAuth("/login"));
+          navigate("/app");
+          setTimeout(() => {
+            try {
+              assert.equal(getPath(), "/app");
+              unreg();
+              dispose();
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          }, 40);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+  });
+
+  it("requireRole redirects when role is missing", async () => {
+    const { configureRouter, navigate, getPath, guard } = await import("../../src/router.js");
+    configureRouter({ history: "memory", initialPath: "/" });
+
+    await new Promise((resolve, reject) => {
+      createRoot(async dispose => {
+        try {
+          const auth = createAuth({
+            storage: mockStorage(),
+            fetchFn: async () => ({
+              ok: true,
+              text: async () => JSON.stringify({ token: "t", user: { id: 1, role: "user" } }),
+              json: async () => ({ token: "t", user: { id: 1, role: "user" } })
+            })
+          });
+          await auth.login({ email: "a@b.c", password: "x" });
+          const unreg = guard(auth.requireRole("admin", "/unauthorized"));
+          navigate("/admin");
+          setTimeout(() => {
+            try {
+              assert.equal(getPath(), "/unauthorized");
+              unreg();
+              dispose();
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          }, 40);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+  });
+
   it("requireRole returns a function", () => {
     createRoot(dispose => {
       const auth = createAuth({ storage: mockStorage() });

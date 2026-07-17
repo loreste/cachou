@@ -1,6 +1,6 @@
 # How to: use 0.4 framework APIs
 
-Quick recipes for the **0.4** library surface (current: **0.4.5**).  
+Quick recipes for the **0.4** library surface (current: **0.4.6**).  
 Full tutorial: [Get Started](../GETTING_STARTED.md) · Reference: [API.md](../API.md) · Status: [ROADMAP.md](../ROADMAP.md).
 
 ---

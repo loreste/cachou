@@ -263,36 +263,49 @@ export function createAuth(config = {}) {
 
   /**
    * Return a guard function that redirects unauthenticated users.
-   * For use with the router's `guard()` function.
+   * Compatible with the router's `guard(fn)` signature: `(to, from, next, signal?)`.
    *
    * @param {string} [redirectTo="/login"] - Path to redirect to.
    * @returns {Function} Guard function compatible with `guard(fn)`.
    */
+  function pathOnly(path) {
+    return String(path || "").split("?")[0];
+  }
+
   function requireAuth(redirectTo = "/login") {
-    return (ctx) => {
+    return (to, from, next) => {
       if (!isLoggedIn()) {
-        if (typeof ctx.next === "function") {
-          // Prevent navigation and redirect
+        // Allow the redirect target itself so middleware redirects do not loop.
+        if (pathOnly(to) === pathOnly(redirectTo)) {
+          next();
+          return;
         }
-        return { redirect: redirectTo };
+        next(redirectTo);
+        return;
       }
-      return ctx.next();
+      next();
     };
   }
 
   /**
    * Return a guard function that requires a specific role.
+   * Compatible with `guard(fn)`: `(to, from, next, signal?)`.
    *
    * @param {string} role - Required role.
    * @param {string} [redirectTo="/login"] - Redirect path if unauthorized.
    * @returns {Function} Guard function compatible with `guard(fn)`.
    */
   function requireRole(role, redirectTo = "/login") {
-    return (ctx) => {
+    return (to, from, next) => {
       if (!isLoggedIn() || !hasRole(role)) {
-        return { redirect: redirectTo };
+        if (pathOnly(to) === pathOnly(redirectTo)) {
+          next();
+          return;
+        }
+        next(redirectTo);
+        return;
       }
-      return ctx.next();
+      next();
     };
   }
 

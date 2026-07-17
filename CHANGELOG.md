@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.6
+
+Patch release: correctness fixes for auth guards, middleware, KeepAlive, and UI disposal.
+
+### Fixed
+
+- **`createAuth.requireAuth` / `requireRole`** — now use the real `guard(to, from, next)` API; unauthenticated users redirect instead of being allowed through; redirect targets do not loop
+- **Middleware chain** — fail closed when `next()` is never called (no longer open-by-default)
+- **`KeepAlive`** — unmount no longer throws (`lruOrder` ReferenceError); active and cached roots dispose correctly
+- **UI** — Popover/Menu clear delayed click-listener timers on cleanup; `createToast` is SSR-safe and exposes `destroy()`; `InfiniteScroll` ignores post-dispose loads
+
+### Docs / tests
+
+- Documented concurrent SSR contract (`createSSRContext` + explicit dehydrate/head)
+- Adversarial unit tests for auth guards, middleware fail-closed, KeepAlive unmount, browser static import graph
+- Unit suite: **523** tests
+
 ## 0.4.5
 
 Patch release: runtime hardening, SSR concurrency, observability, browser entry, and compiler/DOM performance work.

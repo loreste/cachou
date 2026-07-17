@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.4.x** (published: **0.4.5**) |
-| **Next publish** | **0.4.6** (patch by default) |
+| **Current line** | **0.4.x** (published: **0.4.6**) |
+| **Next publish** | **0.4.7** (patch by default) |
 | **Next minor** | **0.5.0** when a coherent theme lands |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
@@ -24,7 +24,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 
 ---
 
-## Where we are (0.4.5)
+## Where we are (0.4.6)
 
 ### Mature enough to build on
 
@@ -63,16 +63,17 @@ Treat these as **usable primitives**, not finished product lines:
 
 ---
 
-## Near term — finish the 0.4 line (`0.4.6` …)
+## Near term — finish the 0.4 line (`0.4.7` …)
 
 Theme: **harden what we already ship.** No large new product surface unless it unblocks real bugs.
 
 ### Runtime & correctness
 
-- [ ] More adversarial tests for router cancellation, SSR concurrency, and resource races
-- [ ] Document and stabilize the public contract of `createSSRContext` / fail-closed dehydrate
-- [ ] Audit app-primitive modules (ui, auth, i18n, …) for SSR safety and disposal leaks
-- [ ] Keep browser entry free of accidental Node pulls; tighten package `exports` as needed
+- [x] More adversarial tests for router cancellation, SSR concurrency, and resource races *(0.4.6: auth guards, middleware fail-closed, KeepAlive)*
+- [x] Document and stabilize the public contract of `createSSRContext` / fail-closed dehydrate *(0.4.6)*
+- [x] Audit app-primitive modules (ui, auth, i18n, …) for SSR safety and disposal leaks *(0.4.6: auth, toast, Popover/Menu timers, InfiniteScroll)*
+- [x] Keep browser entry free of accidental Node pulls; tighten package `exports` as needed *(0.4.6: static import graph test)*
+- [ ] Further resource/mutation abort edges and remaining UI kit dispose passes
 
 ### Compiler & tooling
 
@@ -221,4 +222,4 @@ Do not skip versions for marketing. Prefer boring releases.
 3. Update this file when a theme completes or is deferred — do not leave “shipped” tables pretending to be a future plan.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 
-Last updated for **0.4.5** (2026-07).
+Last updated for **0.4.6** (2026-07).

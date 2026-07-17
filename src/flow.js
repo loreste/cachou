@@ -186,6 +186,8 @@ export function KeepAlive(props) {
 
   let activeKey = null;
   let activeNodes = [];
+  /** Dispose for the currently mounted view (null while parked in cache). */
+  let activeDispose = null;
 
   // Container element — acts as the live mount point
   const container = typeof document !== "undefined" ? document.createElement("div") : null;
@@ -220,15 +222,22 @@ export function KeepAlive(props) {
       if (existing) {
         existing.fragment = fragment;
         existing.nodes = activeNodes;
+        if (activeDispose) existing.dispose = activeDispose;
       } else {
-        cache.set(activeKey, { fragment, dispose: null, nodes: activeNodes });
+        cache.set(activeKey, { fragment, dispose: activeDispose, nodes: activeNodes });
       }
+      // Ownership of the reactive root moves to the cache entry
+      activeDispose = null;
       touchLRU(activeKey);
       evictIfNeeded();
 
       if (typeof props.onDeactivate === "function") {
         try { props.onDeactivate(activeKey); } catch (_) { /* swallow */ }
       }
+    } else if (activeDispose) {
+      // Not cached (or empty) — tear down the live root
+      try { activeDispose(); } catch (_) { /* swallow */ }
+      activeDispose = null;
     }
 
     // Clear container
@@ -247,6 +256,9 @@ export function KeepAlive(props) {
       }
       activeNodes = restored;
       entry.nodes = restored;
+      // Reclaim dispose for the active view so unmount can free it once
+      activeDispose = entry.dispose || null;
+      entry.dispose = null;
       touchLRU(newKey);
 
       if (typeof props.onActivate === "function") {
@@ -277,9 +289,11 @@ export function KeepAlive(props) {
         container.appendChild(node);
       }
       activeNodes = nodes;
+      activeDispose = disposeRoot;
 
       if (newKey && shouldCache(newKey)) {
-        cache.set(newKey, { fragment: document.createDocumentFragment(), dispose: disposeRoot, nodes });
+        // Cached entry stores nodes; dispose stays on activeDispose until park
+        cache.set(newKey, { fragment: document.createDocumentFragment(), dispose: null, nodes });
         touchLRU(newKey);
         evictIfNeeded();
       }
@@ -290,13 +304,19 @@ export function KeepAlive(props) {
     }
   });
 
-  // Cleanup on unmount — dispose all cached roots
+  // Cleanup on unmount — dispose active + all cached roots
   onCleanup(() => {
+    if (activeDispose) {
+      try { activeDispose(); } catch (_) { /* swallow */ }
+      activeDispose = null;
+    }
     for (const [, entry] of cache) {
-      if (entry.dispose) entry.dispose();
+      if (entry.dispose) {
+        try { entry.dispose(); } catch (_) { /* swallow */ }
+      }
     }
     cache.clear();
-    lruOrder.length = 0;
+    lruMap.clear();
   });
 
   return container;

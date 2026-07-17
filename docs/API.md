@@ -1,6 +1,6 @@
 # API Reference
 
-Public APIs exported from **`cachoujs`** (v0.4.5). Types also live in `src/index.d.ts`.
+Public APIs exported from **`cachoujs`** (v0.4.6). Types also live in `src/index.d.ts`.
 
 Subpath imports: `cachoujs/browser`, `cachoujs/html`, `cachoujs/reactivity`, `cachoujs/router`, `cachoujs/forms`, `cachoujs/a11y`, `cachoujs/files`, `cachoujs/styles`, `cachoujs/transitions`, `cachoujs/plugin`, `cachoujs/content`, `cachoujs/image`, `cachoujs/media`, `cachoujs/ui`, `cachoujs/utils`, `cachoujs/vite`, and more.
 
@@ -406,7 +406,7 @@ function runWithSSRContextAsync<T>(ctx: SSRContext, fn: () => Promise<T>): Promi
 function installSSRAsyncHooks(asyncHooksModule: { AsyncLocalStorage: new () => any }): void;
 ```
 
-Typical server sequence:
+Typical server sequence (sequential handler — one request at a time):
 
 ```javascript
 const appHtml = await renderToStringAsync(App, { path: url });
@@ -414,9 +414,27 @@ const stateScript = dehydrate();
 const headHtml = getSSRHead();
 ```
 
-For concurrent request handlers, create one context per request and pass it to
-the render and serialization calls. Implicit serialization fails closed when
-overlapping renders make the last-completed context ambiguous.
+### Concurrent SSR contract
+
+For concurrent request handlers, treat the context as **request-scoped**:
+
+1. `const context = createSSRContext()` once per request.
+2. Pass `{ context, path, request, signal }` into `renderToStringAsync` / `renderToStream`.
+3. Pass the **same** `context` into `dehydrate(context)` and `getSSRHead(context)`.
+4. Do **not** rely on implicit `dehydrate()` / `getSSRHead()` while other requests may be in flight — when the last completed render is ambiguous, those helpers **fail closed** (throw) instead of returning another request’s state.
+5. Abort via `signal` (or stream cancel) releases pending resource work for that context.
+
+```javascript
+const context = createSSRContext();
+const appHtml = await renderToStringAsync(App, {
+  path: url,
+  request: req,
+  signal: req.signal,
+  context
+});
+const stateScript = dehydrate(context);
+const headHtml = getSSRHead(context);
+```
 
 ---
 

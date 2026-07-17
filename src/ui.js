@@ -169,6 +169,7 @@ export function createToast(options = {}) {
 
   function ensureContainer() {
     if (container) return container;
+    if (typeof document === "undefined") return null;
     injectToastStyles();
     container = document.createElement("div");
     container.setAttribute("data-cachou-toast-container", "");
@@ -183,16 +184,18 @@ export function createToast(options = {}) {
    * Show a toast message.
    * @param {string} message
    * @param {ToastShowOptions} [opts]
-   * @returns {string} The unique toast id.
+   * @returns {string} The unique toast id (empty string when DOM is unavailable).
    */
   function show(message, opts = {}) {
     const id = uid("toast");
+    if (typeof document === "undefined") return id;
+
     const type = opts.type || "info";
     const duration = opts.duration !== undefined ? opts.duration : 4000;
     const dismissible = opts.dismissible !== false;
     const action = opts.action || null;
 
-    ensureContainer();
+    if (!ensureContainer()) return id;
 
     const el = document.createElement("div");
     el.setAttribute("data-cachou-toast", id);
@@ -274,10 +277,25 @@ export function createToast(options = {}) {
   /**
    * Create and return the toast container element.
    * Append this to document.body.
-   * @returns {HTMLElement}
+   * @returns {HTMLElement|null}
    */
   function mountContainer() {
     return ensureContainer();
+  }
+
+  /** Clear timers, remove all toasts, and detach the container. */
+  function destroy() {
+    for (const entry of toasts) {
+      if (entry.timer) clearTimeout(entry.timer);
+      if (entry.el) {
+        try { entry.el.remove(); } catch (_) { /* swallow */ }
+      }
+    }
+    toasts = [];
+    if (container) {
+      try { container.remove(); } catch (_) { /* swallow */ }
+      container = null;
+    }
   }
 
   return {
@@ -292,6 +310,7 @@ export function createToast(options = {}) {
     warning: (message, opts = {}) => show(message, { ...opts, type: "warning" }),
     dismiss,
     dismissAll,
+    destroy,
     mount: mountContainer
   };
 }
@@ -637,7 +656,10 @@ export function Popover(props) {
       }
     };
     // Delay listener to avoid immediate close from the triggering click
-    setTimeout(() => document.addEventListener("click", onDocClick), 0);
+    let clickListenTimer = setTimeout(() => {
+      clickListenTimer = null;
+      document.addEventListener("click", onDocClick);
+    }, 0);
 
     // Escape key
     const onKey = (e) => {
@@ -648,6 +670,10 @@ export function Popover(props) {
     document.addEventListener("keydown", onKey);
 
     onCleanup(() => {
+      if (clickListenTimer != null) {
+        clearTimeout(clickListenTimer);
+        clickListenTimer = null;
+      }
       document.removeEventListener("click", onDocClick);
       document.removeEventListener("keydown", onKey);
       el.remove();
@@ -902,10 +928,17 @@ export function Menu(props) {
         closeMenu();
       }
     };
-    setTimeout(() => document.addEventListener("click", onDocClick), 0);
+    let clickListenTimer = setTimeout(() => {
+      clickListenTimer = null;
+      document.addEventListener("click", onDocClick);
+    }, 0);
     document.addEventListener("keydown", onMenuKey);
 
     onCleanup(() => {
+      if (clickListenTimer != null) {
+        clearTimeout(clickListenTimer);
+        clickListenTimer = null;
+      }
       document.removeEventListener("keydown", onMenuKey);
       document.removeEventListener("click", onDocClick);
       if (menuEl) { menuEl.remove(); menuEl = null; }
@@ -1366,16 +1399,18 @@ export function InfiniteScroll(props) {
 
   let cursor = undefined;
   let loadInProgress = false;
+  let disposed = false;
 
   const threshold = props.threshold || 200;
 
   async function loadMore() {
-    if (loadInProgress || !hasMore()) return;
+    if (disposed || loadInProgress || !hasMore()) return;
     loadInProgress = true;
     setLoading(true);
 
     try {
       const result = await props.load(cursor);
+      if (disposed) return;
       const newItems = result.items || [];
 
       batch(() => {
@@ -1386,17 +1421,18 @@ export function InfiniteScroll(props) {
         }
       });
     } catch (err) {
-      if (typeof console !== "undefined") {
+      if (!disposed && typeof console !== "undefined") {
         console.error("InfiniteScroll load error:", err);
       }
     } finally {
       loadInProgress = false;
-      setLoading(false);
+      if (!disposed) setLoading(false);
     }
   }
 
   /** Reset scroll state and reload from the beginning. */
   function reset() {
+    if (disposed) return;
     cursor = undefined;
     batch(() => {
       setItems([]);
@@ -1471,7 +1507,12 @@ export function InfiniteScroll(props) {
     observer.observe(sentinel);
 
     onCleanup(() => {
+      disposed = true;
       observer.disconnect();
+    });
+  } else {
+    onCleanup(() => {
+      disposed = true;
     });
   }
 

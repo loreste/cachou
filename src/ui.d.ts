@@ -49,8 +49,10 @@ declare module "cachoujs/ui" {
     dismiss(id: string): void;
     /** Dismiss all active toasts. */
     dismissAll(): void;
+    /** Clear timers, remove all toasts, and detach the container. */
+    destroy(): void;
     /** Create and return the toast container element. Append to document.body. */
-    mount(): HTMLElement;
+    mount(): HTMLElement | null;
   }
 
   /**

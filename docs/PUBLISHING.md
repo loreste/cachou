@@ -6,9 +6,9 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 
 | Package | Path | Current |
 |---------|------|---------|
-| `cachoujs` | repo root | 0.4.5 |
-| `@cachoujs/compiler` | `packages/compiler` | 0.4.5 |
-| `@cachoujs/create` | `packages/create-cachou` | 0.4.5 |
+| `cachoujs` | repo root | 0.4.6 |
+| `@cachoujs/compiler` | `packages/compiler` | 0.4.6 |
+| `@cachoujs/create` | `packages/create-cachou` | 0.4.6 |
 
 You must own the npm name / `@cachoujs` org (this project uses org **cachoujs**, owner **loreste**).
 
@@ -39,8 +39,8 @@ From **0.4.0** onward, releases use **small increments** only.
 
 | Rule | Detail |
 |------|--------|
-| Current published | **0.4.5** |
-| Next release | **0.4.6** |
+| Current published | **0.4.6** |
+| Next release | **0.4.7** |
 | Default bump | **patch** (`0.4.x` → `0.4.x+1`) for fixes, docs, CI, small APIs |
 | Minor bump | Rare: only when a coherent feature set lands (`0.4` → `0.5`) |
 | Major bump | Reserved for **1.0** API freeze (later) |
@@ -110,8 +110,8 @@ Pages:
 ### 5. Git tag
 
 ```bash
-git tag v0.4.5
-git push origin v0.4.5
+git tag v0.4.6
+git push origin v0.4.6
 ```
 
 ---

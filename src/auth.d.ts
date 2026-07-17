@@ -26,14 +26,13 @@ declare module "cachoujs/auth" {
     fetchFn?: typeof fetch;
   }
 
-  export interface RouteGuardContext {
-    next: () => any;
-    [key: string]: any;
-  }
-
-  export interface RouteGuardResult {
-    redirect: string;
-  }
+  /** Signature expected by `guard()` / `addMiddleware()`. */
+  export type RouteGuardFn = (
+    to: string,
+    from: string,
+    next: (result?: false | string) => void,
+    signal?: AbortSignal
+  ) => void | Promise<void>;
 
   export interface AuthController {
     // Reactive state
@@ -71,13 +70,13 @@ declare module "cachoujs/auth" {
      * Return a guard function that redirects unauthenticated users.
      * @param redirectTo - Path to redirect to (default "/login").
      */
-    requireAuth(redirectTo?: string): (ctx: RouteGuardContext) => RouteGuardResult | any;
+    requireAuth(redirectTo?: string): RouteGuardFn;
     /**
      * Return a guard function that requires a specific role.
      * @param role - Required role.
      * @param redirectTo - Redirect path if unauthorized (default "/login").
      */
-    requireRole(role: string, redirectTo?: string): (ctx: RouteGuardContext) => RouteGuardResult | any;
+    requireRole(role: string, redirectTo?: string): RouteGuardFn;
   }
 
   /**

@@ -103,7 +103,9 @@ export function addMiddleware(guardFn) {
  */
 async function runMiddlewareChain(chain, to, from, signal) {
   let index = 0;
-  let result = { proceed: true, redirect: null };
+  // Fail closed: navigation only proceeds when the chain explicitly calls next()
+  // through to the end. Omitting next() cancels (does not open by default).
+  let result = { proceed: false, redirect: null };
 
   async function next(arg) {
     if (signal?.aborted) {
@@ -124,13 +126,17 @@ async function runMiddlewareChain(chain, to, from, signal) {
       if (signal?.aborted) {
         result = { proceed: false, redirect: null };
       }
+      return;
     }
+    // End of chain — only reachable when every middleware called next() without cancel/redirect.
+    result = { proceed: true, redirect: null };
   }
 
-  if (chain.length > 0) {
-    await next();
+  if (chain.length === 0) {
+    return { proceed: true, redirect: null };
   }
 
+  await next();
   return result;
 }
 

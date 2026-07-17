@@ -6,7 +6,7 @@ CachouJS is on the **npm registry**. Install it with npm—you do not need to cl
 |--|--|
 | Full install | [INSTALL.md](../INSTALL.md) |
 | Tutorial + examples | [Get Started](../GETTING_STARTED.md) |
-| Current line | **0.4.x** (published: **0.4.5**) |
+| Current line | **0.4.x** (published: **0.4.6**) |
 
 ## Get the packages
 
@@ -41,7 +41,7 @@ npm install
 npm run dev
 ```
 
-Scaffold pins `cachoujs@^0.4.5`, file routes, and Vite 6. Details: [Scaffold a new app](./scaffold-a-new-app.md).
+Scaffold pins `cachoujs@^0.4.6`, file routes, and Vite 6. Details: [Scaffold a new app](./scaffold-a-new-app.md).
 
 If the scoped package 404s briefly after a release:
 
@@ -167,9 +167,9 @@ export default defineConfig({
 ## Check versions
 
 ```bash
-npm view cachoujs version              # 0.4.5
-npm view @cachoujs/compiler version    # 0.4.5
-npm view @cachoujs/create version      # 0.4.5
+npm view cachoujs version              # 0.4.6
+npm view @cachoujs/compiler version    # 0.4.6
+npm view @cachoujs/create version      # 0.4.6
 ```
 
 Pin in apps when you care about stability:
@@ -177,7 +177,7 @@ Pin in apps when you care about stability:
 ```json
 {
   "dependencies": {
-    "cachoujs": "0.4.5"
+    "cachoujs": "0.4.6"
   }
 }
 ```

@@ -70,4 +70,64 @@ describe("route guards", () => {
     unreg();
     unreg(); // should not throw
   });
+
+  it("middleware that never calls next blocks navigation (fail closed)", async () => {
+    const { configureRouter, navigate, getPath } = await import("../../src/router.js");
+    configureRouter({ history: "memory", initialPath: "/" });
+
+    await new Promise((resolve, reject) => {
+      const unreg = guard(async () => {
+        // forget to call next()
+      });
+      navigate("/blocked");
+      setTimeout(() => {
+        try {
+          assert.equal(getPath(), "/", "omitting next() must not open the route");
+          unreg();
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      }, 40);
+    });
+  });
+
+  it("middleware next(false) cancels and next(path) redirects", async () => {
+    const { configureRouter, navigate, getPath } = await import("../../src/router.js");
+    configureRouter({ history: "memory", initialPath: "/" });
+
+    await new Promise((resolve, reject) => {
+      const unreg = guard(async (to, from, next) => {
+        if (to === "/nope") next(false);
+        else if (to === "/admin") next("/login");
+        else next();
+      });
+      navigate("/nope");
+      setTimeout(() => {
+        try {
+          assert.equal(getPath(), "/");
+          navigate("/admin");
+          setTimeout(() => {
+            try {
+              assert.equal(getPath(), "/login");
+              navigate("/ok");
+              setTimeout(() => {
+                try {
+                  assert.equal(getPath(), "/ok");
+                  unreg();
+                  resolve();
+                } catch (err) {
+                  reject(err);
+                }
+              }, 40);
+            } catch (err) {
+              reject(err);
+            }
+          }, 40);
+        } catch (err) {
+          reject(err);
+        }
+      }, 40);
+    });
+  });
 });

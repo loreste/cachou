@@ -11,6 +11,16 @@ describe("ui module", () => {
     assert.equal(typeof mod.DataTable, "function");
     assert.equal(typeof mod.InfiniteScroll, "function");
   });
+
+  it("createToast is SSR-safe and exposes destroy", async () => {
+    const { createToast } = await import("../../src/ui.js");
+    const toast = createToast();
+    assert.equal(typeof toast.destroy, "function");
+    // No document in unit runner — show must not throw
+    const id = toast.show("hello");
+    assert.equal(typeof id, "string");
+    toast.destroy();
+  });
 });
 
 describe("dnd module", () => {
