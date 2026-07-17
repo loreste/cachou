@@ -90,15 +90,23 @@ More examples in [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md#code-exampl
 
 ### Core
 
-- **Reactivity** — `signal`, `effect`, `memo`, `store`, `batch`, `createRoot`, ownership and cleanup
+- **Reactivity** — `signal`, `effect`, `memo`, `store`, `batch`, `createRoot`, ownership and cleanup; optional `equals` / always-notify
 - **Rendering** — Tagged template `html` with events, refs, class/style bindings, two-way bind
-- **Lists** — Keyed `mapArray` with stable moves and in-place updates
-- **Resources** — `createResource` with abort, stale suppression, dedup, timeouts, revalidation
-- **Router** — `Route`, `Layout` + `Outlet`, `Link`, `guard()`, lazy routes, file-based routing
+- **Lists** — Keyed `mapArray` with stable moves, immutable reuse, and in-place updates (`For` / `Index`)
+- **Resources** — `createResource` with abort, stale suppression, dedup, timeouts, revalidation, `dispose()`, bounded cache (`configureResourceCache`)
+- **Router** — `Route`, `Layout` + `Outlet`, `Link`, `guard()`, `navigate` / `go` / `back` / `forward`, lazy routes, file-based routing, history modes
 - **Control flow** — `Show`, `Switch`, `Match`, `For`, `Index`, `KeepAlive`
-- **SSR** — `renderToStringAsync`, streaming, per-request isolation, dehydration/hydration
+- **SSR** — `renderToStringAsync`, streaming, concurrent request isolation, `preload`, dehydration/hydration, islands
 - **Forms** — `createField`, `createForm` with validation, dirty/touched state
 - **Error handling** — `ErrorBoundary`, `Suspense`, `onError`
+- **Browser entry** — `cachoujs/browser` keeps server-only content/media out of client bundles (Vite default)
+
+### Observability
+
+- **Logger** — `configureLogger` / `createLogger` (silent by default)
+- **Tracing** — W3C `traceparent` spans (`configureTracing`, `startSpan`); no bundled OTel SDK
+- **Framework events** — `onFrameworkEvent` for security, resources, leaks, SSR stages
+- **Debug mode** — snapshots, strict ownership checks, `assertNoReactiveLeaks`
 
 ### Styling & transitions
 
@@ -122,25 +130,32 @@ Built-in. No external CSS libraries needed.
 
 ### Content collections
 
-For blogs, docs, marketing pages — structured content with schema validation.
+For blogs, docs, marketing pages — structured content with schema validation (full/`Node` entry; not on `cachoujs/browser`).
 
 - **`defineCollection()`** — Define collections with schemas
 - **`z.string()`, `z.number()`, `z.object()`, etc.** — Built-in schema validation
 - **`loadContent()`** — Load markdown/JSON from the filesystem
 - **`parseFrontmatter()`** — Parse `---` frontmatter blocks
 
-### Image optimization
+### Image & media
 
 - **`Image`** — Lazy loading, blur/color placeholders, responsive srcset, CLS prevention
 - **`Picture`** — Art direction with multiple sources
+- **`cachoujs/media`** — compression / srcset helpers (Node-oriented paths)
+
+### App primitives (0.4)
+
+- **UI kit** — Toast, Drawer, Popover, Menu, DataTable, Tabs, Accordion, …
+- **Utils** — `debounce`, `throttle`, `useMedia`, `useClipboard`, `useOnline`, …
+- **Auth / i18n / machine / DnD / SEO / validate / mask / upload** — see subpath exports and [API](./docs/API.md)
 
 ### Compiler & tooling
 
 - `.cachou` single-file components with scoped CSS
-- **Static hoisting** — Pure HTML fragments skip reactivity entirely
+- **Static hoisting** — Pure HTML fragments skip reactivity (`createCompiledStatic` / `htmlStatic`)
 - **`bind()`** in style blocks — Compiled to reactive CSS custom properties
 - VLQ-encoded source maps for debugger navigation
-- Vite plugin: `cachoujs/vite`
+- Vite plugin: `cachoujs/vite` (aliases runtime to browser entry by default)
 - VS Code extension with syntax highlighting, snippets, compile-on-save, diagnostics
 
 ## `.cachou` component
@@ -223,6 +238,7 @@ cachoujs/vite        → Vite plugin (aliases `cachoujs` → browser entry by de
 | Doc | What's in it |
 |-----|-------------|
 | [Get Started](./docs/GETTING_STARTED.md) | Scaffold, first app, core concepts |
+| [Docs home](./docs/README.md) | Full documentation map |
 | [Developer Guide](./docs/GUIDE.md) | Reactivity, rendering, SSR, styling, plugins |
 | [API Reference](./docs/API.md) | Every public export |
 | [Styling](./docs/STYLING.md) | Built-in CSS system, themes, reactive bindings |
@@ -232,8 +248,9 @@ cachoujs/vite        → Vite plugin (aliases `cachoujs` → browser entry by de
 | [Image](./docs/IMAGE.md) | Image optimization components |
 | [Templates](./docs/TEMPLATES.md) | `html` directives and bindings |
 | [Compiler](./docs/COMPILER.md) | `.cachou` SFC format and CLI |
-| [How-to Guides](./docs/how-to/README.md) | Short task recipes |
+| [How-to Guides](./docs/how-to/README.md) | Short task recipes (SSR, debug/logger/tracing, …) |
 | [Security](./docs/SECURITY.md) | Threat model, demo mode, policies |
+| [Changelog](./CHANGELOG.md) | Release notes (current: **0.4.5**) |
 
 ## Working on the framework
 
@@ -251,13 +268,16 @@ npm run dev
 npm run test:unit        # Node unit tests
 npm run test:browser     # Playwright browser tests
 npm run bench            # Performance benchmarks
+npm run bench:ssr        # SSR throughput benches
 npm run check            # Full CI pipeline
 npm run compiler:build   # Build Go compiler binary
 ```
 
 ## Current state
 
-This is **0.4.x** — the API is still evolving. Things work, tests pass, but pin your version and check the changelog before upgrading. The published npm package is the runtime, Vite plugin, and compiler helpers. The demo server and CRM app in this repo are not part of the published package.
+This is **0.4.x** (current publish: **0.4.5**) — the API is still evolving. Things work, tests pass, but pin your version and check the [changelog](./CHANGELOG.md) before upgrading. The published npm package is the runtime, Vite plugin, and compiler helpers. The demo server and CRM app in this repo are not part of the published package.
+
+Prefer client imports from `cachoujs/browser` (or the Vite plugin default) so Node-only modules stay out of the browser graph.
 
 ## License
 
