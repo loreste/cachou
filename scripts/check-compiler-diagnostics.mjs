@@ -7,22 +7,58 @@ const cases = [
   {
     name: "unclosed expression",
     source: "<div>{count</div>",
-    expected: "unclosed template expression"
+    expected: "unclosed template expression",
+    expectedLine: 1,
+    expectedHint: "literal braces"
   },
   {
     name: "unclosed tag",
     source: "<div title=\"broken></div>",
-    expected: "unclosed HTML tag"
+    expected: "unclosed HTML tag",
+    expectedLine: 1,
+    expectedHint: "unclosed quote"
   },
   {
     name: "unclosed css block",
     source: "<style>\n.card { color: red;\n</style>\n<div>Card</div>",
-    expected: "unclosed CSS block"
+    expected: "unclosed CSS block",
+    expectedLine: 2,
+    expectedHint: "closing `}`"
   },
   {
     name: "unclosed css comment",
     source: "<style scoped>/* missing close\n.card { color: red; }</style>\n<div>Card</div>",
-    expected: "unclosed CSS comment"
+    expected: "unclosed CSS comment",
+    expectedLine: 1,
+    expectedHint: "`*/`"
+  },
+  {
+    name: "absolute line after script",
+    source: "<!-- header -->\n<script>\nconst [n] = signal(0);\n</script>\n<style scoped>\n.box { color: red;\n</style>\n<div>{n()}</div>\n",
+    expected: "unclosed CSS block",
+    expectedLine: 6,
+    expectedHint: "closing `}`"
+  },
+  {
+    name: "empty expression with hint",
+    source: "<script>\nconst x = 1;\n</script>\n<div>{}</div>\n",
+    expected: "empty template expression",
+    expectedLine: 4,
+    expectedHint: "literal braces"
+  },
+  {
+    name: "missing script close",
+    source: "<script>\nconst x = 1;\n<div>hi</div>\n",
+    expected: "missing closing </script>",
+    expectedLine: 1,
+    expectedHint: "</script>"
+  },
+  {
+    name: "empty bind expression",
+    source: "<style>\n.x { color: bind(); }\n</style>\n<div class=\"x\">x</div>\n",
+    expected: "empty CSS bind() expression",
+    expectedLine: 2,
+    expectedHint: "bind(color)"
   }
 ];
 
@@ -54,6 +90,19 @@ try {
     }
     if (!result.output.includes(item.expected)) {
       throw new Error(`${item.name}: expected ${JSON.stringify(item.expected)} in compiler output, got ${JSON.stringify(result.output)}`);
+    }
+    if (item.expectedLine != null) {
+      const match = result.output.match(/\.cachou:(\d+):(\d+)/);
+      if (!match || Number(match[1]) !== item.expectedLine) {
+        throw new Error(
+          `${item.name}: expected diagnostic line ${item.expectedLine}, got ${match ? match[1] : "none"} in ${JSON.stringify(result.output)}`
+        );
+      }
+    }
+    if (item.expectedHint && !result.output.includes(item.expectedHint)) {
+      throw new Error(
+        `${item.name}: expected hint containing ${JSON.stringify(item.expectedHint)} in ${JSON.stringify(result.output)}`
+      );
     }
   }
   const staticFile = join(dir, "StaticOnly.cachou");
@@ -165,7 +214,7 @@ try {
     throw new Error("arrow handler: expected > inside expression string to stay inside the tag");
   }
 
-  console.log(`Compiler diagnostics: ${cases.length + 5}/${cases.length + 5} passed`);
+  console.log(`Compiler diagnostics: ${cases.length + 5}/${cases.length + 5} passed (locations + hints)`);
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

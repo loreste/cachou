@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.8
+
+Patch release: compiler diagnostics with absolute locations and actionable hints.
+
+### Fixed / improved
+
+- **Compiler diagnostics** — errors now use **absolute file line:column** after `<script>` / `<style>` extraction (no more “line 1” false positives for later sections)
+- **Actionable hints** — common SFC mistakes print a `hint:` line (unclosed tags/expressions, empty `{ }`, CSS `bind()`, missing `</script>` / `</style>`, unclosed CSS blocks/comments)
+- **`CompilerDiagnostic`** — structured error class exported from `@cachoujs/compiler` with `line`, `col`, `hint`, and source snapshot
+- **Parity** — JS ↔ Go entrypoint still share the canonical JS compiler; diagnostic regression suite expanded (13 cases including absolute-line checks)
+
+### Docs / tests
+
+- COMPILER.md diagnostics section
+- Unit tests for absolute locations and empty-expression hints
+- Scaffold pins stay aligned with this release (`^0.4.8`)
+
 ## 0.4.7
 
 Patch release: mutation/resource abort edges and remaining UI kit dispose hardening.

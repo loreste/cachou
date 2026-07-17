@@ -5,10 +5,28 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from "node:fs";
 import { dirname, join, relative, basename, extname, resolve } from "node:path";
 
+/** Structured compiler diagnostic with absolute file location + optional hint. */
+export class CompilerDiagnostic extends Error {
+  /**
+   * @param {string} message
+   * @param {{ offset?: number, line?: number, col?: number, hint?: string, source?: string }} [opts]
+   */
+  constructor(message, opts = {}) {
+    super(message);
+    this.name = "CompilerDiagnostic";
+    this.offset = opts.offset ?? null;
+    this.line = opts.line ?? null;
+    this.col = opts.col ?? null;
+    this.hint = opts.hint || null;
+    this.source = opts.source || null;
+  }
+}
+
 function lineCol(content, index) {
   let line = 1;
   let col = 1;
-  for (let i = 0; i < content.length && i < index; i++) {
+  const end = Math.max(0, Math.min(index, content.length));
+  for (let i = 0; i < end; i++) {
     if (content[i] === "\n") {
       line++;
       col = 1;
@@ -17,21 +35,63 @@ function lineCol(content, index) {
   return { line, col };
 }
 
+/**
+ * Throw a diagnostic at an absolute offset in the original source.
+ * @param {string} source
+ * @param {number} absoluteIndex
+ * @param {string} message
+ * @param {string} [hint]
+ */
+function throwAt(source, absoluteIndex, message, hint) {
+  const safeIndex = Math.max(0, Math.min(absoluteIndex, source.length));
+  const { line, col } = lineCol(source, safeIndex);
+  throw new CompilerDiagnostic(message, {
+    offset: safeIndex,
+    line,
+    col,
+    hint,
+    source
+  });
+}
+
+/**
+ * @param {string} file
+ * @param {Error | CompilerDiagnostic} error
+ */
 function formatCompilerError(file, error) {
   const message = error?.message || String(error);
-  const position = message.match(/(?:at|near) (\d+):(\d+)/i);
-  if (!position) return `${file}: ${message}`;
+  let line = typeof error?.line === "number" ? error.line : null;
+  let column = typeof error?.col === "number" ? error.col : null;
+  let sourceText = typeof error?.source === "string" ? error.source : null;
 
-  const line = Number(position[1]);
-  const column = Number(position[2]);
-  let sourceLine = "";
-  try {
-    sourceLine = readFileSync(file, "utf8").split(/\r?\n/)[line - 1] || "";
-  } catch {
-    // Keep the positional diagnostic when the source cannot be reread.
+  if ((line == null || column == null) && typeof error?.offset === "number" && sourceText) {
+    ({ line, col: column } = lineCol(sourceText, error.offset));
   }
+
+  if (line == null || column == null) {
+    const position = message.match(/(?:at|near) (\d+):(\d+)/i);
+    if (position) {
+      line = Number(position[1]);
+      column = Number(position[2]);
+    }
+  }
+
+  if (line == null || column == null) {
+    return `${file}: ${message}${error?.hint ? `\n  hint: ${error.hint}` : ""}`;
+  }
+
+  if (!sourceText) {
+    try {
+      sourceText = readFileSync(file, "utf8");
+    } catch {
+      // Keep the positional diagnostic when the source cannot be reread.
+    }
+  }
+
+  const sourceLine = sourceText ? sourceText.split(/\r?\n/)[line - 1] || "" : "";
   const caret = `${" ".repeat(Math.max(0, column - 1))}^`;
-  return `${file}:${line}:${column}\n${sourceLine}\n${caret} ${message}`;
+  const hint = error?.hint ? `\n  hint: ${error.hint}` : "";
+  return `${file}:${line}:${column}\n${sourceLine}\n${caret} ${message}${hint}`;
 }
 
 function uppercaseFirst(str) {
@@ -89,9 +149,9 @@ function findTagEnd(html, start) {
   return -1;
 }
 
-function findTopLevelOpenTag(content, tagName) {
+function findTopLevelOpenTag(content, tagName, fromIndex = 0) {
   const lowerName = tagName.toLowerCase();
-  for (let i = 0; i < content.length; i++) {
+  for (let i = fromIndex; i < content.length; i++) {
     if (content[i] !== "<" || i + 1 >= content.length || content[i + 1] === "/") continue;
     const end = findTagEnd(content, i + 1);
     if (end === -1) return null;
@@ -110,40 +170,118 @@ function findClosingTag(content, tagName, start) {
   return idx === -1 ? -1 : idx;
 }
 
-function extractTopLevelSection(content, tagName) {
-  const open = findTopLevelOpenTag(content, tagName);
-  if (!open) return { remaining: content, inner: "", attrs: "" };
-  const closeStart = findClosingTag(content, tagName, open.openEnd);
-  if (closeStart === -1) {
-    const { line, col } = lineCol(content, open.openStart);
-    throw new Error(`missing closing </${tagName}> for <${tagName}> at ${line}:${col}`);
-  }
-  const closeEnd = closeStart + tagName.length + 3;
-  const inner = content.slice(open.openEnd, closeStart);
-  const attrs = open.openTag.slice(1 + tagName.length, open.openTag.length - 1).trim();
-  const remaining = (content.slice(0, open.openStart) + content.slice(closeEnd)).trim();
-  return { remaining, inner, attrs };
-}
-
 function hasBooleanAttr(attrs, name) {
   return new RegExp(`(^|\\s)${name}(\\s|=|$)`, "i").test(attrs);
 }
 
+function indexInRanges(index, ranges) {
+  return ranges.some(([start, end]) => index >= start && index < end);
+}
+
+/**
+ * Extract a top-level SFC section with absolute offsets into the original file.
+ * @returns {{ text: string, offset: number, attrs: string, range: [number, number] } | null}
+ */
+function extractSection(content, tagName, occupiedRanges) {
+  let searchFrom = 0;
+  while (searchFrom < content.length) {
+    const open = findTopLevelOpenTag(content, tagName, searchFrom);
+    if (!open) return null;
+    if (indexInRanges(open.openStart, occupiedRanges)) {
+      searchFrom = open.openEnd;
+      continue;
+    }
+    const closeStart = findClosingTag(content, tagName, open.openEnd);
+    if (closeStart === -1) {
+      throwAt(
+        content,
+        open.openStart,
+        `missing closing </${tagName}> for <${tagName}>`,
+        `Add </${tagName}> after the ${tagName} section body.`
+      );
+    }
+    const closeEnd = closeStart + tagName.length + 3;
+    let textStart = open.openEnd;
+    while (textStart < closeStart && /\s/.test(content[textStart])) textStart++;
+    let textEnd = closeStart;
+    while (textEnd > textStart && /\s/.test(content[textEnd - 1])) textEnd--;
+    const attrs = open.openTag.slice(1 + tagName.length, open.openTag.length - 1).trim();
+    return {
+      text: content.slice(textStart, textEnd),
+      offset: textStart,
+      attrs,
+      range: [open.openStart, closeEnd]
+    };
+  }
+  return null;
+}
+
+/**
+ * Build the template by removing section ranges, preserving a map from
+ * template-local indices to absolute source offsets.
+ */
+function buildTemplate(content, ranges) {
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
+  /** @type {number[]} */
+  const map = [];
+  let text = "";
+  let cursor = 0;
+  for (const [start, end] of sorted) {
+    for (let i = cursor; i < start; i++) {
+      map.push(i);
+      text += content[i];
+    }
+    cursor = end;
+  }
+  for (let i = cursor; i < content.length; i++) {
+    map.push(i);
+    text += content[i];
+  }
+
+  let trimStart = 0;
+  while (trimStart < text.length && /\s/.test(text[trimStart])) trimStart++;
+  let trimEnd = text.length;
+  while (trimEnd > trimStart && /\s/.test(text[trimEnd - 1])) trimEnd--;
+
+  const trimmed = text.slice(trimStart, trimEnd);
+  const trimmedMap = map.slice(trimStart, trimEnd);
+  const toAbsolute = localIndex => {
+    if (trimmedMap.length === 0) return 0;
+    if (localIndex < 0) return trimmedMap[0];
+    if (localIndex >= trimmedMap.length) return trimmedMap[trimmedMap.length - 1];
+    return trimmedMap[localIndex];
+  };
+  return { text: trimmed, toAbsolute, offset: trimmedMap[0] ?? 0 };
+}
+
 function parseComponentSections(content) {
-  let remaining = content;
-  const script = extractTopLevelSection(remaining, "script");
-  remaining = script.remaining;
-  const style = extractTopLevelSection(remaining, "style");
-  remaining = style.remaining;
+  /** @type {Array<[number, number]>} */
+  const occupied = [];
+  const scriptSection = extractSection(content, "script", occupied);
+  if (scriptSection) occupied.push(scriptSection.range);
+  const styleSection = extractSection(content, "style", occupied);
+  if (styleSection) occupied.push(styleSection.range);
+  const template = buildTemplate(content, occupied);
+
   return {
-    script: script.inner.trim(),
-    style: style.inner.trim(),
-    styleScoped: hasBooleanAttr(style.attrs, "scoped"),
-    template: remaining.trim()
+    source: content,
+    script: scriptSection?.text || "",
+    scriptOffset: scriptSection?.offset ?? 0,
+    style: styleSection?.text || "",
+    styleOffset: styleSection?.offset ?? 0,
+    styleScoped: hasBooleanAttr(styleSection?.attrs || "", "scoped"),
+    template: template.text,
+    templateToAbsolute: template.toAbsolute,
+    templateOffset: template.offset
   };
 }
 
-function findExpressionEnd(template, start) {
+/**
+ * @param {string} template
+ * @param {number} start
+ * @param {{ source?: string, toAbsolute?: (i: number) => number }} [loc]
+ */
+function findExpressionEnd(template, start, loc = {}) {
   let depth = 0;
   let quote = 0;
   let escaped = false;
@@ -175,11 +313,27 @@ function findExpressionEnd(template, start) {
       if (depth < 0) break;
     }
   }
+  if (loc.source && typeof loc.toAbsolute === "function") {
+    throwAt(
+      loc.source,
+      loc.toAbsolute(start),
+      "unclosed template expression",
+      "Close the expression with `}`, or write literal braces as `{{` and `}}`."
+    );
+  }
   const { line, col } = lineCol(template, start);
-  throw new Error(`unclosed template expression at ${line}:${col}`);
+  throw new CompilerDiagnostic(`unclosed template expression at ${line}:${col}`, {
+    line,
+    col,
+    hint: "Close the expression with `}`, or write literal braces as `{{` and `}}`."
+  });
 }
 
-function compileTemplateExpressions(template) {
+/**
+ * @param {string} template
+ * @param {{ source?: string, toAbsolute?: (i: number) => number }} [loc]
+ */
+function compileTemplateExpressions(template, loc = {}) {
   let out = "";
   for (let i = 0; i < template.length; i++) {
     if (template[i] === "{" && template[i + 1] === "{") {
@@ -196,11 +350,26 @@ function compileTemplateExpressions(template) {
       out += template[i];
       continue;
     }
-    const end = findExpressionEnd(template, i);
+    const end = findExpressionEnd(template, i, loc);
     const expr = template.slice(i + 1, end).trim();
     if (!expr) {
+      if (loc.source && typeof loc.toAbsolute === "function") {
+        throwAt(
+          loc.source,
+          loc.toAbsolute(i),
+          "empty template expression",
+          "Put a JavaScript expression inside `{…}`, or use `{{` / `}}` for literal braces."
+        );
+      }
       const { line, col } = lineCol(template, i);
-      throw new Error(`empty template expression at ${line}:${col} (use {{ and }} for literal braces)`);
+      throw new CompilerDiagnostic(
+        `empty template expression at ${line}:${col} (use {{ and }} for literal braces)`,
+        {
+          line,
+          col,
+          hint: "Put a JavaScript expression inside `{…}`, or use `{{` / `}}` for literal braces."
+        }
+      );
     }
     out += "${" + expr + "}";
     i = end;
@@ -208,13 +377,29 @@ function compileTemplateExpressions(template) {
   return out;
 }
 
-function validateTemplateTags(html) {
+/**
+ * @param {string} html
+ * @param {{ source?: string, toAbsolute?: (i: number) => number }} [loc]
+ */
+function validateTemplateTags(html, loc = {}) {
   for (let i = 0; i < html.length; i++) {
     if (html[i] !== "<" || i + 1 >= html.length || html[i + 1] === "!" || html[i + 1] === "?") continue;
     const end = findTagEnd(html, i + 1);
     if (end === -1) {
+      if (loc.source && typeof loc.toAbsolute === "function") {
+        throwAt(
+          loc.source,
+          loc.toAbsolute(i),
+          "unclosed HTML tag",
+          "Check for a missing `>` or an unclosed quote in an attribute value."
+        );
+      }
       const { line, col } = lineCol(html, i);
-      throw new Error(`unclosed HTML tag at ${line}:${col}`);
+      throw new CompilerDiagnostic(`unclosed HTML tag at ${line}:${col}`, {
+        line,
+        col,
+        hint: "Check for a missing `>` or an unclosed quote in an attribute value."
+      });
     }
     i = end;
   }
@@ -231,7 +416,7 @@ function addScopeAttrToTag(tag, scopeAttr) {
   return tag.slice(0, insertAt) + ` ${scopeAttr}` + tag.slice(insertAt);
 }
 
-function scopeTemplate(html, scopeAttr) {
+function scopeTemplate(html, scopeAttr, loc = {}) {
   let out = "";
   for (let i = 0; i < html.length; ) {
     if (html[i] !== "<" || i + 1 >= html.length || html[i + 1] === "/" || html[i + 1] === "!" || html[i + 1] === "?") {
@@ -241,8 +426,20 @@ function scopeTemplate(html, scopeAttr) {
     }
     const end = findTagEnd(html, i + 1);
     if (end === -1) {
+      if (loc.source && typeof loc.toAbsolute === "function") {
+        throwAt(
+          loc.source,
+          loc.toAbsolute(i),
+          "unclosed HTML tag",
+          "Check for a missing `>` or an unclosed quote in an attribute value."
+        );
+      }
       const { line, col } = lineCol(html, i);
-      throw new Error(`unclosed HTML tag at ${line}:${col}`);
+      throw new CompilerDiagnostic(`unclosed HTML tag at ${line}:${col}`, {
+        line,
+        col,
+        hint: "Check for a missing `>` or an unclosed quote in an attribute value."
+      });
     }
     out += addScopeAttrToTag(html.slice(i, end + 1), scopeAttr);
     i = end + 1;
@@ -409,7 +606,19 @@ function findMatchingBrace(css, open) {
   return -1;
 }
 
-function scopeCSSBlock(css, scopeAttr) {
+/**
+ * @param {string} css
+ * @param {string} scopeAttr
+ * @param {{ source?: string, baseOffset?: number }} [loc]
+ */
+function scopeCSSBlock(css, scopeAttr, loc = {}) {
+  const abs = localIndex => {
+    if (loc.source && typeof loc.baseOffset === "number") {
+      return loc.baseOffset + localIndex;
+    }
+    return null;
+  };
+
   let out = "";
   let i = 0;
   while (i < css.length) {
@@ -421,8 +630,16 @@ function scopeCSSBlock(css, scopeAttr) {
     if (css[i] === "/" && css[i + 1] === "*") {
       const close = css.indexOf("*/", i + 2);
       if (close === -1) {
+        const absolute = abs(i);
+        if (absolute != null) {
+          throwAt(loc.source, absolute, "unclosed CSS comment", "Close the comment with `*/`.");
+        }
         const { line, col } = lineCol(css, i);
-        throw new Error(`unclosed CSS comment at ${line}:${col}`);
+        throw new CompilerDiagnostic(`unclosed CSS comment at ${line}:${col}`, {
+          line,
+          col,
+          hint: "Close the comment with `*/`."
+        });
       }
       out += css.slice(i, close + 2) + "\n";
       i = close + 2;
@@ -433,18 +650,49 @@ function scopeCSSBlock(css, scopeAttr) {
     const open = findCSSOpenBrace(css, i);
     if (open === -1) {
       if (css.slice(i).trim()) {
+        const absolute = abs(i);
+        if (absolute != null) {
+          throwAt(
+            loc.source,
+            absolute,
+            "CSS rule missing opening brace",
+            "A selector or at-rule is missing `{`."
+          );
+        }
         const { line, col } = lineCol(css, i);
-        throw new Error(`CSS rule missing opening brace near ${line}:${col}`);
+        throw new CompilerDiagnostic(`CSS rule missing opening brace near ${line}:${col}`, {
+          line,
+          col,
+          hint: "A selector or at-rule is missing `{`."
+        });
       }
       break;
     }
     const close = findMatchingBrace(css, open);
     if (close === -1) {
+      const absolute = abs(open);
+      if (absolute != null) {
+        throwAt(
+          loc.source,
+          absolute,
+          "unclosed CSS block",
+          "Add a closing `}` for this rule or at-rule."
+        );
+      }
       const { line, col } = lineCol(css, open);
-      throw new Error(`unclosed CSS block at ${line}:${col}`);
+      throw new CompilerDiagnostic(`unclosed CSS block at ${line}:${col}`, {
+        line,
+        col,
+        hint: "Add a closing `}` for this rule or at-rule."
+      });
     }
     const header = css.slice(headerStart, open).trim();
     const body = css.slice(open + 1, close).trim();
+    // Nested @media bodies lose precise offsets; report relative to the open brace.
+    const nestedLoc =
+      loc.source && typeof loc.baseOffset === "number"
+        ? { source: loc.source, baseOffset: loc.baseOffset + open + 1 }
+        : {};
     const lower = header.toLowerCase();
     if (header.startsWith("@")) {
       if (
@@ -453,7 +701,7 @@ function scopeCSSBlock(css, scopeAttr) {
         lower.startsWith("@container") ||
         lower.startsWith("@layer")
       ) {
-        out += `${header} { ${scopeCSSBlock(body, scopeAttr)} }\n`;
+        out += `${header} { ${scopeCSSBlock(body, scopeAttr, nestedLoc)} }\n`;
       } else {
         out += `${header} { ${body} }\n`;
       }
@@ -516,11 +764,17 @@ function isSimpleIdentifier(expr) {
   return /^[A-Za-z_$][\w$]*$/.test(expr);
 }
 
-function compileVBindCSS(css) {
+/**
+ * @param {string} css
+ * @param {{ source?: string, baseOffset?: number }} [loc]
+ */
+function compileVBindCSS(css, loc = {}) {
   const bindings = [];
   const seen = new Map();
   let output = "";
   let cursor = 0;
+  const abs = localIndex =>
+    loc.source && typeof loc.baseOffset === "number" ? loc.baseOffset + localIndex : null;
 
   while (cursor < css.length) {
     const start = css.indexOf("bind(", cursor);
@@ -536,13 +790,39 @@ function compileVBindCSS(css) {
     }
     const close = findMatchingParen(css, start + 4);
     if (close === -1) {
+      const absolute = abs(start);
+      if (absolute != null) {
+        throwAt(
+          loc.source,
+          absolute,
+          "unclosed CSS bind() expression",
+          "Close the bind() call with `)`, e.g. `color: bind(color)`."
+        );
+      }
       const { line, col } = lineCol(css, start);
-      throw new Error(`unclosed CSS bind() expression at ${line}:${col}`);
+      throw new CompilerDiagnostic(`unclosed CSS bind() expression at ${line}:${col}`, {
+        line,
+        col,
+        hint: "Close the bind() call with `)`, e.g. `color: bind(color)`."
+      });
     }
     const expr = css.slice(start + 5, close).trim();
     if (!expr) {
+      const absolute = abs(start);
+      if (absolute != null) {
+        throwAt(
+          loc.source,
+          absolute,
+          "empty CSS bind() expression",
+          'Provide an expression, e.g. `bind(color)` or `bind(count() + "px")`.'
+        );
+      }
       const { line, col } = lineCol(css, start);
-      throw new Error(`empty CSS bind() expression at ${line}:${col}`);
+      throw new CompilerDiagnostic(`empty CSS bind() expression at ${line}:${col}`, {
+        line,
+        col,
+        hint: 'Provide an expression, e.g. `bind(color)` or `bind(count() + "px")`.'
+      });
     }
     const baseName = sanitizeVBindName(expr);
     let name = baseName;
@@ -951,25 +1231,38 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
 
   const sections = parseComponentSections(content);
   const scopeID = "data-c-" + sanitizeScopeID(nameWithoutExt);
-  validateTemplateTags(sections.template);
+  const templateLoc = {
+    source: content,
+    toAbsolute: sections.templateToAbsolute
+  };
+  // Validate tags + expressions on the unscoped template so locations map to the file.
+  validateTemplateTags(sections.template, templateLoc);
+  compileTemplateExpressions(sections.template, templateLoc);
   // Pragmatic TS support: strip simple annotations in script
   sections.script = stripTypeScript(sections.script || "");
 
-  // Section line hints for source maps
-  const scriptIdx = content.search(/<script\b/i);
-  const templateIdx = content.search(/<template\b/i);
-  const scriptLine = scriptIdx >= 0 ? content.slice(0, scriptIdx).split("\n").length - 1 : 0;
-  const templateLine = templateIdx >= 0 ? content.slice(0, templateIdx).split("\n").length - 1 : 0;
+  // Section line hints for source maps (0-based line index)
+  const scriptLine = sections.script
+    ? lineCol(content, sections.scriptOffset).line - 1
+    : 0;
+  const templateLine = sections.template
+    ? lineCol(content, sections.templateOffset).line - 1
+    : 0;
 
+  const styleLoc = { source: content, baseOffset: sections.styleOffset };
   let scopedHTML = sections.template;
   let scopedCSS = "";
   let vBindSetup = "";
   if (sections.style) {
+    // Diagnostic pass on original style text (absolute file locations).
+    if (/\bbind\s*\(/.test(sections.style)) {
+      compileVBindCSS(sections.style, styleLoc);
+    }
     if (sections.styleScoped) {
-      scopedHTML = scopeTemplate(sections.template, scopeID);
-      scopedCSS = scopeCSSBlock(sections.style, scopeID);
+      scopedHTML = scopeTemplate(sections.template, scopeID, templateLoc);
+      scopedCSS = scopeCSSBlock(sections.style, scopeID, styleLoc);
     } else {
-      scopeCSSBlock(sections.style, "data-c-validate"); // validate
+      scopeCSSBlock(sections.style, "data-c-validate", styleLoc); // validate braces/comments
       scopedCSS = sections.style.trim();
     }
   }
@@ -980,13 +1273,19 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
     if (compiledVBind.setup) {
       const injected = injectVBindRefs(scopedHTML);
       if (!injected.injected) {
-        throw new Error("CSS bind() requires a template with an element root");
+        throwAt(
+          content,
+          sections.styleOffset,
+          "CSS bind() requires a template with an element root",
+          "Wrap the template in a single HTML element so reactive CSS can attach."
+        );
       }
       scopedHTML = injected.html;
       vBindSetup = compiledVBind.setup;
     }
   }
 
+  // Expressions already validated; second pass emits ${...} on possibly scoped HTML.
   const compiledHTML = compileTemplateExpressions(scopedHTML);
   const staticFactory = compiledHTML.includes("${") ? null : compileStaticDOMFactory(compiledHTML);
   let styleImport = "";

@@ -85,6 +85,14 @@ html`
 - Unclosed `{` is an error with line:column.
 - Literal braces: `{{` → `{`, `}}` → `}`.
 
+### Diagnostics
+
+Compile errors are reported with **absolute file line:column** (including when
+`<script>` / `<style>` precede the template), a caret under the bad token, and
+an actionable `hint:` line for common mistakes (unclosed tags, empty `{ }`,
+CSS `bind()`, missing section closers). The Go entrypoint delegates to this
+same JS compiler by default, so diagnostics stay in lockstep.
+
 Quoted `>` characters inside attributes are handled so tags do not terminate early:
 
 ```html

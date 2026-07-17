@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { compileFile, stripTypeScript } from "../../packages/compiler/lib/compile.mjs";
+import {
+  compileFile,
+  stripTypeScript,
+  CompilerDiagnostic
+} from "../../packages/compiler/lib/compile.mjs";
 
 describe("JS compiler", () => {
   it("compiles a simple component with expressions and scoped css", () => {
@@ -129,5 +133,63 @@ describe("JS compiler", () => {
       stripTypeScript(source),
       `const label = " as User"; // as Comment\n/* as Block */\nconst value = input;`
     );
+  });
+
+  it("reports absolute file locations for errors after script/style sections", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cachou-js-diag-"));
+    try {
+      const src = join(dir, "Bad.cachou");
+      writeFileSync(
+        src,
+        `<!-- header -->
+<script>
+const [n] = signal(0);
+</script>
+<style scoped>
+.box { color: red;
+</style>
+<div>{n()}</div>
+`
+      );
+      assert.throws(
+        () => compileFile(src, { outDir: dir, runtime: "cachoujs" }),
+        err => {
+          assert.ok(err instanceof CompilerDiagnostic);
+          assert.equal(err.line, 6);
+          assert.match(err.message, /unclosed CSS block/i);
+          assert.match(err.hint || "", /closing `\}`/);
+          return true;
+        }
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reports empty template expressions with an actionable hint", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cachou-js-empty-expr-"));
+    try {
+      const src = join(dir, "Empty.cachou");
+      writeFileSync(
+        src,
+        `<script>
+const x = 1;
+</script>
+<div>{}</div>
+`
+      );
+      assert.throws(
+        () => compileFile(src, { outDir: dir, runtime: "cachoujs" }),
+        err => {
+          assert.ok(err instanceof CompilerDiagnostic);
+          assert.equal(err.line, 4);
+          assert.match(err.message, /empty template expression/i);
+          assert.match(err.hint || "", /literal braces/);
+          return true;
+        }
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
