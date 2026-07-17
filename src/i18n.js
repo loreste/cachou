@@ -105,7 +105,13 @@ function pluralize(template, count) {
  * i18n.t("greeting", { name: "Ada" }) // "Hola, Ada!"
  */
 export function createI18n(config) {
-  const { defaultLocale, fallbackLocale, messages: initialMessages } = config;
+  // Accept `locale` as a friendly alias for `defaultLocale` (common footgun).
+  const defaultLocale = config.defaultLocale || config.locale;
+  if (!defaultLocale || typeof defaultLocale !== "string") {
+    throw new TypeError("createI18n requires config.defaultLocale (or config.locale) string.");
+  }
+  const fallbackLocale = config.fallbackLocale;
+  const initialMessages = config.messages;
 
   /** @type {Record<string, Record<string, any>>} */
   const messages = { ...(initialMessages || {}) };

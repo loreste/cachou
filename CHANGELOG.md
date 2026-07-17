@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.12
+
+Patch release: fix SSR/control-flow view unwrapping and reactive mount roots.
+
+### Fixed
+
+- **SSR** — `renderToString` / `renderToStringAsync` / `renderToStream` no longer stringify function source for `Show` / `For` / `Switch` (and nested view thunks); views are unwrapped and serialized to HTML
+- **Stream dehydrate** — always passes the stream's SSR `context` explicitly (safe without AsyncLocalStorage)
+- **`mount` / `render`** — components that return a reactive view function (`Show`/`For`/…) stay live via an effect instead of failing `appendChild(function)`
+- **`hydrate`** — unwraps view functions / arrays / `SafeHTML` into a client DOM tree before structural walk
+- **`createI18n`** — accepts `locale` as an alias for `defaultLocale`; throws a clear error when neither is set
+
+### Docs / tests
+
+- Unit tests for Show/For/Switch SSR, stream body content, i18n locale alias
+- KNOWN_LIMITATIONS notes SSR control-flow + streaming model
+
+
 ## 0.4.11
 
 Patch release: close remaining security gaps with helpers, auth hardening, and SSR starter defaults.

@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.11**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.12**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
 
 | Start here | |
 |------------|--|

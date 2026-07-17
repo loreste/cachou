@@ -485,17 +485,112 @@ function getSSRAttributeName(source) {
   return match ? match[1].replace(/^\./, "").toLowerCase() : "";
 }
 
+/**
+ * Unwrap nested view functions produced by Show/For/Switch/components for SSR.
+ * Signals are read once (snapshot). Match markers are left alone.
+ */
+function unwrapSSRView(value, depth = 0) {
+  if (depth > 64) return value;
+  let current = value;
+  for (let i = 0; i < 64; i++) {
+    if (current == null || current === false || current === true) return current;
+    if (typeof current !== "function") break;
+    if (current.$$cachouMatch) return current;
+    // Signal getters: snapshot once, then keep unwrapping if they returned a view.
+    if (current.$$cachouSignal) {
+      current = current();
+      continue;
+    }
+    current = current();
+  }
+  if (Array.isArray(current)) {
+    return current.map(item => unwrapSSRView(item, depth + 1));
+  }
+  return current;
+}
+
 function stringifySSRValue(value, isAttrValue) {
-  if (value === null || value === undefined || value === false) {
+  const resolved = unwrapSSRView(value);
+  if (resolved === null || resolved === undefined || resolved === false) {
     return "";
   }
-  if (value instanceof SafeHTML) {
-    return isAttrValue ? escapeAttribute(value.toString()) : value.toString();
+  if (resolved instanceof SafeHTML) {
+    return isAttrValue ? escapeAttribute(resolved.toString()) : resolved.toString();
   }
-  if (Array.isArray(value)) {
-    return value.map(item => stringifySSRValue(typeof item === "function" ? item() : item, isAttrValue)).join("");
+  if (Array.isArray(resolved)) {
+    return resolved.map(item => stringifySSRValue(item, isAttrValue)).join("");
   }
-  return isAttrValue ? escapeAttribute(value) : escapeHTML(value);
+  return isAttrValue ? escapeAttribute(resolved) : escapeHTML(resolved);
+}
+
+/**
+ * Serialize a component tree to an HTML string for SSR.
+ * Handles nested view functions (Show/For/Switch) and SafeHTML.
+ */
+function serializeSSRView(value) {
+  const resolved = unwrapSSRView(value);
+  if (resolved === null || resolved === undefined || resolved === false || resolved === true) {
+    return "";
+  }
+  if (resolved instanceof SafeHTML) {
+    return resolved.toString();
+  }
+  if (Array.isArray(resolved)) {
+    return resolved.map(serializeSSRView).join("");
+  }
+  // Avoid printing function source if unwrap failed
+  if (typeof resolved === "function") {
+    return "";
+  }
+  if (typeof resolved === "object" && resolved !== null && resolved.nodeType) {
+    // DOM nodes are not valid pure-SSR output
+    return "";
+  }
+  return String(resolved);
+}
+
+/**
+ * Mount a component/view into a DOM root. If the component returns a reactive
+ * view function (Show/For/Switch style), keep it live with an effect.
+ */
+function insertRootView(root, view) {
+  if (view == null || view === false) return null;
+
+  // Reactive view function (not a bare signal — signals are read via unwrap once)
+  if (
+    typeof view === "function" &&
+    !view.$$cachouSignal &&
+    !view.$$cachouMatch
+  ) {
+    const anchor = document.createComment("cachou-root");
+    root.appendChild(anchor);
+    let currentNodes = [];
+    effect(() => {
+      currentNodes = updateChild(anchor, view(), currentNodes);
+    });
+    return anchor;
+  }
+
+  if (view.$$cachouSignal) {
+    const anchor = document.createComment("cachou-root");
+    root.appendChild(anchor);
+    let currentNodes = [];
+    effect(() => {
+      currentNodes = updateChild(anchor, view(), currentNodes);
+    });
+    return anchor;
+  }
+
+  const nodes = normalizeVal(view);
+  if (nodes.length === 0) return null;
+  if (nodes.length === 1) {
+    root.appendChild(nodes[0]);
+    return nodes[0];
+  }
+  const fragment = document.createDocumentFragment();
+  for (const node of nodes) fragment.appendChild(node);
+  root.appendChild(fragment);
+  return nodes[0] || null;
 }
 
 export function updateChild(anchor, val, oldNodes) {
@@ -1301,7 +1396,21 @@ export function hydrate(Component, root) {
   try {
     clientRoot = runWithSpan(traceSpan, () => createRoot((dispose) => {
       disposeRoot = dispose;
-      return typeof Component === "function" ? Component() : Component;
+      let view = typeof Component === "function" ? Component() : Component;
+      // Unwrap Show/For/Switch view functions so the client tree is real DOM
+      // for structural comparison with the server markup.
+      view = unwrapSSRView(view);
+      if (Array.isArray(view)) {
+        const frag = document.createDocumentFragment();
+        for (const node of normalizeVal(view)) frag.appendChild(node);
+        return frag;
+      }
+      if (view instanceof SafeHTML) {
+        const template = document.createElement("template");
+        template.innerHTML = view.toString();
+        return template.content;
+      }
+      return view;
     }));
   } catch (error) {
     traceSpan.recordException(error).setStatus({ code: "ERROR", message: "hydration setup failed" }).end();
@@ -1465,18 +1574,15 @@ export function render(Component, root) {
   }
   clearContainer(root);
   let disposeRoot;
-  const el = createRoot((dispose) => {
+  createRoot((dispose) => {
     disposeRoot = dispose;
-    return typeof Component === "function" ? Component() : Component;
+    const view = typeof Component === "function" ? Component() : Component;
+    insertRootView(root, view);
   });
   if (rootHasReactiveWork(disposeRoot)) {
     rootDisposers.set(root, disposeRoot);
   }
-  if (el) {
-    root.appendChild(el);
-    markAttachedNodeCleanup(el);
-    markAttachedChildrenCleanup(root);
-  }
+  markAttachedChildrenCleanup(root);
 }
 
 export function mount(Component, root) {
@@ -1491,19 +1597,16 @@ export function mount(Component, root) {
   clearContainer(root);
 
   let disposeRoot;
-  const el = createRoot((dispose) => {
+  createRoot((dispose) => {
     disposeRoot = dispose;
-    return typeof Component === "function" ? Component() : Component;
+    const view = typeof Component === "function" ? Component() : Component;
+    insertRootView(root, view);
   });
   const hasReactiveWork = rootHasReactiveWork(disposeRoot);
   if (hasReactiveWork) {
     rootDisposers.set(root, disposeRoot);
   }
-  if (el) {
-    root.appendChild(el);
-    markAttachedNodeCleanup(el);
-    markAttachedChildrenCleanup(root);
-  }
+  markAttachedChildrenCleanup(root);
 
   let disposed = false;
   return () => {
@@ -1554,7 +1657,7 @@ export function renderToString(Component, options = {}) {
       emitFrameworkEvent({ type: "ssr-start", mode: "string" });
       resetResourceCounter();
       resetSSRHead();
-      const output = String(createRoot(dispose => {
+      const output = serializeSSRView(createRoot(dispose => {
         disposeRoot = dispose;
         return typeof Component === "function" ? Component() : Component;
       }));
@@ -1606,7 +1709,7 @@ export async function renderToStringAsync(Component, options = {}) {
         : undefined;
       throwIfSSRAborted(context.signal, hasPreload ? "preload" : "render");
       resetResourceCounter();
-      const firstPass = String(createRoot(dispose => {
+      const firstPass = serializeSSRView(createRoot(dispose => {
         disposeRoot = dispose;
         return invokeSSRComponent(Component, preloadedData, hasPreload);
       }));
@@ -1634,7 +1737,7 @@ export async function renderToStringAsync(Component, options = {}) {
       stage = "render-final";
       resetSSRHead();
       resetResourceCounter();
-      const output = String(createRoot(dispose => {
+      const output = serializeSSRView(createRoot(dispose => {
         disposeRoot = dispose;
         return invokeSSRComponent(Component, preloadedData, hasPreload);
       }));
@@ -1712,7 +1815,7 @@ export function renderToStream(Component, options = {}) {
           }
         }
         resetResourceCounter();
-        initialBody = String(createRoot(dispose => {
+        initialBody = serializeSSRView(createRoot(dispose => {
           disposeRoot = dispose;
           return invokeSSRComponent(Component, preloadedData, hasPreload);
         }));
@@ -1732,7 +1835,7 @@ export function renderToStream(Component, options = {}) {
       if (!hasPendingResources) {
         yield initialBody;
         if (options.shell !== false) {
-          yield `</div>${runWithSSRContext(context, () => dehydrate())}</body></html>`;
+          yield `</div>${runWithSSRContext(context, () => dehydrate(context))}</body></html>`;
         }
         completed = true;
         traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: initialBody.length, passes: 1 });
@@ -1758,14 +1861,14 @@ export function renderToStream(Component, options = {}) {
       const body = await runWithSpan(traceSpan, () => runWithSSRContextAsync(context, async () => {
         resetSSRHead();
         resetResourceCounter();
-        return String(createRoot(dispose => {
+        return serializeSSRView(createRoot(dispose => {
           disposeRoot = dispose;
           return invokeSSRComponent(Component, preloadedData, hasPreload);
         }));
       }));
       if (options.shell !== false) {
         const finalHeadHtml = runWithSpan(traceSpan, () => runWithSSRContext(context, () => getSSRHead()));
-        yield `${finalHeadHtml}</head><body><div id="app">${body}</div>${runWithSSRContext(context, () => dehydrate())}</body></html>`;
+        yield `${finalHeadHtml}</head><body><div id="app">${body}</div>${runWithSSRContext(context, () => dehydrate(context))}</body></html>`;
       } else {
         yield body;
       }

@@ -1,6 +1,6 @@
 # CachouJS
 
-**v0.4.11** · experimental (0.x)
+**v0.4.12** · experimental (0.x)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · [Docs](./docs/README.md) · [Get started](./docs/GETTING_STARTED.md) · [Changelog](./CHANGELOG.md)
 
@@ -133,7 +133,7 @@ npm run check   # full local CI-ish pipeline
 
 ## Status
 
-- **0.4.11** on npm. Patch releases are the default.
+- **0.4.12** on npm. Patch releases are the default.
 - Tested: unit suite, browser tests, benchmarks under `npm run check`.
 - Not a meta-framework: no hosted deploy adapters, no Marketplace extensions yet, small ecosystem.
 - Demo server APIs are for local demos only (`CACHOU_DEMO`); do not expose them publicly.
