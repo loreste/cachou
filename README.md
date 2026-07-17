@@ -110,6 +110,7 @@ Prefer `cachoujs/browser` (or the Vite plugin default) for client apps.
 | [Get started](./docs/GETTING_STARTED.md) | Install, first app |
 | [Guide](./docs/GUIDE.md) | Concepts |
 | [API](./docs/API.md) | Public exports |
+| [Roadmap](./docs/ROADMAP.md) | What’s next (0.4 → 1.0) |
 | [How-tos](./docs/how-to/README.md) | Short recipes |
 | [Deploy](./docs/DEPLOY.md) · [Security](./docs/SECURITY.md) | Ship carefully |
 | [Changelog](./CHANGELOG.md) | What changed |

@@ -35,7 +35,7 @@ Fine-grained reactive JavaScript UI library. Components set up once; signals upd
 - [Templates & directives](./TEMPLATES.md) — `html` tagged templates, events, bind, class, style, ref
 - [Compiler](./COMPILER.md) — `.cachou` SFC format, CLI flags, Vite plugin, scoping rules
 - [Architecture](./ARCHITECTURE.md) — ownership, cleanup, SSR isolation, package layers
-- [Roadmap](./ROADMAP.md) — 0.4 feature status and later plans
+- [Roadmap](./ROADMAP.md) — current state, 0.4 hardening, 0.5 / 0.6 themes, 1.0 criteria
 - [Environment variables](./ENVIRONMENT.md) — all supported env vars
 
 ### Reference

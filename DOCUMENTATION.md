@@ -8,6 +8,7 @@ Canonical documentation lives under **[`docs/`](./docs/README.md)**.
 | Install from npm | [docs/INSTALL.md](./docs/INSTALL.md) |
 | Publishing (maintainers) | [docs/PUBLISHING.md](./docs/PUBLISHING.md) |
 | Documentation home | [docs/README.md](./docs/README.md) |
+| Roadmap | [docs/ROADMAP.md](./docs/ROADMAP.md) |
 | Developer guide | [docs/GUIDE.md](./docs/GUIDE.md) |
 | API reference | [docs/API.md](./docs/API.md) |
 | Templates | [docs/TEMPLATES.md](./docs/TEMPLATES.md) |
