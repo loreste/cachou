@@ -105,9 +105,28 @@ export CACHOU_COMPILER_NATIVE=1
   console.log(`packed ${tarballName}`);
 }
 
+// Always write a release manifest pinned to package.json version (do not ship a
+// stale bin/dist/manifest.json if multiarch was built before the version bump).
+let distManifest = null;
 if (existsSync(join(distDir, "manifest.json"))) {
-  copyFileSync(join(distDir, "manifest.json"), join(outDir, "manifest.json"));
+  try {
+    distManifest = JSON.parse(readFileSync(join(distDir, "manifest.json"), "utf8"));
+  } catch {
+    distManifest = null;
+  }
 }
+const releaseManifest = {
+  version,
+  generatedAt: new Date().toISOString(),
+  canonicalCompiler: distManifest?.canonicalCompiler || "@cachoujs/compiler (packages/compiler — pure JavaScript)",
+  consumerDefault:
+    distManifest?.consumerDefault ||
+    "Use npx @cachoujs/compiler / npx cachou-compiler (JS). Native multi-arch binaries are optional monorepo/CI launchers and are not required for app installs.",
+  preferNativeEnv: distManifest?.preferNativeEnv || "CACHOU_COMPILER_NATIVE=1",
+  packages,
+  targets: distManifest?.targets || packages.map(p => ({ file: p.binary }))
+};
+writeFileSync(join(outDir, "manifest.json"), JSON.stringify(releaseManifest, null, 2) + "\n", "utf8");
 
 writeFileSync(join(outDir, "checksums.txt"), checksumLines.join("\n") + "\n", "utf8");
 writeFileSync(
@@ -120,10 +139,10 @@ Packages: ${packages.length}
 These tarballs are for **optional GitHub release assets**, not npm.
 
 \`\`\`bash
-# Maintainers
+# Maintainers (order matters: bump version → multiarch → package → upload)
 npm run compiler:build:multiarch
 npm run compiler:package-binaries
-gh release upload v${version} tmp/compiler-binaries/*.tgz tmp/compiler-binaries/checksums.txt
+gh release upload v${version} tmp/compiler-binaries/*.tgz tmp/compiler-binaries/checksums.txt tmp/compiler-binaries/manifest.json
 \`\`\`
 
 Consumers should still prefer \`@cachoujs/compiler\` from npm.
