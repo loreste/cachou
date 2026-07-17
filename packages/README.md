@@ -38,14 +38,29 @@ Root `package.json`:
 "workspaces": ["packages/compiler", "packages/create-cachou"]
 ```
 
-## Optional native multi-arch binaries
+## Optional native multi-arch launchers
+
+The **canonical** compiler is pure JS (`@cachoujs/compiler`). Multi-arch Go
+binaries are optional monorepo/CI launchers that still delegate to JS — they are
+**not** published on npm.
 
 ```bash
 npm run compiler:build:multiarch
-# → bin/dist/cachou-compiler-<os>-<arch>
+# → bin/dist/cachou-compiler-<os>-<arch> + manifest.json + README.md
+
+npm run compiler:package-binaries
+# → tmp/compiler-binaries/*.tgz + checksums.txt  (GitHub release assets only)
+
+# Prefer native launchers in PATH only when you intend to:
+CACHOU_COMPILER_NATIVE=1 npx cachou-compiler -dir src/components -out src/components
 ```
 
-JS compiler remains the portable default.
+Default install path for apps:
+
+```bash
+npm install -D @cachoujs/compiler
+npx cachou-compiler -dir src/components -out src/components
+```
 
 ## Browser DevTools extension
 

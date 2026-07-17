@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.9
+
+Patch release: multi-arch compiler packaging policy + how-tos for browser entry, concurrent SSR, logger/tracing.
+
+### Added
+
+- **`npm run compiler:package-binaries`** — packages optional multi-arch launchers as versioned tarballs + `checksums.txt` under `tmp/compiler-binaries/` for GitHub release assets (not npm)
+- **How-tos** — [use browser entry](./docs/how-to/use-browser-entry.md), [use logger and tracing](./docs/how-to/use-logger-and-tracing.md); concurrent SSR recipe expanded in SSR how-to
+- **Package surface tests** — asserts CRM/demo/`bin/dist` stay out of the published npm `files` list
+
+### Fixed / improved
+
+- **Compiler launcher** — pure JS is preferred by default; set `CACHOU_COMPILER_NATIVE=1` to opt into native/`bin/dist` launchers
+- **Multi-arch build** — writes `bin/dist/manifest.json` + `README.md` documenting that natives only wrap the JS compiler
+- **SSR starter** — uses per-request `createSSRContext()` with explicit `dehydrate` / `getSSRHead`
+- Scaffold pins **`^0.4.9`**
+
+### Docs
+
+- COMPILER.md multi-arch packaging policy
+- How-to index updated (browser entry, logger/tracing, concurrent SSR)
+
 ## 0.4.8
 
 Patch release: compiler diagnostics with absolute locations and actionable hints.

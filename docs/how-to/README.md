@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.6**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.9**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
 
 | Start here | |
 |------------|--|
@@ -52,7 +52,8 @@ Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.6**). Each guide a
 
 | Guide | When to use it |
 |-------|----------------|
-| [Use SSR and hydration](./ssr-and-hydration.md) | `renderToStringAsync`, stream, islands, dehydrate |
+| [Use SSR and hydration](./ssr-and-hydration.md) | `renderToStringAsync`, stream, islands, dehydrate, **concurrent `createSSRContext`** |
+| [Use the browser-safe entry](./use-browser-entry.md) | `cachoujs/browser`, Vite alias, client vs server split |
 | [Configure security policy](./configure-security-policy.md) | URL/style policy, `trustedHTML`, production defaults |
 | [Work with `.cachou` files](./work-with-cachou-files.md) | SFC syntax, compile, Vite plugin |
 
@@ -69,7 +70,8 @@ Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.6**). Each guide a
 | Guide | When to use it |
 |-------|----------------|
 | [Prevent leaks and races](./prevent-leaks-and-races.md) | Roots, abort, transitions, leak asserts |
-| [Enable debug diagnostics](./enable-debug-diagnostics.md) | Debug snapshots, logger, tracing, framework events |
+| [Enable debug diagnostics](./enable-debug-diagnostics.md) | Debug snapshots, strict mode, leak asserts |
+| [Use logger and tracing](./use-logger-and-tracing.md) | `configureLogger`, W3C tracing, OTel bridge, framework events |
 | [Schedule background work](./schedule-background-work.md) | `scheduleTask`, priorities, transitions |
 
 ---

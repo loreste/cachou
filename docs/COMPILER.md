@@ -4,10 +4,18 @@ CachouJS turns `.cachou` single-file components into ES modules.
 
 | Path | Role |
 |------|------|
-| **`@cachoujs/compiler`** (pure JS) | Default portable compiler — no Go required |
-| Optional **Go** binary (`compiler.go` / `bin/cachou-compiler`) | Faster native builds when you want them |
+| **`@cachoujs/compiler`** (pure JS) | **Canonical** portable compiler — no Go required; what apps should install |
+| Optional multi-arch launchers (`npm run compiler:build:multiarch`) | Thin native wrappers that still run the JS compiler; monorepo/CI only |
+| Optional tarballs (`npm run compiler:package-binaries`) | GitHub release assets + checksums — **not** published on npm |
 
 It is intentionally **not** a full JavaScript/TypeScript parser. It supports a practical SFC subset suitable for UI components (0.4: section-aware maps, pragmatic type strip, expanded imports).
+
+### Multi-arch packaging policy
+
+1. **npm** ships pure JS only (`@cachoujs/compiler` / root `cachou-compiler` bin → JS).
+2. **Default launcher** prefers JS. Set `CACHOU_COMPILER_NATIVE=1` to prefer `bin/cachou-compiler` or `bin/dist/*`.
+3. Multi-arch builds write `bin/dist/manifest.json` + `README.md` describing each binary.
+4. Do not add `bin/dist` to package `files` — multi-megabyte platform binaries do not belong on every install.
 
 ---
 

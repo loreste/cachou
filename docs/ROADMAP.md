@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.4.x** (published: **0.4.8**) |
-| **Next publish** | **0.4.9** (patch by default) |
+| **Current line** | **0.4.x** (published: **0.4.9**) |
+| **Next publish** | **0.4.10** (patch by default) |
 | **Next minor** | **0.5.0** when a coherent theme lands |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
@@ -24,7 +24,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 
 ---
 
-## Where we are (0.4.8)
+## Where we are (0.4.9)
 
 ### Mature enough to build on
 
@@ -63,7 +63,7 @@ Treat these as **usable primitives**, not finished product lines:
 
 ---
 
-## Near term — finish the 0.4 line (`0.4.9` …)
+## Near term — finish the 0.4 line (`0.4.10` …)
 
 Theme: **harden what we already ship.** No large new product surface unless it unblocks real bugs.
 
@@ -79,18 +79,18 @@ Theme: **harden what we already ship.** No large new product surface unless it u
 
 - [x] Keep JS ↔ Go compiler parity green; fix diagnostic gaps as they show up *(0.4.8: absolute locations, expanded diagnostic suite)*
 - [x] Improve error messages for common SFC mistakes (clear location, actionable text) *(0.4.8: hints + CompilerDiagnostic)*
-- [x] Scaffold defaults stay aligned with published versions and browser entry *(0.4.8: create pins `^0.4.8`)*
-- [ ] Optional: package multi-arch native compiler binaries more cleanly for consumers who want them
+- [x] Scaffold defaults stay aligned with published versions and browser entry *(0.4.8–0.4.9: create pins)*
+- [x] Optional: package multi-arch native compiler binaries more cleanly for consumers who want them *(0.4.9: JS-default launcher, manifest, GitHub-only tarballs)*
 
 ### Docs & DX
 
-- [ ] Keep README / API / how-tos in sync with each patch (modest tone)
-- [ ] Fill remaining how-to gaps only where users hit real friction (SSR concurrent servers, browser entry, logger/tracing)
+- [x] Keep README / API / how-tos in sync with each patch (modest tone) *(ongoing; 0.4.9 how-to index + new guides)*
+- [x] Fill remaining how-to gaps only where users hit real friction (SSR concurrent servers, browser entry, logger/tracing) *(0.4.9)*
 - [ ] Benchmark results and performance targets refreshed when numbers move for real reasons
 
 ### Repo hygiene
 
-- [ ] CRM and demo stay examples — do not pull them into the published package
+- [x] CRM and demo stay examples — do not pull them into the published package *(0.4.9: package-surface tests)*
 - [ ] CI: Chromium primary; Safari remains non-blocking if flaky
 - [ ] No token/secret leakage; publish checklist remains manual and small
 
@@ -223,4 +223,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.4.8** (2026-07).
+Last updated for **0.4.9** (2026-07).

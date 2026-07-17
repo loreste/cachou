@@ -31,18 +31,61 @@ export async function handle(req, res) {
 }
 ```
 
-For a sequential server handler, calling `dehydrate()` and `getSSRHead()` immediately after the matching render uses the last completed SSR context. For concurrent handlers, pass an explicit context so one request can never serialize another request's state:
+For a sequential server handler, calling `dehydrate()` and `getSSRHead()` immediately after the matching render uses the last completed SSR context.
+
+### Concurrent servers (required pattern)
+
+On Node HTTP servers that handle overlapping requests, **always** pass an explicit
+context so one request can never serialize another request's state:
 
 ```javascript
-import { createSSRContext, renderToStringAsync, dehydrate, getSSRHead } from "cachoujs";
+import http from "node:http";
+import {
+  createSSRContext,
+  renderToStringAsync,
+  dehydrate,
+  getSSRHead,
+  installSSRAsyncHooks
+} from "cachoujs";
 
-const context = createSSRContext();
-const appHtml = await renderToStringAsync(App, { path: req.url, request: req, context });
-const stateScript = dehydrate(context);
-const headHtml = getSSRHead(context);
+// Optional but recommended: request-scoped AsyncLocalStorage on Node.
+try {
+  const asyncHooks = await import("node:async_hooks");
+  installSSRAsyncHooks(asyncHooks);
+} catch {
+  // environments without async_hooks still work if you pass `context` explicitly
+}
+
+http.createServer(async (req, res) => {
+  const context = createSSRContext();
+  try {
+    const appHtml = await renderToStringAsync(App, {
+      path: req.url,
+      request: req,
+      context,
+      signal: req.signal // if available — aborts in-flight resources on disconnect
+    });
+    // Always pass the same context object:
+    const stateScript = dehydrate(context);
+    const headHtml = getSSRHead(context);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(`<!doctype html><html><head>${headHtml}${stateScript}</head>
+<body><div id="app">${appHtml}</div></body></html>`);
+  } catch (err) {
+    res.statusCode = 500;
+    res.end("Internal Server Error");
+  }
+}).listen(3000);
 ```
 
-If concurrent renders are detected, implicit `dehydrate()` and `getSSRHead()` calls fail closed instead of returning an ambiguous request's output.
+Rules of thumb:
+
+1. **`createSSRContext()` once per request** — never reuse across concurrent handlers.
+2. Pass **`context`** into `renderToStringAsync` / `renderToStream` **and** into `dehydrate` / `getSSRHead`.
+3. If concurrent renders are detected, implicit `dehydrate()` / `getSSRHead()` (no arg) **fail closed** instead of returning an ambiguous request’s output.
+4. Client bundles should use [`cachoujs/browser`](./use-browser-entry.md) (or the Vite plugin default alias).
+
+Minimal starter in this repo: `examples/ssr-starter/server.mjs` (`npm run ssr:starter`).
 
 ## Fast route preloading
 

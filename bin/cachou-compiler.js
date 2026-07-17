@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * Compiler launcher:
- * 1. Native bin/cachou-compiler (Go build)
- * 2. Platform binary in bin/dist/
- * 3. Pure JS packages/compiler
- * 4. go run compiler.go
+ * Compiler launcher (consumer-friendly defaults):
+ * 1. Pure JS packages/compiler (canonical — always preferred by default)
+ * 2. Optional native bin/cachou-compiler or bin/dist/* when CACHOU_COMPILER_NATIVE=1
+ * 3. go run compiler.go (monorepo last resort)
  */
 import { existsSync } from "node:fs";
 import { spawn } from "node:child_process";
@@ -13,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const userArgs = process.argv.slice(2);
+const preferNative = process.env.CACHOU_COMPILER_NATIVE === "1";
 
 if (!userArgs.includes("-runtime") && !userArgs.some(a => a.startsWith("-runtime="))) {
   userArgs.push("-runtime", "cachoujs");
@@ -25,7 +25,15 @@ function platformBinaryName() {
   return `cachou-compiler-${goos}-${goarch}${ext}`;
 }
 
-function pick() {
+function jsCompilerInvocation() {
+  const jsCompiler = join(root, "packages", "compiler", "bin", "cachou-compiler.js");
+  if (existsSync(jsCompiler)) {
+    return { command: process.execPath, args: [jsCompiler, ...userArgs] };
+  }
+  return null;
+}
+
+function nativeInvocation() {
   const native = join(root, "bin", "cachou-compiler");
   if (existsSync(native)) {
     return { command: native, args: userArgs };
@@ -34,10 +42,19 @@ function pick() {
   if (existsSync(dist)) {
     return { command: dist, args: userArgs };
   }
-  const jsCompiler = join(root, "packages", "compiler", "bin", "cachou-compiler.js");
-  if (existsSync(jsCompiler)) {
-    return { command: process.execPath, args: [jsCompiler, ...userArgs] };
-  }
+  return null;
+}
+
+function pick() {
+  const js = jsCompilerInvocation();
+  if (!preferNative && js) return js;
+
+  const native = nativeInvocation();
+  if (preferNative && native) return native;
+  if (preferNative && js) return js;
+  if (js) return js;
+  if (native) return native;
+
   return { command: "go", args: ["run", join(root, "compiler.go"), ...userArgs] };
 }
 
@@ -45,15 +62,16 @@ const inv = pick();
 const child = spawn(inv.command, inv.args, { stdio: "inherit", cwd: root });
 child.on("error", err => {
   if (err.code === "ENOENT") {
-    const jsCompiler = join(root, "packages", "compiler", "bin", "cachou-compiler.js");
-    if (existsSync(jsCompiler) && inv.command !== process.execPath) {
-      const fb = spawn(process.execPath, [jsCompiler, ...userArgs], { stdio: "inherit", cwd: root });
+    const js = jsCompilerInvocation();
+    if (js && inv.command !== process.execPath) {
+      const fb = spawn(js.command, js.args, { stdio: "inherit", cwd: root });
       fb.on("close", code => process.exit(code ?? 1));
       return;
     }
     console.error(
       "Cachou compiler failed to start.\n" +
-        "Use the JS compiler at packages/compiler or install Go and run npm run compiler:build."
+        "Install the pure JS compiler: npm install -D @cachoujs/compiler\n" +
+        "Optional native launchers: npm run compiler:build:multiarch (set CACHOU_COMPILER_NATIVE=1)."
     );
   } else {
     console.error(err.message || err);

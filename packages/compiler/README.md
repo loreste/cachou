@@ -29,6 +29,14 @@ compileDir("src/components", { outDir: "src/components", runtime: "cachoujs" });
 ## Engine
 
 This package ships the **canonical pure JavaScript** implementation (no Go required). The root
-launcher and Vite plugin use it first so output is predictable across platforms. The older Go
-implementation can still be built for investigation with `npm run compiler:build`, but it is not
-the supported compilation path.
+launcher and Vite plugin use it by default so output is predictable across platforms.
+
+Optional multi-arch native **launchers** (still calling this JS compiler) can be built in the
+monorepo with `npm run compiler:build:multiarch` and packaged as GitHub release assets with
+`npm run compiler:package-binaries`. They are not part of this npm package. Set
+`CACHOU_COMPILER_NATIVE=1` only when you intentionally want those launchers.
+
+## Diagnostics
+
+Compile errors report absolute `file:line:column`, a caret, and an actionable `hint:` for common
+SFC mistakes. See the monorepo [COMPILER.md](../../docs/COMPILER.md).

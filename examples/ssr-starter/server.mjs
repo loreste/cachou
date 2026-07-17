@@ -26,6 +26,7 @@ try {
 }
 
 const {
+  createSSRContext,
   renderToStringAsync,
   dehydrate,
   getSSRHead,
@@ -58,10 +59,16 @@ function App() {
 const PORT = Number(process.env.PORT || process.env.CACHOU_PORT || 8787);
 
 const server = http.createServer(async (req, res) => {
+  // Explicit per-request context — safe under concurrent connections.
+  const context = createSSRContext();
   try {
-    const appHtml = await renderToStringAsync(App, { path: req.url });
-    const state = dehydrate();
-    const head = getSSRHead();
+    const appHtml = await renderToStringAsync(App, {
+      path: req.url,
+      request: req,
+      context
+    });
+    const state = dehydrate(context);
+    const head = getSSRHead(context);
     res.statusCode = 200;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline'");
