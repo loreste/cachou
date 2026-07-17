@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.1
+
+Completes the **0.5 production library** deliverables: progressive streaming, island hydration, compiler diagnostic codes, experimental boundaries, SPA static export notes, and OTel sample docs.
+
+### Added
+
+- **Progressive `renderToStream`** (default) — first-paint shell with loading UI, then final body/head swap + dehydrate (`progressive: false` for classic two-pass document)
+- **`Island({ fallback })`** — optional SSR/static placeholder distinct from interactive children
+- **`hydrateIslands(root, map, { onError, rootMargin })`** — error isolation + idle timeout / visible rootMargin
+- **Compiler codes `CACHOU001`–`CACHOU013`** — catalog in COMPILER.md; duplicate script/style and empty template diagnostics
+- **Docs:** [EXPERIMENTAL.md](./docs/EXPERIMENTAL.md), [stream-ssr-and-islands](./docs/how-to/stream-ssr-and-islands.md), [deploy-static-spa](./docs/how-to/deploy-static-spa.md), [bridge-opentelemetry](./docs/how-to/bridge-opentelemetry.md)
+
+### Docs
+
+- README / STABILITY experimental callouts for app kits
+- DEPLOY static SPA + hash history linked from how-tos
+
+
 ## 0.5.0
 
 Minor release: **production library line** — API stability labels and a supported Node SSR deploy path.

@@ -37,6 +37,7 @@ Fine-grained reactive JavaScript UI library. Components set up once; signals upd
 - [Architecture](./ARCHITECTURE.md) — ownership, cleanup, SSR isolation, package layers
 - [Roadmap](./ROADMAP.md) — current state, 0.5 production library line, 0.6 / 1.0
 - [Stability](./STABILITY.md) — stable / candidate / experimental export labels
+- [Experimental surface](./EXPERIMENTAL.md) — subpath kits that may change
 - [Environment variables](./ENVIRONMENT.md) — all supported env vars
 
 ### Reference
@@ -107,4 +108,4 @@ Node-only helpers stay out of the browser graph.
 
 ## Versioning
 
-CachouJS is **0.x**. Published line is **0.4.x**; releases use **small patch increments** (current: **0.5.0**, next: **0.4.14**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.
+CachouJS is **0.x**. Published line is **0.4.x**; releases use **small patch increments** (current: **0.5.1**, next: **0.4.14**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.

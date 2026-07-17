@@ -430,12 +430,29 @@ declare module "cachoujs" {
     request?: any;
     signal?: AbortSignal;
     shell?: boolean;
+    /** Progressive first-paint shell (default true). Set false for classic two-pass document. */
+    progressive?: boolean;
+    /** CSP nonce for inline dehydrate / head-update scripts. */
+    nonce?: string;
     traceparent?: string;
     context?: SSRContext;
     preload?: (context: { request: any; signal: AbortSignal | null }) => any | Promise<any>;
   }): ReadableStream | AsyncGenerator<string>;
-  export function Island(props: { hydrate?: "load" | "idle" | "visible" | "false" | false; id?: string; children?: any }): any;
-  export function hydrateIslands(root?: ParentNode | null, ComponentMap?: Record<string, any>): () => void;
+  export function Island(props: {
+    hydrate?: "load" | "idle" | "visible" | "false" | false;
+    id?: string;
+    /** SSR/static placeholder when distinct from interactive children. */
+    fallback?: any;
+    children?: any;
+  }): any;
+  export function hydrateIslands(
+    root?: ParentNode | null,
+    ComponentMap?: Record<string, any>,
+    options?: {
+      onError?: (err: Error, id: string, node: Element) => void;
+      rootMargin?: string;
+    }
+  ): () => void;
   export function getRequestEvent(): any;
   export function setRequestEvent(event: any): void;
 

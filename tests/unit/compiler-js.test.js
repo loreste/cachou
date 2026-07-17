@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import {
   compileFile,
   stripTypeScript,
-  CompilerDiagnostic
+  CompilerDiagnostic,
+  DIAGNOSTIC_CODES
 } from "../../packages/compiler/lib/compile.mjs";
 
 describe("JS compiler", () => {
@@ -183,10 +184,33 @@ const x = 1;
         err => {
           assert.ok(err instanceof CompilerDiagnostic);
           assert.equal(err.line, 4);
+          assert.equal(err.code, "CACHOU002");
           assert.match(err.message, /empty template expression/i);
           assert.match(err.hint || "", /literal braces/);
           return true;
         }
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects empty templates and duplicate script sections with codes", () => {
+    assert.ok(DIAGNOSTIC_CODES.CACHOU013);
+    const dir = mkdtempSync(join(tmpdir(), "cachou-js-diag-codes-"));
+    try {
+      const empty = join(dir, "OnlyScript.cachou");
+      writeFileSync(empty, `<script>const x = 1;</script>\n`);
+      assert.throws(
+        () => compileFile(empty, { outDir: dir }),
+        err => err.code === "CACHOU013"
+      );
+
+      const dup = join(dir, "DupScript.cachou");
+      writeFileSync(dup, `<script>a</script>\n<script>b</script>\n<div>x</div>\n`);
+      assert.throws(
+        () => compileFile(dup, { outDir: dir }),
+        err => err.code === "CACHOU011"
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });

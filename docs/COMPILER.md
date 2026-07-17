@@ -96,10 +96,32 @@ html`
 ### Diagnostics
 
 Compile errors are reported with **absolute file line:column** (including when
-`<script>` / `<style>` precede the template), a caret under the bad token, and
-an actionable `hint:` line for common mistakes (unclosed tags, empty `{ }`,
-CSS `bind()`, missing section closers). The Go entrypoint delegates to this
-same JS compiler by default, so diagnostics stay in lockstep.
+`<script>` / `<style>` precede the template), a caret under the bad token, a
+**code** (`[CACHOU00x]`), and an actionable `hint:` line. The Go entrypoint
+delegates to this same JS compiler by default, so diagnostics stay in lockstep.
+
+#### Catalog (actionable codes)
+
+| Code | Meaning | What to do |
+|------|---------|------------|
+| **CACHOU001** | Unclosed `{` expression | Close with `}` or use `{{` / `}}` for literals |
+| **CACHOU002** | Empty `{}` | Put an expression inside, or escape braces |
+| **CACHOU003** | Unclosed HTML tag | Fix missing `>` or unclosed attribute quotes |
+| **CACHOU004** | Missing `</script>` / `</style>` | Close the section |
+| **CACHOU005** | Unclosed CSS `{` block | Add matching `}` |
+| **CACHOU006** | Unclosed CSS comment | Close with `*/` |
+| **CACHOU007** | CSS rule missing `{` | Add block braces after the selector |
+| **CACHOU008** | Unclosed `bind(` | Close with `)` |
+| **CACHOU009** | Empty `bind()` | Provide an expression |
+| **CACHOU010** | `bind()` without element root | Wrap template in an element |
+| **CACHOU011** | Duplicate `<script>` | Merge into one top-level script |
+| **CACHOU012** | Duplicate `<style>` | Merge into one top-level style |
+| **CACHOU013** | Empty template | Add markup after script/style |
+
+```js
+import { DIAGNOSTIC_CODES, CompilerDiagnostic } from "@cachoujs/compiler";
+// DIAGNOSTIC_CODES.CACHOU001 → short description
+```
 
 Quoted `>` characters inside attributes are handled so tags do not terminate early:
 

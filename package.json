@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",

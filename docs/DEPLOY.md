@@ -17,6 +17,8 @@ Repo demo `server.js` is **not** the supported product path — it is a proving 
 
 ## Option 1 — Static SPA (recommended for most apps)
 
+Full walkthrough: [Deploy a static SPA](./how-to/deploy-static-spa.md) (browser vs **hash** history, host rewrites).
+
 1. Build client assets with Vite (or any bundler that understands your entry).
 2. Serve the `dist/` (or output) directory from any static host: Nginx, S3+CDN, Cloudflare Pages, Netlify, GitHub Pages, etc.
 3. Implement **your own** authenticated backend separately.
@@ -31,10 +33,11 @@ npm run build
 Client bootstrap:
 
 ```javascript
-import { applyProductionSecurityDefaults, mount } from "cachoujs";
+import { applyProductionSecurityDefaults, mount, configureRouter } from "cachoujs/browser";
 import App from "./app.js";
 
 applyProductionSecurityDefaults();
+// configureRouter({ mode: "hash" }); // zero-rewrite static hosts
 mount(App, document.getElementById("app"));
 ```
 

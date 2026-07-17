@@ -5,11 +5,14 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from "node:fs";
 import { dirname, join, relative, basename, extname, resolve } from "node:path";
 
-/** Structured compiler diagnostic with absolute file location + optional hint. */
+/**
+ * Structured compiler diagnostic with absolute file location, optional hint, and code.
+ * Codes are documented in docs/COMPILER.md (Diagnostics catalog).
+ */
 export class CompilerDiagnostic extends Error {
   /**
    * @param {string} message
-   * @param {{ offset?: number, line?: number, col?: number, hint?: string, source?: string }} [opts]
+   * @param {{ offset?: number, line?: number, col?: number, hint?: string, source?: string, code?: string }} [opts]
    */
   constructor(message, opts = {}) {
     super(message);
@@ -19,8 +22,26 @@ export class CompilerDiagnostic extends Error {
     this.col = opts.col ?? null;
     this.hint = opts.hint || null;
     this.source = opts.source || null;
+    this.code = opts.code || null;
   }
 }
+
+/** Catalog of diagnostic codes for actionable SFC errors. */
+export const DIAGNOSTIC_CODES = Object.freeze({
+  CACHOU001: "Unclosed template expression `{…}`",
+  CACHOU002: "Empty template expression `{}`",
+  CACHOU003: "Unclosed HTML tag (missing `>` or quote)",
+  CACHOU004: "Missing closing section tag (`</script>` / `</style>`)",
+  CACHOU005: "Unclosed CSS block",
+  CACHOU006: "Unclosed CSS comment",
+  CACHOU007: "CSS rule missing `{`",
+  CACHOU008: "Unclosed CSS bind() expression",
+  CACHOU009: "Empty CSS bind() expression",
+  CACHOU010: "CSS bind() requires an element root",
+  CACHOU011: "Duplicate top-level <script> section",
+  CACHOU012: "Duplicate top-level <style> section",
+  CACHOU013: "Template is empty (no markup after script/style)"
+});
 
 function lineCol(content, index) {
   let line = 1;
@@ -41,8 +62,9 @@ function lineCol(content, index) {
  * @param {number} absoluteIndex
  * @param {string} message
  * @param {string} [hint]
+ * @param {string} [code]
  */
-function throwAt(source, absoluteIndex, message, hint) {
+function throwAt(source, absoluteIndex, message, hint, code) {
   const safeIndex = Math.max(0, Math.min(absoluteIndex, source.length));
   const { line, col } = lineCol(source, safeIndex);
   throw new CompilerDiagnostic(message, {
@@ -50,7 +72,8 @@ function throwAt(source, absoluteIndex, message, hint) {
     line,
     col,
     hint,
-    source
+    source,
+    code: code || null
   });
 }
 
@@ -90,8 +113,9 @@ function formatCompilerError(file, error) {
 
   const sourceLine = sourceText ? sourceText.split(/\r?\n/)[line - 1] || "" : "";
   const caret = `${" ".repeat(Math.max(0, column - 1))}^`;
+  const code = error?.code ? `[${error.code}] ` : "";
   const hint = error?.hint ? `\n  hint: ${error.hint}` : "";
-  return `${file}:${line}:${column}\n${sourceLine}\n${caret} ${message}${hint}`;
+  return `${file}:${line}:${column}\n${sourceLine}\n${caret} ${code}${message}${hint}`;
 }
 
 function uppercaseFirst(str) {
@@ -184,9 +208,10 @@ function indexInRanges(index, ranges) {
  */
 function extractSection(content, tagName, occupiedRanges) {
   let searchFrom = 0;
+  let first = null;
   while (searchFrom < content.length) {
     const open = findTopLevelOpenTag(content, tagName, searchFrom);
-    if (!open) return null;
+    if (!open) return first;
     if (indexInRanges(open.openStart, occupiedRanges)) {
       searchFrom = open.openEnd;
       continue;
@@ -197,23 +222,37 @@ function extractSection(content, tagName, occupiedRanges) {
         content,
         open.openStart,
         `missing closing </${tagName}> for <${tagName}>`,
-        `Add </${tagName}> after the ${tagName} section body.`
+        `Add </${tagName}> after the ${tagName} section body.`,
+        "CACHOU004"
       );
     }
     const closeEnd = closeStart + tagName.length + 3;
+    if (first) {
+      const code = tagName === "script" ? "CACHOU011" : tagName === "style" ? "CACHOU012" : null;
+      throwAt(
+        content,
+        open.openStart,
+        `duplicate top-level <${tagName}> section`,
+        `Only one top-level <${tagName}> is allowed per .cachou file. Merge the sections.`,
+        code
+      );
+    }
     let textStart = open.openEnd;
     while (textStart < closeStart && /\s/.test(content[textStart])) textStart++;
     let textEnd = closeStart;
     while (textEnd > textStart && /\s/.test(content[textEnd - 1])) textEnd--;
     const attrs = open.openTag.slice(1 + tagName.length, open.openTag.length - 1).trim();
-    return {
+    first = {
       text: content.slice(textStart, textEnd),
       offset: textStart,
       attrs,
       range: [open.openStart, closeEnd]
     };
+    // Keep scanning to detect a second top-level section of the same kind.
+    searchFrom = closeEnd;
+    occupiedRanges = [...occupiedRanges, first.range];
   }
-  return null;
+  return first;
 }
 
 /**
@@ -318,14 +357,16 @@ function findExpressionEnd(template, start, loc = {}) {
       loc.source,
       loc.toAbsolute(start),
       "unclosed template expression",
-      "Close the expression with `}`, or write literal braces as `{{` and `}}`."
+      "Close the expression with `}`, or write literal braces as `{{` and `}}`.",
+      "CACHOU001"
     );
   }
   const { line, col } = lineCol(template, start);
   throw new CompilerDiagnostic(`unclosed template expression at ${line}:${col}`, {
     line,
     col,
-    hint: "Close the expression with `}`, or write literal braces as `{{` and `}}`."
+    hint: "Close the expression with `}`, or write literal braces as `{{` and `}}`.",
+    code: "CACHOU001"
   });
 }
 
@@ -358,7 +399,8 @@ function compileTemplateExpressions(template, loc = {}) {
           loc.source,
           loc.toAbsolute(i),
           "empty template expression",
-          "Put a JavaScript expression inside `{…}`, or use `{{` / `}}` for literal braces."
+          "Put a JavaScript expression inside `{…}`, or use `{{` / `}}` for literal braces.",
+          "CACHOU002"
         );
       }
       const { line, col } = lineCol(template, i);
@@ -367,7 +409,8 @@ function compileTemplateExpressions(template, loc = {}) {
         {
           line,
           col,
-          hint: "Put a JavaScript expression inside `{…}`, or use `{{` / `}}` for literal braces."
+          hint: "Put a JavaScript expression inside `{…}`, or use `{{` / `}}` for literal braces.",
+          code: "CACHOU002"
         }
       );
     }
@@ -391,14 +434,16 @@ function validateTemplateTags(html, loc = {}) {
           loc.source,
           loc.toAbsolute(i),
           "unclosed HTML tag",
-          "Check for a missing `>` or an unclosed quote in an attribute value."
+          "Check for a missing `>` or an unclosed quote in an attribute value.",
+          "CACHOU003"
         );
       }
       const { line, col } = lineCol(html, i);
       throw new CompilerDiagnostic(`unclosed HTML tag at ${line}:${col}`, {
         line,
         col,
-        hint: "Check for a missing `>` or an unclosed quote in an attribute value."
+        hint: "Check for a missing `>` or an unclosed quote in an attribute value.",
+        code: "CACHOU003"
       });
     }
     i = end;
@@ -632,13 +677,14 @@ function scopeCSSBlock(css, scopeAttr, loc = {}) {
       if (close === -1) {
         const absolute = abs(i);
         if (absolute != null) {
-          throwAt(loc.source, absolute, "unclosed CSS comment", "Close the comment with `*/`.");
+          throwAt(loc.source, absolute, "unclosed CSS comment", "Close the comment with `*/`.", "CACHOU006");
         }
         const { line, col } = lineCol(css, i);
         throw new CompilerDiagnostic(`unclosed CSS comment at ${line}:${col}`, {
           line,
           col,
-          hint: "Close the comment with `*/`."
+          hint: "Close the comment with `*/`.",
+          code: "CACHOU006"
         });
       }
       out += css.slice(i, close + 2) + "\n";
@@ -656,14 +702,16 @@ function scopeCSSBlock(css, scopeAttr, loc = {}) {
             loc.source,
             absolute,
             "CSS rule missing opening brace",
-            "A selector or at-rule is missing `{`."
+            "A selector or at-rule is missing `{`.",
+            "CACHOU007"
           );
         }
         const { line, col } = lineCol(css, i);
         throw new CompilerDiagnostic(`CSS rule missing opening brace near ${line}:${col}`, {
           line,
           col,
-          hint: "A selector or at-rule is missing `{`."
+          hint: "A selector or at-rule is missing `{`.",
+          code: "CACHOU007"
         });
       }
       break;
@@ -676,14 +724,16 @@ function scopeCSSBlock(css, scopeAttr, loc = {}) {
           loc.source,
           absolute,
           "unclosed CSS block",
-          "Add a closing `}` for this rule or at-rule."
+          "Add a closing `}` for this rule or at-rule.",
+          "CACHOU005"
         );
       }
       const { line, col } = lineCol(css, open);
       throw new CompilerDiagnostic(`unclosed CSS block at ${line}:${col}`, {
         line,
         col,
-        hint: "Add a closing `}` for this rule or at-rule."
+        hint: "Add a closing `}` for this rule or at-rule.",
+        code: "CACHOU005"
       });
     }
     const header = css.slice(headerStart, open).trim();
@@ -796,14 +846,16 @@ function compileVBindCSS(css, loc = {}) {
           loc.source,
           absolute,
           "unclosed CSS bind() expression",
-          "Close the bind() call with `)`, e.g. `color: bind(color)`."
+          "Close the bind() call with `)`, e.g. `color: bind(color)`.",
+          "CACHOU008"
         );
       }
       const { line, col } = lineCol(css, start);
       throw new CompilerDiagnostic(`unclosed CSS bind() expression at ${line}:${col}`, {
         line,
         col,
-        hint: "Close the bind() call with `)`, e.g. `color: bind(color)`."
+        hint: "Close the bind() call with `)`, e.g. `color: bind(color)`.",
+        code: "CACHOU008"
       });
     }
     const expr = css.slice(start + 5, close).trim();
@@ -814,14 +866,16 @@ function compileVBindCSS(css, loc = {}) {
           loc.source,
           absolute,
           "empty CSS bind() expression",
-          'Provide an expression, e.g. `bind(color)` or `bind(count() + "px")`.'
+          'Provide an expression, e.g. `bind(color)` or `bind(count() + "px")`.',
+          "CACHOU009"
         );
       }
       const { line, col } = lineCol(css, start);
       throw new CompilerDiagnostic(`empty CSS bind() expression at ${line}:${col}`, {
         line,
         col,
-        hint: 'Provide an expression, e.g. `bind(color)` or `bind(count() + "px")`.'
+        hint: 'Provide an expression, e.g. `bind(color)` or `bind(count() + "px")`.',
+        code: "CACHOU009"
       });
     }
     const baseName = sanitizeVBindName(expr);
@@ -1235,6 +1289,15 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
     source: content,
     toAbsolute: sections.templateToAbsolute
   };
+  if (!sections.template || !sections.template.trim()) {
+    throwAt(
+      content,
+      Math.max(0, content.length - 1),
+      "template is empty",
+      "Add markup after optional <script> / <style> sections (at least one HTML element).",
+      "CACHOU013"
+    );
+  }
   // Validate tags + expressions on the unscoped template so locations map to the file.
   validateTemplateTags(sections.template, templateLoc);
   compileTemplateExpressions(sections.template, templateLoc);
@@ -1277,7 +1340,8 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
           content,
           sections.styleOffset,
           "CSS bind() requires a template with an element root",
-          "Wrap the template in a single HTML element so reactive CSS can attach."
+          "Wrap the template in a single HTML element so reactive CSS can attach.",
+          "CACHOU010"
         );
       }
       scopedHTML = injected.html;

@@ -104,6 +104,35 @@ describe("SSR view unwrapping (Show/For/Switch)", () => {
     assert.doesNotMatch(full, /=> html/);
     assert.match(full, /__CACHOU_STATE__/);
   });
+
+  it("renderToStream progressive mode paints shell before final body swap", async () => {
+    const ctx = createSSRContext();
+    const stream = renderToStream(
+      () => {
+        const [data] = createResource(async () => {
+          await new Promise(r => setTimeout(r, 15));
+          return "final-value";
+        }, { revalidateOnFocus: false, revalidateOnReconnect: false });
+        return html`<p>${() => data() || "loading-shell"}</p>`;
+      },
+      { context: ctx, progressive: true, nonce: "n0" }
+    );
+    const chunks = [];
+    const reader = stream.getReader();
+    const dec = new TextDecoder();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunks.push(dec.decode(value));
+    }
+    const full = chunks.join("");
+    // First-paint content and final swap both present in stream
+    assert.match(full, /loading-shell|final-value/);
+    assert.match(full, /innerHTML=/);
+    assert.match(full, /final-value/);
+    assert.match(full, /nonce="n0"/);
+    assert.ok(chunks.length >= 2, "progressive stream yields multiple chunks");
+  });
 });
 
 describe("createI18n locale alias", () => {

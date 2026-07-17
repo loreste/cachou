@@ -1,6 +1,6 @@
 # CachouJS
 
-**v0.5.0** · experimental (0.x)
+**v0.5.1** · experimental (0.x)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · [Docs](./docs/README.md) · [Get started](./docs/GETTING_STARTED.md) · [Changelog](./CHANGELOG.md)
 
@@ -67,16 +67,15 @@ More: [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md).
 | Editor | VS Code extension in-repo (not Marketplace-published) |
 | DevTools | in-page panel + optional browser extension (not store-published) |
 
-### Also included (earlier / narrower)
+### Also included (experimental — pin versions)
 
-These exist and are exported. Treat them as **primitives**, not full products:
+See [docs/EXPERIMENTAL.md](./docs/EXPERIMENTAL.md) and [docs/STABILITY.md](./docs/STABILITY.md).
 
-- Styles / transitions (`cachoujs/styles`, `cachoujs/transitions`)
-- Plugins (`launch` / `getApp`)
-- Content collections (Node-oriented; full entry, not browser entry)
-- Image / media helpers
-- UI kit, utils, auth, i18n, machine, DnD, SEO, validate, mask, upload
-- Logger + optional W3C-style tracing (off by default; no bundled OTel exporter)
+- Styles / transitions (`cachoujs/styles`, `cachoujs/transitions`) — **candidate**
+- UI kit, auth, i18n, machine, DnD, SEO, validate, mask, upload — **experimental**
+- Content / media (Node-oriented; not in `cachoujs/browser`) — **experimental**
+- Plugins, DevTools, test-utils — **experimental**
+- Logger + W3C-style tracing (off by default; sample OTel bridge in docs) — **candidate**
 
 Details and signatures: [docs/API.md](./docs/API.md). Limits: [docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md).
 
@@ -133,7 +132,7 @@ npm run check   # full local CI-ish pipeline
 
 ## Status
 
-- **0.5.0** on npm. Patch releases are the default.
+- **0.5.1** on npm. Patch releases are the default.
 - Tested: unit suite, browser tests, benchmarks under `npm run check`.
 - Not a meta-framework: no hosted deploy adapters, no Marketplace extensions yet, small ecosystem.
 - Demo server APIs are for local demos only (`CACHOU_DEMO`); do not expose them publicly.

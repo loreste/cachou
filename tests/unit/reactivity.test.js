@@ -948,11 +948,12 @@ describe("SSR isolation", () => {
   });
 
   it("publishes final async head metadata before the streamed body", async () => {
+    // Classic document order (progressive:false)
     const stream = renderToStream(() => {
       const [data] = createResource(async () => "ready");
       useHead({ title: () => `Page ${data() || "loading"}` });
       return html`<p>${data}</p>`;
-    });
+    }, { progressive: false });
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let output = "";

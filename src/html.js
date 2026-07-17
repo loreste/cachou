@@ -1761,7 +1761,16 @@ export async function renderToStringAsync(Component, options = {}) {
 }
 
 /**
- * Streaming SSR: yields head shell then body after resources resolve.
+ * Streaming SSR.
+ *
+ * Default (`progressive: true`): stream a first-paint shell with the discovery
+ * pass body (loading UI), then after resources resolve stream a final body swap
+ * via a nonced template + small script so TTFB stays low without out-of-order
+ * chunk protocols.
+ *
+ * Set `progressive: false` for the classic two-pass document (open head → wait
+ * → final head+body) used by older callers.
+ *
  * Returns a ReadableStream of UTF-8 text chunks when available, else async iterable.
  */
 export function renderToStream(Component, options = {}) {
@@ -1824,23 +1833,32 @@ export function renderToStream(Component, options = {}) {
 
       const headHtml = runWithSpan(traceSpan, () => runWithSSRContext(context, () => getSSRHead()));
       const hasPendingResources = context.pendingResources.size > 0 || context.resourcesStarted > 0;
-      if (options.shell !== false && !hasPendingResources) {
-        yield `<!DOCTYPE html><html><head>${headHtml}</head><body><div id="app">`;
-      } else if (options.shell !== false) {
-        // Keep the first chunk fast without closing the head before the final
-        // resource-aware render has had a chance to publish metadata.
-        yield `<!DOCTYPE html><html><head>`;
-      }
+      const progressive = options.progressive !== false;
+      const nonce =
+        typeof options.nonce === "string" && /^[A-Za-z0-9+/=_-]+$/.test(options.nonce)
+          ? options.nonce
+          : "";
+      const nonceAttr = nonce ? ` nonce="${nonce}"` : "";
 
       if (!hasPendingResources) {
-        yield initialBody;
         if (options.shell !== false) {
-          yield `</div>${runWithSSRContext(context, () => dehydrate(context))}</body></html>`;
+          yield `<!DOCTYPE html><html><head>${headHtml}</head><body><div id="app">`;
+          yield initialBody;
+          yield `</div>${runWithSSRContext(context, () => dehydrate(context, { nonce }))}</body></html>`;
+        } else {
+          yield initialBody;
         }
         completed = true;
         traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: initialBody.length, passes: 1 });
         runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-complete", mode: "stream", durationMs: Date.now() - startedAt, bytes: initialBody.length, passes: 1 })));
         return;
+      }
+
+      // Progressive path: stream first-paint shell (loading UI + islands SSR) ASAP.
+      if (options.shell !== false && progressive) {
+        yield `<!DOCTYPE html><html><head>${headHtml}</head><body><div id="app">${initialBody}</div>`;
+      } else if (options.shell !== false) {
+        yield `<!DOCTYPE html><html><head>`;
       }
 
       stage = "resources";
@@ -1866,14 +1884,20 @@ export function renderToStream(Component, options = {}) {
           return invokeSSRComponent(Component, preloadedData, hasPreload);
         }));
       }));
-      if (options.shell !== false) {
-        const finalHeadHtml = runWithSpan(traceSpan, () => runWithSSRContext(context, () => getSSRHead()));
-        yield `${finalHeadHtml}</head><body><div id="app">${body}</div>${runWithSSRContext(context, () => dehydrate(context))}</body></html>`;
+      const stateScript = runWithSSRContext(context, () => dehydrate(context, { nonce }));
+      const finalHeadHtml = runWithSpan(traceSpan, () => runWithSSRContext(context, () => getSSRHead()));
+      if (options.shell !== false && progressive) {
+        // Progressive swap: first paint already streamed; replace #app and refresh head.
+        // JSON encoding avoids breaking out of the script context.
+        yield `<script${nonceAttr}>(function(){var a=document.getElementById("app");if(a)a.innerHTML=${JSON.stringify(body)};var h=${JSON.stringify(finalHeadHtml)};if(h){var d=document.createElement("div");d.innerHTML=h;Array.prototype.forEach.call(d.childNodes,function(n){if(n.nodeName==="TITLE"){document.title=n.textContent||"";}else if(n.nodeType===1){var sel=n.getAttribute&&n.getAttribute("name")?"meta[name=\\""+n.getAttribute("name")+"\\"]":n.getAttribute&&n.getAttribute("property")?"meta[property=\\""+n.getAttribute("property")+"\\"]":null;if(sel){var old=document.head.querySelector(sel);if(old)old.remove();}document.head.appendChild(n);}});}})();</script>`;
+        yield `${stateScript}</body></html>`;
+      } else if (options.shell !== false) {
+        yield `${finalHeadHtml}</head><body><div id="app">${body}</div>${stateScript}</body></html>`;
       } else {
         yield body;
       }
       completed = true;
-      traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: body.length, passes: 2 });
+      traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: body.length, passes: 2, progressive: progressive === true });
       runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-complete", mode: "stream", durationMs: Date.now() - startedAt, bytes: body.length, passes: 2 })));
     } catch (error) {
       traceSpan.recordException(error).setStatus({ code: "ERROR", message: `SSR ${stage} failed` });
@@ -1924,14 +1948,24 @@ function normalizeIslandMode(value) {
 
 /**
  * Island boundary for partial hydration.
- * @param {{ hydrate?: 'load'|'idle'|'visible'|'false', id?: string, children: any }} props
+ * @param {{
+ *   hydrate?: 'load'|'idle'|'visible'|'false',
+ *   id?: string,
+ *   children: any,
+ *   fallback?: any
+ * }} props
+ * `fallback` is rendered on the server (and as static content before client hydrate)
+ * when you want a lightweight placeholder distinct from the interactive children.
  */
 export function Island(props) {
   const mode = normalizeIslandMode(props.hydrate);
   const id = props.id || `island-${++islandSeq}`;
 
   if (typeof window === "undefined") {
-    const children = typeof props.children === "function" ? props.children() : props.children;
+    const hasFallback = props.fallback != null;
+    const children = hasFallback
+      ? (typeof props.fallback === "function" ? props.fallback() : props.fallback)
+      : (typeof props.children === "function" ? props.children() : props.children);
     // Route metadata and children through the normal SSR escaping rules. A
     // SafeHTML child remains trusted, while strings and attributes do not.
     return html`<div data-cachou-island=${id} data-hydrate=${mode}>${children}</div>`;
@@ -1944,6 +1978,7 @@ export function Island(props) {
   let currentNodes = [];
   let disposeIslandRoot = null;
   let idleHandle = null;
+  let idleTimer = null;
   let observer = null;
   let disposed = false;
 
@@ -1962,6 +1997,10 @@ export function Island(props) {
     if (idleHandle !== null && typeof cancelIdleCallback === "function") {
       cancelIdleCallback(idleHandle);
       idleHandle = null;
+    }
+    if (idleTimer != null) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
     }
     observer?.disconnect();
     observer = null;
@@ -1988,19 +2027,29 @@ export function Island(props) {
     return container;
   }
 
-  if (mode === "idle" && typeof requestIdleCallback === "function") {
-    idleHandle = requestIdleCallback(() => {
-      idleHandle = null;
-      startReactiveIsland();
-    });
-  } else if (mode === "visible" && typeof IntersectionObserver === "function") {
-    observer = new IntersectionObserver(entries => {
-      if (entries.some(e => e.isIntersecting)) {
-        observer?.disconnect();
-        observer = null;
+  if (mode === "idle") {
+    if (typeof requestIdleCallback === "function") {
+      idleHandle = requestIdleCallback(() => {
+        idleHandle = null;
         startReactiveIsland();
-      }
-    });
+      }, { timeout: 2000 });
+    } else {
+      idleTimer = setTimeout(() => {
+        idleTimer = null;
+        startReactiveIsland();
+      }, 1);
+    }
+  } else if (mode === "visible" && typeof IntersectionObserver === "function") {
+    observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(e => e.isIntersecting)) {
+          observer?.disconnect();
+          observer = null;
+          startReactiveIsland();
+        }
+      },
+      { root: null, rootMargin: "100px", threshold: 0 }
+    );
     observer.observe(container);
   } else {
     startReactiveIsland();
@@ -2011,8 +2060,19 @@ export function Island(props) {
 
 /**
  * Hydrate only marked islands within root (or document).
+ * @param {ParentNode | null} [root]
+ * @param {Record<string, Function>} [ComponentMap] id → component
+ * @param {{
+ *   onError?: (err: Error, id: string, node: Element) => void,
+ *   rootMargin?: string
+ * }} [options]
+ * @returns {() => void} disposer
  */
-export function hydrateIslands(root = typeof document !== "undefined" ? document : null, ComponentMap = {}) {
+export function hydrateIslands(
+  root = typeof document !== "undefined" ? document : null,
+  ComponentMap = {},
+  options = {}
+) {
   if (!root || typeof root.querySelectorAll !== "function") return () => {};
   const nodes = root.querySelectorAll("[data-cachou-island]");
   const records = new Set();
@@ -2030,10 +2090,15 @@ export function hydrateIslands(root = typeof document !== "undefined" ? document
     let hydrated = false;
     let observer = null;
     let idleHandle = null;
+    let idleTimer = null;
     const cancel = () => {
       if (idleHandle !== null && typeof cancelIdleCallback === "function") {
         cancelIdleCallback(idleHandle);
         idleHandle = null;
+      }
+      if (idleTimer != null) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
       }
       observer?.disconnect();
       observer = null;
@@ -2047,26 +2112,48 @@ export function hydrateIslands(root = typeof document !== "undefined" ? document
     records.add(cancel);
     addNodeCleanup(node, cancel);
     const run = () => {
-      if (disposed || hydrated || (!node.isConnected && !root.contains(node))) {
+      if (disposed || hydrated || (!node.isConnected && !root.contains?.(node))) {
         cancel();
         return;
       }
       hydrated = true;
-      hydrate(Comp, node);
-    };
-    if (mode === "idle" && typeof requestIdleCallback === "function") {
-      idleHandle = requestIdleCallback(() => {
-        idleHandle = null;
-        run();
-      });
-    } else if (mode === "visible" && typeof IntersectionObserver === "function") {
-      observer = new IntersectionObserver(entries => {
-        if (entries.some(e => e.isIntersecting)) {
-          observer?.disconnect();
-          observer = null;
-          run();
+      try {
+        hydrate(Comp, node);
+      } catch (err) {
+        if (typeof options.onError === "function") {
+          try {
+            options.onError(err, id, node);
+          } catch {
+            // never throw from island error reporter
+          }
+        } else if (typeof console !== "undefined" && typeof console.error === "function") {
+          console.error(`⚡ [CachouJS Island]: failed to hydrate "${id}"`, err);
         }
-      });
+      }
+    };
+    if (mode === "idle") {
+      if (typeof requestIdleCallback === "function") {
+        idleHandle = requestIdleCallback(() => {
+          idleHandle = null;
+          run();
+        }, { timeout: 2000 });
+      } else {
+        idleTimer = setTimeout(() => {
+          idleTimer = null;
+          run();
+        }, 1);
+      }
+    } else if (mode === "visible" && typeof IntersectionObserver === "function") {
+      observer = new IntersectionObserver(
+        entries => {
+          if (entries.some(e => e.isIntersecting)) {
+            observer?.disconnect();
+            observer = null;
+            run();
+          }
+        },
+        { rootMargin: options.rootMargin || "100px", threshold: 0 }
+      );
       observer.observe(node);
     } else {
       run();

@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.4.x** (current: **0.5.0**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.4.x** (current: **0.5.1**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
 
 | Start here | |
 |------------|--|
@@ -54,6 +54,9 @@ Task-oriented recipes for CachouJS **v0.4.x** (current: **0.5.0**). Each guide a
 |-------|----------------|
 | [Use SSR and hydration](./ssr-and-hydration.md) | `renderToStringAsync`, stream, islands, dehydrate, **concurrent `createSSRContext`** |
 | [Deploy Node SSR](./deploy-node-ssr.md) | **Supported** concurrent Node recipe (`renderApplication`) |
+| [Deploy a static SPA](./deploy-static-spa.md) | Hash/browser history, host rewrites, static hosts |
+| [Stream SSR and islands](./stream-ssr-and-islands.md) | Progressive `renderToStream`, Island hydrate modes |
+| [Bridge OpenTelemetry](./bridge-opentelemetry.md) | Sample OTel exporter bridge for logger/tracing |
 | [Use the browser-safe entry](./use-browser-entry.md) | `cachoujs/browser`, Vite alias, client vs server split |
 | [Configure security policy](./configure-security-policy.md) | URL/style policy, `trustedHTML`, production defaults |
 | [Work with `.cachou` files](./work-with-cachou-files.md) | SFC syntax, compile, Vite plugin |

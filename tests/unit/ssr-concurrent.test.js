@@ -277,6 +277,7 @@ describe("SSR concurrent isolation", () => {
     const results = await Promise.all(Array.from({ length: requestCount }, (_, index) => {
       const id = `stream-${index}`;
       const context = createSSRContext();
+      // progressive:false → single final document (isolation assertions on static HTML)
       const stream = renderToStream(() => {
         const [data] = createResource(async ({ request }) => {
           await new Promise(resolve => setTimeout(resolve, index % 3));
@@ -284,7 +285,7 @@ describe("SSR concurrent isolation", () => {
         });
         useHead({ title: () => `${id} ${data() || "loading"}` });
         return html`<p>${data}</p>`;
-      }, { context, request: { id }, path: `/${id}` });
+      }, { context, request: { id }, path: `/${id}`, progressive: false });
       return collectStream(stream).then(output => ({ id, output }));
     }));
 

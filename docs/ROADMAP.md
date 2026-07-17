@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.5.x** (published: **0.5.0**) |
-| **Next publish** | **0.5.1** (patch by default) |
+| **Current line** | **0.5.x** (published: **0.5.1**) |
+| **Next publish** | **0.5.2** (patch by default) |
 | **Next minor** | **0.6.0** when ecosystem theme lands |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
@@ -24,7 +24,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 
 ---
 
-## Where we are (0.5.0)
+## Where we are (0.5.1)
 
 ### Mature enough to build on
 
@@ -86,17 +86,17 @@ Theme: **harden what we already ship.** No large new product surface unless it u
 
 - [x] Keep README / API / how-tos in sync with each patch (modest tone) *(ongoing; 0.4.9 how-to index + new guides)*
 - [x] Fill remaining how-to gaps only where users hit real friction (SSR concurrent servers, browser entry, logger/tracing) *(0.4.9)*
-- [x] Benchmark results and performance targets refreshed when numbers move for real reasons *(0.5.0)*
+- [x] Benchmark results and performance targets refreshed when numbers move for real reasons *(0.5.1)*
 
 ### Repo hygiene
 
 - [x] CRM and demo stay examples — do not pull them into the published package *(0.4.9: package-surface tests)*
-- [x] CI: Chromium primary; Safari remains non-blocking if flaky *(0.5.0: documented + continue-on-error)*
-- [x] No token/secret leakage; publish checklist remains manual and small *(0.5.0: publish-prep secret scan + version/changelog gates)*
+- [x] CI: Chromium primary; Safari remains non-blocking if flaky *(0.5.1: documented + continue-on-error)*
+- [x] No token/secret leakage; publish checklist remains manual and small *(0.5.1: publish-prep secret scan + version/changelog gates)*
 
 **Exit criteria for “0.4 line is done enough”:** core APIs feel boring, docs match code, `npm run check` is reliable on clean machines, no known data races in SSR/router under documented patterns.
 
-**Status (0.5.0):** Near-term 0.4 checklist is complete. Further **0.4.x** patches ship only for regressions/security. The next **theme** is **0.5 — Production library line**.
+**Status (0.5.1):** Near-term 0.4 checklist is complete. Further **0.4.x** patches ship only for regressions/security. The next **theme** is **0.5 — Production library line**.
 
 ---
 
@@ -104,17 +104,15 @@ Theme: **harden what we already ship.** No large new product surface unless it u
 
 Theme: **trust and deploy.**
 
-### Shipped in 0.5.0
+### Shipped in 0.5.0–0.5.1
 
-- [x] Stability labels in docs/API (`stable` / `candidate` / `experimental`)
-- [x] One supported SSR deploy recipe (Node) with concurrent context examples (`renderApplication`, `examples/node-ssr`)
-
-### Still planned in 0.5.x
-
-- [ ] Improved streaming + island hydration story
-- [ ] Compiler diagnostics pass that developers can act on without reading source
-- [ ] Explicit experimental boundary callouts on experimental subpath package READMEs
-- [ ] Optional: first-class static export notes for SPA + hash history
+- [x] Stability labels in docs/API (`stable` / `candidate` / `experimental`) *(0.5.0)*
+- [x] One supported SSR deploy recipe (Node) with concurrent context examples (`renderApplication`, `examples/node-ssr`) *(0.5.0)*
+- [x] Improved streaming + island hydration story *(0.5.1: progressive stream, Island fallback, hydrateIslands options)*
+- [x] Compiler diagnostics pass that developers can act on without reading source *(0.5.1: CACHOU001–013 catalog)*
+- [x] Explicit experimental boundary callouts *(0.5.1: EXPERIMENTAL.md + README)*
+- [x] First-class static export notes for SPA + hash history *(0.5.1)*
+- [x] Sample OTel wiring in docs *(0.5.1: bridge-opentelemetry how-to)*
 
 ### Planned focus
 
@@ -129,14 +127,16 @@ Theme: **trust and deploy.**
 
 ### Candidate deliverables (priority order)
 
-1. Stability labels in docs/API (`stable` / `experimental`)
-2. One supported SSR deploy recipe (Node) with concurrent context examples
-3. Improved streaming + island hydration story
-4. Compiler diagnostics pass that developers can act on without reading source
-5. Explicit experimental boundary for UI/auth/i18n/media so core trust isn’t diluted
-6. Optional: first-class static export notes for SPA + hash history
+1. ~~Stability labels~~ ✅ 0.5.1  
+2. ~~Node SSR recipe~~ ✅ 0.5.1  
+3. ~~Streaming + islands~~ ✅ 0.5.1  
+4. ~~Compiler diagnostics catalog~~ ✅ 0.5.1  
+5. ~~Experimental boundary docs~~ ✅ 0.5.1  
+6. ~~SPA static export + hash history~~ ✅ 0.5.1  
 
 **0.5 is not:** “ecommerce shell”, “full TS parser”, or “hosted Cachou cloud”.
+
+**Status (0.5.1):** Production-library theme deliverables complete. Further **0.5.x** patches for regressions; next **theme** is **0.6**.
 
 ---
 
@@ -197,7 +197,7 @@ Each item ships only when tests and docs ship with it.
 | Change type | Version |
 |-------------|---------|
 | Fixes, docs, CI, small APIs | **patch** (`0.4.x` → `0.4.x+1`) |
-| Coherent theme (e.g. production library line) | **minor** (`0.5.0`) |
+| Coherent theme (e.g. production library line) | **minor** (`0.5.1`) |
 | Stable API freeze | **1.0.0** (later) |
 | Packages | Bump `cachoujs`, `@cachoujs/compiler`, `@cachoujs/create` together |
 
@@ -237,4 +237,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.5.0** (2026-07) (2026-07).
+Last updated for **0.5.1** (2026-07).
