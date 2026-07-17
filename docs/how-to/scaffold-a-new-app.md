@@ -34,7 +34,7 @@ npm run dev
 ```text
 my-app/
 ├── index.html
-├── package.json          # cachoujs@^0.4.4 + vite
+├── package.json          # cachoujs@^0.4.5 + vite
 ├── vite.config.js        # cachoujs/vite plugin
 ├── .gitignore
 ├── README.md
@@ -60,7 +60,7 @@ my-app/
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-npm install cachoujs@^0.4.4
+npm install cachoujs@^0.4.5
 npm install -D vite @cachoujs/compiler
 ```
 
@@ -85,6 +85,7 @@ import { cachou } from "cachoujs/vite";
 
 export default defineConfig({
   plugins: [
+    // Defaults: aliases `cachoujs` → browser-safe entry for client builds
     cachou({
       dirs: ["src/components"],
       runtime: "cachoujs"

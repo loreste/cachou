@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.4**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.5**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
 
 | Start here | |
 |------------|--|
@@ -69,7 +69,7 @@ Task-oriented recipes for CachouJS **v0.4.x** (current: **0.4.4**). Each guide a
 | Guide | When to use it |
 |-------|----------------|
 | [Prevent leaks and races](./prevent-leaks-and-races.md) | Roots, abort, transitions, leak asserts |
-| [Enable debug diagnostics](./enable-debug-diagnostics.md) | Debug snapshots, strict mode, framework events |
+| [Enable debug diagnostics](./enable-debug-diagnostics.md) | Debug snapshots, logger, tracing, framework events |
 | [Schedule background work](./schedule-background-work.md) | `scheduleTask`, priorities, transitions |
 
 ---

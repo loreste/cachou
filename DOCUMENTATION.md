@@ -16,7 +16,7 @@ Canonical documentation lives under **[`docs/`](./docs/README.md)**.
 | Security | [docs/SECURITY.md](./docs/SECURITY.md) |
 | Deploy | [docs/DEPLOY.md](./docs/DEPLOY.md) |
 | Environment variables | [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) |
-| How-to recipes (24 guides) | [docs/how-to/README.md](./docs/how-to/README.md) |
+| How-to recipes (30+ guides) | [docs/how-to/README.md](./docs/how-to/README.md) |
 | Examples | [examples/README.md](./examples/README.md) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | Project README | [README.md](./README.md) |

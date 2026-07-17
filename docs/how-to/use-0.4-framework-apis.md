@@ -1,6 +1,6 @@
 # How to: use 0.4 framework APIs
 
-Quick recipes for the **0.4** library surface (current: **0.4.1**).  
+Quick recipes for the **0.4** library surface (current: **0.4.5**).  
 Full tutorial: [Get Started](../GETTING_STARTED.md) · Reference: [API.md](../API.md) · Status: [ROADMAP.md](../ROADMAP.md).
 
 ---
@@ -215,6 +215,43 @@ const list = virtualList({
   renderItem: row => html`<div>${() => row.label}</div>`
 });
 ```
+
+---
+
+## Browser-safe entry, logger, tracing (0.4.5)
+
+```js
+// Prefer for client bundles (Vite plugin aliases this by default)
+import { signal, html, mount, configureLogger, createLogger } from "cachoujs/browser";
+
+configureLogger({ level: "info" });
+const log = createLogger("app");
+log.info("mounted");
+
+mount(App, document.getElementById("app"));
+```
+
+```js
+import { configureResourceCache, configureTracing, renderToStringAsync } from "cachoujs";
+
+configureResourceCache({ maxEntries: 128 });
+
+configureTracing({
+  enabled: true,
+  sampleRate: 0.1,
+  exporter: span => myApm.export(span)
+});
+
+const html = await renderToStringAsync(App, {
+  path: req.url,
+  request: req,
+  signal: req.signal,
+  traceparent: req.headers.traceparent,
+  preload: ({ request, signal }) => loadPage(request, signal)
+});
+```
+
+More: [SSR and hydration](./ssr-and-hydration.md) · [Debug diagnostics](./enable-debug-diagnostics.md) · [Resources](./use-resources.md).
 
 ---
 

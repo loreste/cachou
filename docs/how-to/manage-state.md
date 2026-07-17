@@ -39,7 +39,7 @@ const [user, setUser] = signal(
 );
 ```
 
-Pass `equals: false` (if supported by your version’s options) or a custom comparator when you need always-notify or deep compare.
+Pass `equals: false` or a custom comparator when you need always-notify or deep compare.
 
 ---
 

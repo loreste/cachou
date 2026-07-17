@@ -1,6 +1,6 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for v0.2.0.
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.4.5**).
 
 ---
 
@@ -36,7 +36,9 @@ Attackers who can open a browser page can already run arbitrary JS in that origi
 | Inline styles | `style:` values block `javascript:` / `expression(`; can disable all inline styles |
 | HTML sinks | `innerHTML`, `outerHTML`, and `srcdoc` require `trustedHTML()` |
 | `trustedHTML` | Explicit raw HTML only |
-| Resources | Request IDs, optional abort, stale suppression, optional timeouts |
+| Resources | Request IDs, optional abort, stale suppression, optional timeouts, bounded browser cache |
+| Tracing attributes | Sensitive keys (token, cookie, password, authorization, …) redacted |
+| Logger | Silent by default; custom sinks never throw into app code |
 
 ### Configure policy
 

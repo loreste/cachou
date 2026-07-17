@@ -70,15 +70,27 @@ Suggested path: setup → components → state → templates → lists → resou
 ## Package entry points
 
 ```text
-import { … } from "cachoujs"           // full runtime
+import { … } from "cachoujs"           // full runtime (Node + browser; includes content/media)
+import { … } from "cachoujs/browser" // browser-safe entry (no server-only content/media graph)
 import { … } from "cachoujs/html"
 import { … } from "cachoujs/reactivity"
 import { … } from "cachoujs/router"
 import { … } from "cachoujs/forms"
 import { … } from "cachoujs/a11y"
 import { … } from "cachoujs/files"
-import { cachou } from "cachoujs/vite" // Vite plugin
+import { … } from "cachoujs/styles"
+import { … } from "cachoujs/transitions"
+import { … } from "cachoujs/plugin"
+import { … } from "cachoujs/content"   // Node-oriented content collections
+import { … } from "cachoujs/image"
+import { … } from "cachoujs/media"
+import { … } from "cachoujs/ui"
+import { … } from "cachoujs/utils"
+import { cachou } from "cachoujs/vite" // Vite plugin (aliases to browser entry by default)
 ```
+
+Prefer `cachoujs/browser` (or the Vite plugin’s default alias) for client bundles so
+Node-only helpers stay out of the browser graph.
 
 ---
 

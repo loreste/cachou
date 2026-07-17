@@ -55,9 +55,9 @@ Package pages:
 
 | Package | Version | What it is |
 |---------|---------|------------|
-| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | **0.4.1** | Runtime, Vite plugin, helpers |
-| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | **0.4.1** | Pure-JS `.cachou` compiler |
-| [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | **0.4.1** | `npx` app scaffold |
+| [`cachoujs`](https://www.npmjs.com/package/cachoujs) | **0.4.5** | Runtime, Vite plugin, helpers |
+| [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler) | **0.4.5** | Pure-JS `.cachou` compiler |
+| [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) | **0.4.5** | `npx` app scaffold |
 
 Requirements: **Node.js 20+** and npm (or pnpm/yarn/bun).
 
@@ -190,33 +190,44 @@ npx @cachoujs/compiler -dir src/components -out src/components
 ## 3. Import map (what to import)
 
 ```js
-// Full runtime
+// Full runtime (includes server-oriented content/media helpers)
 import { signal, html, mount, createResource, Router, Route } from "cachoujs";
 
+// Browser-safe entry for client bundles (recommended)
+import { signal, html, mount } from "cachoujs/browser";
+
 // Subpaths (smaller / clearer)
-import { signal, effect } from "cachoujs/reactivity";
+import { signal, effect, configureLogger } from "cachoujs/reactivity";
 import { html, mount } from "cachoujs/html";
 import { Router, Route, Layout, Outlet, fileRoutes } from "cachoujs/router";
 // note: fileRoutes is also on main entry:
 import { fileRoutes } from "cachoujs";
 import { Show, Switch, Match } from "cachoujs/flow";
 import { mountDevtools } from "cachoujs/devtools";
+import { css, theme, cx } from "cachoujs/styles";
 import { cachou } from "cachoujs/vite";
 ```
 
 | Subpath | Contents |
 |---------|----------|
-| `cachoujs` | Everything |
-| `cachoujs/html` | `html`, mount, SSR |
-| `cachoujs/reactivity` | signals, resources, scheduler |
+| `cachoujs` | Full runtime (Node + browser) |
+| `cachoujs/browser` | Browser-safe entry (no server-only content/media graph) |
+| `cachoujs/html` | `html`, mount, SSR render helpers |
+| `cachoujs/reactivity` | signals, resources, logger, tracing, scheduler |
 | `cachoujs/router` | router (+ re-export loaders as used from main) |
-| `cachoujs/flow` | Show / Switch / Match |
+| `cachoujs/flow` | Show / Switch / Match / For / Index / KeepAlive |
 | `cachoujs/devtools` | In-page DevTools |
 | `cachoujs/file-routes` | File-based routing helpers |
 | `cachoujs/forms` | Forms |
 | `cachoujs/a11y` | Accessibility helpers |
+| `cachoujs/styles` | CSS system, themes, `cx` |
+| `cachoujs/transitions` | fade / slide / fly / scale / swap |
+| `cachoujs/plugin` | `launch` / `getApp` |
+| `cachoujs/content` | Content collections (Node-oriented) |
+| `cachoujs/image` / `cachoujs/media` | Image / media helpers |
+| `cachoujs/ui` / `cachoujs/utils` | UI kit and browser utilities |
 | `cachoujs/files` | Demo file browser helpers |
-| `cachoujs/vite` | Vite plugin |
+| `cachoujs/vite` | Vite plugin (aliases to browser entry by default) |
 
 ---
 

@@ -148,17 +148,28 @@ See [Security](./SECURITY.md).
 ## Package module graph
 
 ```text
-index.js
-  ├─ reactivity.js  ← ssr-context.js
-  ├─ html.js        ← reactivity, reconcile, router-state
-  ├─ router.js      ← reactivity, html, router-state
+index.js                 full runtime (Node + browser)
+browser.js               browser-safe entry (no content/media Node graph)
+  ├─ reactivity.js       ← ssr-context.js, logger.js, tracing.js
+  ├─ html.js             ← reactivity, reconcile, router-state, dom-cleanup
+  ├─ router.js           ← reactivity, html, router-state
   ├─ forms.js
   ├─ a11y.js
   ├─ files.js
   └─ components/FileBrowser.js
+
+content.js / media.js    server-oriented helpers (full entry only)
 ```
 
-Subpath exports allow importing only `cachoujs/reactivity` etc., but the root entry re-exports the full surface for convenience. Bundlers may tree-shake unused exports when side-effect free; prefer subpaths for minimal apps if size is critical.
+| Entry | Purpose |
+|-------|---------|
+| `cachoujs` | Full surface including content collections and media helpers that may touch Node APIs |
+| `cachoujs/browser` | UI/runtime graph safe for client bundles |
+| Vite `cachou()` | Aliases `cachoujs` → browser entry by default (`runtimeEntry`) |
+
+Subpath exports (`cachoujs/reactivity`, `cachoujs/html`, …) allow narrower imports.
+Prefer `cachoujs/browser` (or the plugin alias) for client apps so bundlers never
+externalize Node built-ins into the browser.
 
 ---
 

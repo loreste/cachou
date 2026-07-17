@@ -88,15 +88,83 @@ Use this for observability bridges (analytics, logging sinks) without hard-wirin
 
 ---
 
+## Structured logger (0.4.5)
+
+Logging is **silent by default** and never throws into application code.
+
+```javascript
+import { configureLogger, createLogger } from "cachoujs";
+
+configureLogger({
+  level: "debug", // silent | error | warn | info | debug | trace
+  // sink: entry => myLogger.write(entry) // optional custom sink
+});
+
+const log = createLogger("checkout");
+log.info("payment started", { orderId: "o-1" });
+log.error("payment failed", { orderId: "o-1", code: "card_declined" });
+```
+
+Framework stages (SSR, resources, navigation, hydration) emit through the same
+pipeline when the log level allows them.
+
+---
+
+## Tracing (0.4.5)
+
+W3C `traceparent` spans are **disabled by default**. Bridge to your OpenTelemetry
+SDK or APM; Cachou does not bundle an exporter.
+
+```javascript
+import { configureTracing, startSpan, runWithSpan } from "cachoujs";
+
+configureTracing({
+  enabled: true,
+  sampleRate: 0.2,
+  exporter: span => {
+    // span: { name, traceId, spanId, durationMs, attributes, events, status, … }
+    otelExport(span);
+  }
+});
+
+const span = startSpan("checkout.submit", { attributes: { "order.id": orderId } });
+try {
+  runWithSpan(span, () => submitOrder());
+  span.setStatus({ code: "OK" });
+} catch (err) {
+  span.recordException(err);
+  span.setStatus({ code: "ERROR", message: err.message });
+  throw err;
+} finally {
+  span.end();
+}
+```
+
+For SSR, pass the incoming header so concurrent requests keep separate traces:
+
+```javascript
+await renderToStringAsync(App, {
+  path: req.url,
+  request: req,
+  traceparent: req.headers.get?.("traceparent") || req.headers.traceparent
+});
+```
+
+Sensitive attribute keys (tokens, cookies, passwords, authorization, …) are redacted.
+
+---
+
 ## Practical workflow
 
 1. Enable debug + strict in local main.  
-2. Reproduce the bug.  
+2. Optionally `configureLogger({ level: "debug" })` while reproducing.  
 3. `getDebugSnapshot()` before/after navigation.  
 4. `assertNoReactiveLeaks` around mount/unmount in a unit or browser test.  
 5. Watch for `slow-effect` and `security-block` events.  
+6. In staging, enable tracing with a low `sampleRate` and your APM exporter.  
 
 ## Next
 
 - [Prevent leaks and races](./prevent-leaks-and-races.md)
+- [SSR and hydration](./ssr-and-hydration.md) (logger + tracing on the server)
 - [Run quality checks](./run-quality-checks.md)

@@ -95,9 +95,14 @@ import { memo } from "cachoujs";
 
 const doubled = memo(() => count() * 2);
 doubled(); // computes on first read, caches until deps change
+
+// Always notify even when the derived value is === previous
+const tick = memo(() => count(), { equals: false });
 ```
 
-Memos are **lazy**: they do not compute until read.
+Memos are **lazy**: they do not compute until read. When the derived result
+compares equal, downstream effects are skipped. Pass `equals: false` or a custom
+comparator to control that behavior.
 
 ### `store`
 
@@ -270,11 +275,23 @@ When `query()` changes, the resource refetches and aborts the previous request (
 ### Cache helpers
 
 ```javascript
-import { invalidateResource, prefetchResource } from "cachoujs";
+import {
+  invalidateResource,
+  prefetchResource,
+  configureResourceCache
+} from "cachoujs";
 
 await prefetchResource("items", fetcher);
 invalidateResource("items");
+
+// Bound the browser resolved-data LRU (default maxEntries: 256)
+configureResourceCache({ maxEntries: 128 });
+// maxEntries: 0 disables resolved-data retention
 ```
+
+Resources created under a mounted root are disposed with that root. For unowned
+resources (created outside an owner), call `controls.dispose()` to release
+in-flight work and focus/reconnect listeners.
 
 ### Stale response safety
 
@@ -398,10 +415,19 @@ Layout({
 ### Guards
 
 ```javascript
-const stop = beforeNavigate(({ from, to, replace }) => {
+const stop = beforeNavigate(({ from, to, replace, signal }) => {
   if (dirty() && !confirm("Leave?")) return false;
+  // `signal` aborts if a newer navigation supersedes this one
 });
+
+import { go, back, forward } from "cachoujs";
+back();       // history.back equivalent through the router
+forward();
+go(-2);       // relative history delta
 ```
+
+Stale async guards and route loaders are cancelled when a newer navigation wins;
+only the final committed route’s data is applied.
 
 ### Lazy routes
 
@@ -410,7 +436,9 @@ const Settings = lazy(() => import("./pages/Settings.js"));
 // Link preloads on mouseenter when the target route component has preload()
 ```
 
-There is **no file-based routing** or built-in data loaders. Compose with `createResource` yourself.
+For file-based routing use `fileRoutes` / `createFileRoutes` (see the how-to).
+Route `load` and `action` are first-class; compose with `createResource` for
+ad-hoc fetches.
 
 ---
 
@@ -425,9 +453,15 @@ import {
   useHead
 } from "cachoujs";
 
-// Server
+// Server (sequential handler)
 useHead({ title: "Home", meta: [{ name: "description", content: "…" }] });
-const appHtml = await renderToStringAsync(App, { path: req.url });
+const appHtml = await renderToStringAsync(App, {
+  path: req.url,
+  request: req,
+  signal: req.signal,
+  // Optional: one-pass data before render
+  // preload: ({ request, signal }) => loadPage(request, signal)
+});
 const stateScript = dehydrate();
 const headHtml = getSSRHead();
 
@@ -437,9 +471,9 @@ hydrate(App, document.getElementById("app"));
 
 ### Isolation
 
-Each `renderToStringAsync` creates a fresh SSR context (resource cache, resource counter, head). On Node, AsyncLocalStorage is installed when available so concurrent requests do not share state.
+Each `renderToStringAsync` creates a fresh SSR context (resource cache, resource counter, head, request bag). On Node, AsyncLocalStorage is installed when available so concurrent requests do not share state.
 
-After render returns, `dehydrate()` / `getSSRHead()` use the **last completed** context so the common sequential pattern works:
+After a sequential render returns, `dehydrate()` / `getSSRHead()` use the **last completed** context:
 
 ```javascript
 const html = await renderToStringAsync(App);
@@ -447,11 +481,22 @@ const state = dehydrate();
 const head = getSSRHead();
 ```
 
-For fully concurrent custom pipelines, use `createSSRContext` + `runWithSSRContextAsync` and pass the same context intentionally (advanced).
+For concurrent handlers, pass an explicit context so one request never serializes another’s state. Implicit serialization **fails closed** when overlapping renders make the last-completed context ambiguous:
+
+```javascript
+import { createSSRContext, renderToStringAsync, dehydrate, getSSRHead } from "cachoujs";
+
+const context = createSSRContext();
+const appHtml = await renderToStringAsync(App, { path: req.url, request: req, context });
+const stateScript = dehydrate(context);
+const headHtml = getSSRHead(context);
+```
+
+Stream cancellation propagates via `options.signal` and releases pending request work.
 
 ### Safety
 
-Dynamic SSR text/attributes are escaped. Use `trustedHTML` only for sanitized markup.
+Dynamic SSR text/attributes are escaped. URL and inline-style interpolations are sanitized. Head link attributes are allowlisted. Use `trustedHTML` only for sanitized markup.
 
 ---
 
@@ -609,10 +654,27 @@ import {
   assertNoReactiveLeaks,
   resetDebugState,
   onFrameworkEvent,
-  emitFrameworkEvent
+  emitFrameworkEvent,
+  configureLogger,
+  createLogger,
+  configureTracing
 } from "cachoujs";
 
 enableDebug({ slowEffectThresholdMs: 8, strict: true });
+
+// Structured logging (silent by default)
+configureLogger({ level: "debug" });
+const log = createLogger("app");
+log.info("boot");
+
+// Optional W3C/OpenTelemetry-compatible spans (disabled by default)
+configureTracing({
+  enabled: true,
+  sampleRate: 0.1,
+  exporter: span => {
+    // bridge to your OTel SDK / APM
+  }
+});
 
 onFrameworkEvent(event => {
   // types include: error, security-block, resource-error, resource-stale-response,
@@ -624,6 +686,8 @@ assertNoReactiveLeaks("after unmount");
 ```
 
 `getDebugSnapshot()` reports signal/computation/root counts and orphans.
+See [Enable debug diagnostics](./how-to/enable-debug-diagnostics.md) and
+[SSR and hydration](./how-to/ssr-and-hydration.md) for tracing + logger recipes.
 
 ---
 

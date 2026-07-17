@@ -33,11 +33,14 @@ Configure a strict **Content-Security-Policy** at the edge.
 
 ---
 
-## SSR notes (0.4)
+## SSR notes (0.4+)
 
 - Prefer **`renderToStringAsync`** or **`renderToStream`** with per-request isolation.
 - Use **`Island` + `hydrateIslands`** when only part of the page needs client JS.
-- Call **`dehydrate()`** / **`getSSRHead()`** immediately after each render.
+- For sequential handlers, call **`dehydrate()`** / **`getSSRHead()`** immediately after each render.
+- For concurrent handlers, create **`createSSRContext()`** per request and pass it to render + serialize calls (implicit serialize fails closed under ambiguity).
+- Pass **`request`**, **`signal`**, and optional **`traceparent`** / **`preload`** for abort, tracing, and one-pass data.
+- Client bundles should resolve **`cachoujs/browser`** (Vite plugin default) so server-only modules stay out of the browser graph.
 - See [SSR & hydration](./how-to/ssr-and-hydration.md) and [0.4 APIs](./how-to/use-0.4-framework-apis.md).
 
 ---
@@ -61,7 +64,23 @@ NODE_ENV=production CACHOU_DEMO=0 npm start
 
 ### Concurrent SSR
 
-`renderToStringAsync` creates a per-request context. Production Node installs AsyncLocalStorage so concurrent renders do not share resource/head state. Call `dehydrate()` / `getSSRHead()` immediately after each render.
+`renderToStringAsync` creates a per-request context. Production Node installs AsyncLocalStorage so concurrent renders do not share resource/head state.
+
+```javascript
+import { createSSRContext, renderToStringAsync, dehydrate, getSSRHead } from "cachoujs";
+
+export async function handle(req, res) {
+  const context = createSSRContext();
+  const appHtml = await renderToStringAsync(App, {
+    path: req.url,
+    request: req,
+    signal: req.signal,
+    context,
+    traceparent: req.headers["traceparent"]
+  });
+  res.end(htmlShell(appHtml, dehydrate(context), getSSRHead(context)));
+}
+```
 
 ### Reverse proxy sketch (Nginx)
 

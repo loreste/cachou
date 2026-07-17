@@ -26,13 +26,20 @@ Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTUR
 
 ## SSR & deploy
 
-- Per-request isolation, `renderToStringAsync`, **`renderToStream`**, **`Island` / `hydrateIslands`**, and request context (`getRequestEvent`) are shipped.
+- Per-request isolation, `renderToStringAsync`, **`renderToStream`**, **`Island` / `hydrateIslands`**, request context (`getRequestEvent`), concurrent **`createSSRContext`**, and **`preload`** are shipped.
+- Implicit `dehydrate()` / `getSSRHead()` fail closed under ambiguous concurrent renders — pass an explicit context in concurrent servers.
 - Deferred streaming **interleaving** of nested boundaries (beyond shell stream) is still limited.
 - Deployment conventions are intentionally minimal — see [DEPLOY.md](./DEPLOY.md). No first-class Workers/Deno/static adapters yet.
+
+## Bundling
+
+- Prefer **`cachoujs/browser`** (or the Vite plugin default alias) for client bundles.
+- The full `cachoujs` entry includes content/media helpers that may pull Node APIs — fine for SSR/Node, not for naive CDN browser builds.
 
 ## Tooling
 
 - In-page DevTools panel + framework events (`Ctrl+Shift+D` when installed).
+- Structured **logger** and optional W3C **tracing** (off by default); no bundled OTel exporter.
 - Optional browser extension under `extensions/browser-devtools/` (not on the Chrome Web Store yet).
 - VS Code extension under `vscode-cachou/` for `.cachou` editing (not Marketplace-published yet).
 - Browser tests default to Playwright Chromium; Safari automation is optional and flaky on CI.

@@ -120,5 +120,5 @@ Releases after **0.4.0** use **small increments** (patch-first):
 Line history:
 
 - **0.3.x** — experimental core (signals, router load, SSR isolation)
-- **0.4.x** — library + data + SSR production primitives + styling + transitions + plugins + content + image (current line)
+- **0.4.x** — library + data + SSR production primitives + styling + transitions + plugins + content + image + browser entry + logger/tracing (current line)
 - **1.0** — API freeze after production bake time

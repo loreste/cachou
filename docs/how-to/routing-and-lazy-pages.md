@@ -72,15 +72,33 @@ export default function App() {
 ## Navigate programmatically
 
 ```javascript
-import { navigate, beforeNavigate, getPath, getQueryParams, getRouteParams } from "cachoujs";
+import {
+  navigate,
+  beforeNavigate,
+  go,
+  back,
+  forward,
+  getPath,
+  getQueryParams,
+  getRouteParams
+} from "cachoujs";
 
 navigate("/settings");
 navigate("/", { replace: true, scroll: true, focus: true, viewTransition: false });
 
-beforeNavigate(({ from, to }) => {
+// History stack helpers (router-owned entries)
+back();
+forward();
+go(-2);
+
+beforeNavigate(({ from, to, signal }) => {
   if (dirty()) return confirm(`Leave ${from} for ${to}?`);
+  // `signal` aborts if a newer navigation supersedes this guard
 });
 ```
+
+Rapid navigations cancel stale async guards and route loaders; only the final
+committed route’s data is applied.
 
 ## Lazy pages
 

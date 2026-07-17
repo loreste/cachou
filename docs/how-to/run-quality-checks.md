@@ -6,7 +6,7 @@
 npm run test:unit
 ```
 
-Covers reactivity basics, SSR context isolation helpers, demo-guard SQL sanitization, and filesystem adapter path safety.
+Covers reactivity (including equality options and mapArray), SSR concurrency isolation, browser entry, resources/cache, demo-guard SQL sanitization, and filesystem adapter path safety.
 
 ## Browser tests
 
@@ -38,13 +38,16 @@ Static heuristics for cleanup, fetch abort patterns, and generated template arti
 npm run guardrails
 ```
 
-## Compiler diagnostics
+## Compiler diagnostics & parity
 
 Negative cases (unclosed braces, CSS, tags) plus golden static/scoped compile:
 
 ```bash
 node scripts/check-compiler-diagnostics.mjs
+node scripts/check-compiler-parity.mjs   # Go vs JS compiler output alignment
 ```
+
+Both run as part of `npm run check`.
 
 ## Benchmarks
 

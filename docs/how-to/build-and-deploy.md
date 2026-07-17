@@ -27,9 +27,11 @@ NODE_ENV=production CACHOU_DEMO=0 npm start
 
 Serves built assets and SSR HTML. Demo APIs are **off** unless you set `CACHOU_DEMO=1` (not recommended publicly).
 
-## SSR (0.4)
+## SSR (0.4+)
 
-Prefer `renderToStringAsync` or `renderToStream` with per-request isolation. Use `Island` + `hydrateIslands` when only part of the page needs client JS. See [SSR how-to](./ssr-and-hydration.md) and [0.4 APIs](./use-0.4-framework-apis.md).
+Prefer `renderToStringAsync` or `renderToStream` with per-request isolation. For concurrent servers, pass an explicit `createSSRContext()` to render + `dehydrate` / `getSSRHead`. Use `Island` + `hydrateIslands` when only part of the page needs client JS. Client builds should use the browser-safe entry (`cachoujs/browser` or the Vite plugin default alias).
+
+See [SSR how-to](./ssr-and-hydration.md) and [0.4 APIs](./use-0.4-framework-apis.md).
 
 ## Serve static assets without Node
 

@@ -200,18 +200,22 @@ function App() {
 ## Package exports
 
 ```
-cachoujs             → full runtime
+cachoujs             → full runtime (Node + browser; includes content/media)
+cachoujs/browser     → browser-safe entry (default Vite alias; no server-only graph)
 cachoujs/styles      → css, theme, cx, globalCSS, keyframes, cssVar
 cachoujs/transitions → fade, slide, fly, scale, swap, transition, defineTransition
 cachoujs/plugin      → launch, getApp
 cachoujs/content     → defineCollection, getCollection, getEntry, z, loadContent
 cachoujs/image       → Image, Picture
+cachoujs/media       → media helpers (Node-oriented compression paths)
 cachoujs/html        → html, htmlStatic, mount, unmount, render, hydrate
 cachoujs/reactivity  → signal, effect, memo, store, batch, createRoot, ...
-cachoujs/router      → Router, Route, Link, guard, navigate, ...
+cachoujs/router      → Router, Route, Link, guard, navigate, go, back, forward, ...
 cachoujs/forms       → createField, createForm
 cachoujs/a11y        → Dialog, trapFocus, createLiveRegion
-cachoujs/vite        → Vite plugin
+cachoujs/ui          → Toast, Drawer, DataTable, Tabs, …
+cachoujs/utils       → debounce, throttle, useMedia, useClipboard, …
+cachoujs/vite        → Vite plugin (aliases `cachoujs` → browser entry by default)
 ```
 
 ## Documentation

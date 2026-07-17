@@ -2,35 +2,50 @@
 
 Public APIs exported from **`cachoujs`** (v0.4.5). Types also live in `src/index.d.ts`.
 
-Subpath imports: `cachoujs/html`, `cachoujs/reactivity`, `cachoujs/router`, `cachoujs/forms`, `cachoujs/a11y`, `cachoujs/files`, `cachoujs/vite`.
+Subpath imports: `cachoujs/browser`, `cachoujs/html`, `cachoujs/reactivity`, `cachoujs/router`, `cachoujs/forms`, `cachoujs/a11y`, `cachoujs/files`, `cachoujs/styles`, `cachoujs/transitions`, `cachoujs/plugin`, `cachoujs/content`, `cachoujs/image`, `cachoujs/media`, `cachoujs/ui`, `cachoujs/utils`, `cachoujs/vite`, and more.
 
 ---
 
 ## Table of contents
 
-1. [Reactivity](#reactivity)
-2. [Lists](#lists)
-3. [Resources](#resources)
-4. [Rendering & DOM](#rendering--dom)
-5. [Security](#security)
-6. [Components & composition](#components--composition)
-7. [Router](#router)
-8. [SSR](#ssr)
-9. [Forms](#forms)
-10. [Accessibility](#accessibility)
-11. [Scheduler](#scheduler)
-12. [Head](#head)
-13. [Diagnostics](#diagnostics)
-14. [Files](#files)
-15. [Demo helpers](#demo-helpers)
-16. [Vite plugin](#vite-plugin)
-17. [Styles](#styles)
-18. [Transitions](#transitions)
-19. [Plugin System](#plugin-system)
-20. [Content Collections](#content-collections)
-21. [Image](#image)
-22. [Router Middleware](#router-middleware)
-23. [KeepAlive](#keepalive)
+1. [Package entries](#package-entries)
+2. [Reactivity](#reactivity)
+3. [Lists](#lists)
+4. [Resources](#resources)
+5. [Rendering & DOM](#rendering--dom)
+6. [Security](#security)
+7. [Components & composition](#components--composition)
+8. [Router](#router)
+9. [SSR](#ssr)
+10. [Forms](#forms)
+11. [Accessibility](#accessibility)
+12. [Scheduler](#scheduler)
+13. [Head](#head)
+14. [Diagnostics](#diagnostics)
+15. [Files](#files)
+16. [Demo helpers](#demo-helpers)
+17. [Vite plugin](#vite-plugin)
+18. [Styles](#styles)
+19. [Transitions](#transitions)
+20. [Plugin System](#plugin-system)
+21. [Content Collections](#content-collections)
+22. [Image](#image)
+23. [Router Middleware](#router-middleware)
+24. [KeepAlive](#keepalive)
+
+---
+
+## Package entries
+
+| Import | Use when |
+|--------|----------|
+| `cachoujs` | Full runtime, including Node-oriented content/media helpers |
+| `cachoujs/browser` | Client bundles — same UI/runtime surface without server-only modules |
+| `cachoujs/*` | Narrow subpaths (`reactivity`, `html`, `router`, `styles`, …) |
+
+The Vite plugin aliases `cachoujs` to the browser entry by default so generated
+`.cachou` components and app code do not pull Node built-ins into the client
+graph. Override with `cachou({ runtimeEntry: "…" })` if you need the full entry.
 
 ---
 
@@ -46,6 +61,11 @@ function signal<T>(initialValue: T, options?: {
 ```
 
 Creates a reactive cell. Returns `[get, set]`.
+
+- Default equality is `Object.is` / `===` for primitives and object identity.
+- Pass `equals: false` to always notify subscribers (even when the next value is `===` the previous).
+- Pass a custom `(a, b) => boolean` comparator for deep or field-level equality.
+- `name` is an optional debug label used by diagnostics.
 
 ### `effect(fn)`
 
@@ -456,6 +476,8 @@ function useHead(config: {
 
 ## Diagnostics
 
+### Debug mode
+
 ```ts
 function enableDebug(options?: { slowEffectThresholdMs?: number; strict?: boolean }): void;
 function disableDebug(): void;
@@ -465,6 +487,38 @@ function resetDebugState(): void;
 function onFrameworkEvent(listener: (event: FrameworkEvent) => void): () => void;
 function emitFrameworkEvent(event: { type: string; [key: string]: any }): void;
 ```
+
+### Logger
+
+Logging is **silent by default** and never throws into application code.
+
+```ts
+type CachouLogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
+
+function configureLogger(options?: {
+  level?: CachouLogLevel;
+  includeStack?: boolean;
+  sink?: ((entry: CachouLogEntry) => void) | null;
+}): { level: CachouLogLevel; includeStack: boolean; hasSink: boolean };
+function getLoggerConfig(): { level: CachouLogLevel; includeStack: boolean; hasSink: boolean };
+function createLogger(scope?: string): {
+  error(message: string, details?: Record<string, any>): void;
+  warn(message: string, details?: Record<string, any>): void;
+  info(message: string, details?: Record<string, any>): void;
+  debug(message: string, details?: Record<string, any>): void;
+  trace(message: string, details?: Record<string, any>): void;
+};
+```
+
+```javascript
+import { configureLogger, createLogger } from "cachoujs";
+
+configureLogger({ level: "debug" });
+const log = createLogger("checkout");
+log.info("order started", { orderId: "o-1" });
+```
+
+### Tracing
 
 Tracing is disabled by default. It uses W3C `traceparent` IDs and emits finished
 spans through an application-provided exporter. The core does not depend on an
@@ -476,15 +530,26 @@ function configureTracing(options?: {
   sampleRate?: number;
   exporter?: ((span: CachouSpanExport) => void) | { export(span: CachouSpanExport): void } | null;
 }): { enabled: boolean; sampleRate: number; hasExporter: boolean };
+function getTracingConfig(): { enabled: boolean; sampleRate: number; hasExporter: boolean };
 function startSpan(name: string, options?: {
   parent?: CachouSpan;
   traceparent?: string | CachouSpanContext;
   attributes?: Record<string, any>;
 }): CachouSpan;
 function runWithSpan<T>(span: CachouSpan, fn: () => T): T;
+function getActiveSpan(): CachouSpan | null;
 function getSpanTraceparent(span?: CachouSpan | null): string;
 function parseTraceparent(value: string): CachouSpanContext | null;
+function formatTraceparent(context: CachouSpanContext | null): string;
+function extractTraceparent(request: any): CachouSpanContext | null;
+function createTracer(scope?: string): {
+  startSpan(name: string, options?: object): CachouSpan;
+  withSpan<T>(name: string, fn: () => T, options?: object): T;
+};
 ```
+
+Sensitive attribute keys (authorization, cookie, password, token, …) are redacted.
+Pass `traceparent` / `request` into SSR helpers so concurrent requests keep separate traces.
 
 ### Framework event types (non-exhaustive)
 
@@ -544,12 +609,34 @@ Signal synchronized over a WebSocket URL (demo-oriented).
 export function cachou(options?: {
   dirs?: string[];
   runtime?: string;
-  aliasRuntime?: boolean;
-  runtimeEntry?: string;
+  aliasRuntime?: boolean; // default true — alias `cachoujs` in the consumer project
+  runtimeEntry?: string;  // default: browser-safe entry (src/browser.js)
 }): Plugin;
 
 export function runCachouCompiler(args?: string[], options?: { cwd?: string; runtime?: string }): Promise<void>;
 export function resolveCompilerCommand(cwd?: string): { command: string; argsPrefix: string[]; cwd: string };
+```
+
+| Option | Default | Purpose |
+|--------|---------|---------|
+| `dirs` | `src/components`, `demo/components` | Directories compiled on `buildStart` |
+| `runtime` | `"cachoujs"` | Import specifier written into generated JS |
+| `aliasRuntime` | `true` | Resolve `cachoujs` to this package’s runtime in Vite |
+| `runtimeEntry` | browser entry | Absolute path or package subpath used for the alias |
+
+```javascript
+import { defineConfig } from "vite";
+import { cachou } from "cachoujs/vite";
+
+export default defineConfig({
+  plugins: [
+    cachou({
+      dirs: ["src/components"],
+      // Prefer the browser-safe graph for client builds (default):
+      // runtimeEntry points at cachoujs/browser
+    })
+  ]
+});
 ```
 
 ---
@@ -859,14 +946,14 @@ Caches inactive component trees instead of destroying them. Uses LRU eviction wh
 ## Import cheat sheet
 
 ```javascript
-// Core UI
+// Core UI (use "cachoujs/browser" for client-only bundles)
 import { signal, effect, memo, store, batch, createRoot, onCleanup, html, mount } from "cachoujs";
 
 // Data
-import { createResource, mapArray } from "cachoujs";
+import { createResource, configureResourceCache, mapArray } from "cachoujs";
 
 // Routing
-import { Router, Route, Layout, Outlet, Link, navigate, guard } from "cachoujs";
+import { Router, Route, Layout, Outlet, Link, navigate, go, back, forward, guard } from "cachoujs";
 
 // Styles
 import { css, cssVar, theme, cx, keyframes, globalCSS } from "cachoujs";
@@ -877,7 +964,7 @@ import { fade, slide, fly, scale, swap, transition, defineTransition } from "cac
 // Plugin system
 import { launch, getApp } from "cachoujs";
 
-// Content
+// Content (Node / full entry — not on cachoujs/browser)
 import { defineCollection, getCollection, getEntry, z, parseFrontmatter } from "cachoujs";
 
 // Image
@@ -887,8 +974,11 @@ import { Image, Picture } from "cachoujs";
 import { Show, Switch, Match, For, Index, KeepAlive } from "cachoujs";
 
 // SSR
-import { renderToStringAsync, dehydrate, hydrate, getSSRHead } from "cachoujs";
+import { renderToStringAsync, createSSRContext, dehydrate, hydrate, getSSRHead } from "cachoujs";
+
+// Observability
+import { configureLogger, createLogger, configureTracing, startSpan, onFrameworkEvent } from "cachoujs";
 
 // Safety
-import { applyProductionSecurityDefaults, trustedHTML, onFrameworkEvent } from "cachoujs";
+import { applyProductionSecurityDefaults, trustedHTML } from "cachoujs";
 ```
