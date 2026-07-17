@@ -2,31 +2,23 @@
 
 **v0.4.5** · experimental (0.x)
 
-[npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · **[Get Started](./docs/GETTING_STARTED.md)**
+[npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · [Docs](./docs/README.md) · [Get started](./docs/GETTING_STARTED.md) · [Changelog](./CHANGELOG.md)
 
-CachouJS is a fine-grained reactive JavaScript framework. Signals update the DOM directly — no virtual DOM, no diffing. It ships with a `.cachou` single-file component compiler, built-in styling and transitions, a router, SSR, and a plugin system. The goal is a framework that's genuinely fast without making you fight it.
+Fine-grained reactive UI library for JavaScript. Components set up once; signals update specific DOM bindings. No virtual DOM.
+
+Optional pieces: `.cachou` SFC compiler, Vite plugin, router, SSR helpers, styles/transitions, and a set of app primitives. This is **0.x** — APIs can still change. Pin versions in production.
 
 ## Install
 
 ```bash
 npm install cachoujs
-
-# Or scaffold a new project
+# scaffold (optional)
 npx @cachoujs/create my-app
-cd my-app && npm install && npm run dev
 ```
 
-Requires Node.js 20+.
+Node.js 20+. Packages: [`cachoujs`](https://www.npmjs.com/package/cachoujs) · [`@cachoujs/create`](https://www.npmjs.com/package/@cachoujs/create) · [`@cachoujs/compiler`](https://www.npmjs.com/package/@cachoujs/compiler)
 
-| Package | Install | npm |
-|---------|---------|-----|
-| Runtime + Vite plugin | `npm install cachoujs` | [cachoujs](https://www.npmjs.com/package/cachoujs) |
-| App scaffold | `npx @cachoujs/create my-app` | [@cachoujs/create](https://www.npmjs.com/package/@cachoujs/create) |
-| `.cachou` compiler (optional) | `npm install -D @cachoujs/compiler` | [@cachoujs/compiler](https://www.npmjs.com/package/@cachoujs/compiler) |
-
-## Quick look
-
-### Counter
+## Example
 
 ```js
 import { signal, html, mount } from "cachoujs";
@@ -43,241 +35,107 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-### Fetch data
+More: [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md).
 
-```js
-import { createResource, html, mount } from "cachoujs";
+## What ships
 
-function App() {
-  const [todo, { loading, error }] = createResource(async ({ signal }) => {
-    const res = await fetch("/api/todo/1", { signal });
-    return res.json();
-  });
-  return html`
-    <div>
-      ${() => loading() ? "Loading..." : ""}
-      ${() => error() ? error().message : ""}
-      ${() => todo() ? html`<p>${todo().title}</p>` : ""}
-    </div>
-  `;
-}
+### Solid core
 
-mount(App, document.getElementById("app"));
-```
+| Area | What you get |
+|------|----------------|
+| Reactivity | `signal`, `effect`, `memo`, `store`, `batch`, roots, `onCleanup`, optional equality |
+| Templates | `html` tagged templates; events, class/style, bind, refs |
+| Lists | Keyed `mapArray`; `For` / `Index` |
+| Data | `createResource` (abort, stale-safe, cache bounds, `dispose`) |
+| DOM lifecycle | `mount` / `unmount` / `render` / `hydrate`; ownership-based cleanup |
+| Errors | `ErrorBoundary`, `Suspense`, `onError` |
+| Control flow | `Show`, `Switch`, `Match`, `KeepAlive` |
+| Router | routes, layouts, `Link`, guards, loaders, lazy, file routes, history modes, `go`/`back`/`forward` |
+| SSR | `renderToString` / `renderToStringAsync` / `renderToStream`, dehydrate, islands, per-request context |
+| Forms | `createField`, `createForm` |
+| Security basics | URL/style policy, `trustedHTML`, production defaults |
+| Browser entry | `cachoujs/browser` — avoids pulling Node-oriented modules into client bundles |
 
-### App with plugins
+### Tooling (usable today)
 
-```js
-import { launch, html, signal } from "cachoujs";
+| Area | What you get |
+|------|----------------|
+| Compiler | `.cachou` SFC → JS (portable JS compiler; optional native Go binary) |
+| Vite | `cachoujs/vite` plugin; defaults client alias to the browser entry |
+| Scaffold | `npx @cachoujs/create` |
+| Checks | unit + Playwright browser tests, benches, `npm run check` |
+| Editor | VS Code extension in-repo (not Marketplace-published) |
+| DevTools | in-page panel + optional browser extension (not store-published) |
 
-function App() {
-  const [count, setCount] = signal(0);
-  return html`
-    <button onclick=${() => setCount(c => c + 1)}>
-      ${() => count()}
-    </button>
-  `;
-}
+### Also included (earlier / narrower)
 
-const app = launch(App);
-app.plug(analyticsPlugin);
-app.mount("#app");
-```
+These exist and are exported. Treat them as **primitives**, not full products:
 
-More examples in [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md#code-examples).
+- Styles / transitions (`cachoujs/styles`, `cachoujs/transitions`)
+- Plugins (`launch` / `getApp`)
+- Content collections (Node-oriented; full entry, not browser entry)
+- Image / media helpers
+- UI kit, utils, auth, i18n, machine, DnD, SEO, validate, mask, upload
+- Logger + optional W3C-style tracing (off by default; no bundled OTel exporter)
 
-## What's in the box
-
-### Core
-
-- **Reactivity** — `signal`, `effect`, `memo`, `store`, `batch`, `createRoot`, ownership and cleanup; optional `equals` / always-notify
-- **Rendering** — Tagged template `html` with events, refs, class/style bindings, two-way bind
-- **Lists** — Keyed `mapArray` with stable moves, immutable reuse, and in-place updates (`For` / `Index`)
-- **Resources** — `createResource` with abort, stale suppression, dedup, timeouts, revalidation, `dispose()`, bounded cache (`configureResourceCache`)
-- **Router** — `Route`, `Layout` + `Outlet`, `Link`, `guard()`, `navigate` / `go` / `back` / `forward`, lazy routes, file-based routing, history modes
-- **Control flow** — `Show`, `Switch`, `Match`, `For`, `Index`, `KeepAlive`
-- **SSR** — `renderToStringAsync`, streaming, concurrent request isolation, `preload`, dehydration/hydration, islands
-- **Forms** — `createField`, `createForm` with validation, dirty/touched state
-- **Error handling** — `ErrorBoundary`, `Suspense`, `onError`
-- **Browser entry** — `cachoujs/browser` keeps server-only content/media out of client bundles (Vite default)
-
-### Observability
-
-- **Logger** — `configureLogger` / `createLogger` (silent by default)
-- **Tracing** — W3C `traceparent` spans (`configureTracing`, `startSpan`); no bundled OTel SDK
-- **Framework events** — `onFrameworkEvent` for security, resources, leaks, SSR stages
-- **Debug mode** — snapshots, strict ownership checks, `assertNoReactiveLeaks`
-
-### Styling & transitions
-
-Built-in. No external CSS libraries needed.
-
-- **`css`** — Tagged template for scoped styles with reactive signal bindings
-- **`theme(tokens)`** — Design token system with CSS custom properties
-- **`cx()`** — Conditional class joiner
-- **`bind(expr)`** — Reactive CSS bindings in `.cachou` style blocks
-- **`fade`, `slide`, `fly`, `scale`** — Built-in transitions using Web Animations API
-- **`swap()`** — FLIP transitions between elements
-- **`defineTransition()`** — Build your own transitions
-- **`globalCSS()`** — Inject global styles (deduped)
-
-### Plugin system
-
-- **`launch(App)`** — Bootstrap your app
-- **`app.plug(plugin)`** — Install plugins
-- **`app.provide()` / `app.component()` / `app.directive()`** — Registration
-- **`getApp()`** — Access app instance from anywhere in the tree
-
-### Content collections
-
-For blogs, docs, marketing pages — structured content with schema validation (full/`Node` entry; not on `cachoujs/browser`).
-
-- **`defineCollection()`** — Define collections with schemas
-- **`z.string()`, `z.number()`, `z.object()`, etc.** — Built-in schema validation
-- **`loadContent()`** — Load markdown/JSON from the filesystem
-- **`parseFrontmatter()`** — Parse `---` frontmatter blocks
-
-### Image & media
-
-- **`Image`** — Lazy loading, blur/color placeholders, responsive srcset, CLS prevention
-- **`Picture`** — Art direction with multiple sources
-- **`cachoujs/media`** — compression / srcset helpers (Node-oriented paths)
-
-### App primitives (0.4)
-
-- **UI kit** — Toast, Drawer, Popover, Menu, DataTable, Tabs, Accordion, …
-- **Utils** — `debounce`, `throttle`, `useMedia`, `useClipboard`, `useOnline`, …
-- **Auth / i18n / machine / DnD / SEO / validate / mask / upload** — see subpath exports and [API](./docs/API.md)
-
-### Compiler & tooling
-
-- `.cachou` single-file components with scoped CSS
-- **Static hoisting** — Pure HTML fragments skip reactivity (`createCompiledStatic` / `htmlStatic`)
-- **`bind()`** in style blocks — Compiled to reactive CSS custom properties
-- VLQ-encoded source maps for debugger navigation
-- Vite plugin: `cachoujs/vite` (aliases runtime to browser entry by default)
-- VS Code extension with syntax highlighting, snippets, compile-on-save, diagnostics
-
-## `.cachou` component
-
-```html
-<script>
-  const [color, setColor] = signal('#3b82f6');
-</script>
-
-<style scoped>
-  .card {
-    padding: 16px;
-    border-radius: 8px;
-    background: bind(color);
-  }
-</style>
-
-<div class="card">
-  <h3>{props.title}</h3>
-  <p>{props.children}</p>
-</div>
-```
-
-The compiler turns this into plain JS with scoped CSS. The `bind()` syntax creates a reactive CSS custom property that updates when the signal changes.
-
-## Routing
-
-```js
-import { Router, Route, Layout, Outlet, Link, guard } from "cachoujs";
-
-// Protect routes
-guard(async (to, from, next) => {
-  if (to.startsWith("/admin") && !isLoggedIn()) {
-    next("/login");
-  } else {
-    next();
-  }
-});
-
-function App() {
-  return Router({
-    children: [
-      Layout({
-        path: "/app",
-        component: Shell,
-        children: [
-          Route({ path: "/app", component: Dashboard }),
-          Route({ path: "/app/settings", component: Settings }),
-          Route({ path: "/app/users/:id", component: UserProfile })
-        ]
-      })
-    ]
-  });
-}
-```
+Details and signatures: [docs/API.md](./docs/API.md). Limits: [docs/KNOWN_LIMITATIONS.md](./docs/KNOWN_LIMITATIONS.md).
 
 ## Package exports
 
 ```
-cachoujs             → full runtime (Node + browser; includes content/media)
-cachoujs/browser     → browser-safe entry (default Vite alias; no server-only graph)
-cachoujs/styles      → css, theme, cx, globalCSS, keyframes, cssVar
-cachoujs/transitions → fade, slide, fly, scale, swap, transition, defineTransition
-cachoujs/plugin      → launch, getApp
-cachoujs/content     → defineCollection, getCollection, getEntry, z, loadContent
-cachoujs/image       → Image, Picture
-cachoujs/media       → media helpers (Node-oriented compression paths)
-cachoujs/html        → html, htmlStatic, mount, unmount, render, hydrate
-cachoujs/reactivity  → signal, effect, memo, store, batch, createRoot, ...
-cachoujs/router      → Router, Route, Link, guard, navigate, go, back, forward, ...
-cachoujs/forms       → createField, createForm
-cachoujs/a11y        → Dialog, trapFocus, createLiveRegion
-cachoujs/ui          → Toast, Drawer, DataTable, Tabs, …
-cachoujs/utils       → debounce, throttle, useMedia, useClipboard, …
-cachoujs/vite        → Vite plugin (aliases `cachoujs` → browser entry by default)
+cachoujs            full runtime (includes Node-oriented content/media)
+cachoujs/browser    client-oriented entry (Vite default alias)
+cachoujs/html
+cachoujs/reactivity
+cachoujs/router
+cachoujs/forms
+cachoujs/a11y
+cachoujs/styles
+cachoujs/transitions
+cachoujs/plugin
+cachoujs/content    Node-oriented
+cachoujs/image
+cachoujs/media      Node-oriented helpers
+cachoujs/ui
+cachoujs/utils
+cachoujs/vite
 ```
 
-## Documentation
+Prefer `cachoujs/browser` (or the Vite plugin default) for client apps.
 
-| Doc | What's in it |
-|-----|-------------|
-| [Get Started](./docs/GETTING_STARTED.md) | Scaffold, first app, core concepts |
-| [Docs home](./docs/README.md) | Full documentation map |
-| [Developer Guide](./docs/GUIDE.md) | Reactivity, rendering, SSR, styling, plugins |
-| [API Reference](./docs/API.md) | Every public export |
-| [Styling](./docs/STYLING.md) | Built-in CSS system, themes, reactive bindings |
-| [Transitions](./docs/TRANSITIONS.md) | Animations and FLIP transitions |
-| [Plugins](./docs/PLUGINS.md) | Plugin system and app bootstrap |
-| [Content](./docs/CONTENT.md) | Content collections and schema validation |
-| [Image](./docs/IMAGE.md) | Image optimization components |
-| [Templates](./docs/TEMPLATES.md) | `html` directives and bindings |
-| [Compiler](./docs/COMPILER.md) | `.cachou` SFC format and CLI |
-| [How-to Guides](./docs/how-to/README.md) | Short task recipes (SSR, debug/logger/tracing, …) |
-| [Security](./docs/SECURITY.md) | Threat model, demo mode, policies |
-| [Changelog](./CHANGELOG.md) | Release notes (current: **0.4.5**) |
+## Docs
 
-## Working on the framework
+| | |
+|--|--|
+| [Get started](./docs/GETTING_STARTED.md) | Install, first app |
+| [Guide](./docs/GUIDE.md) | Concepts |
+| [API](./docs/API.md) | Public exports |
+| [How-tos](./docs/how-to/README.md) | Short recipes |
+| [Deploy](./docs/DEPLOY.md) · [Security](./docs/SECURITY.md) | Ship carefully |
+| [Changelog](./CHANGELOG.md) | What changed |
 
-For contributors:
+## Repo layout (not all published)
+
+| Path | Role |
+|------|------|
+| `src/`, `plugin/`, `packages/` | Published runtime + compiler + scaffold |
+| `demo/`, `examples/` | Local demos |
+| `crm/` | In-repo CRM sample (Postgres/SQLite) — not the npm package |
+| `server/` | Demo HTTP/WS host — gated, not a production backend |
 
 ```bash
 git clone https://github.com/loreste/cachou.git
-cd cachou
-npm install
-npx playwright install chromium
-npm run dev
+cd cachou && npm install && npx playwright install chromium
+npm run test:unit
+npm run check   # full local CI-ish pipeline
 ```
 
-```bash
-npm run test:unit        # Node unit tests
-npm run test:browser     # Playwright browser tests
-npm run bench            # Performance benchmarks
-npm run bench:ssr        # SSR throughput benches
-npm run check            # Full CI pipeline
-npm run compiler:build   # Build Go compiler binary
-```
+## Status
 
-## Current state
-
-This is **0.4.x** (current publish: **0.4.5**) — the API is still evolving. Things work, tests pass, but pin your version and check the [changelog](./CHANGELOG.md) before upgrading. The published npm package is the runtime, Vite plugin, and compiler helpers. The demo server and CRM app in this repo are not part of the published package.
-
-Prefer client imports from `cachoujs/browser` (or the Vite plugin default) so Node-only modules stay out of the browser graph.
+- **0.4.5** on npm. Patch releases are the default.
+- Tested: unit suite, browser tests, benchmarks under `npm run check`.
+- Not a meta-framework: no hosted deploy adapters, no Marketplace extensions yet, small ecosystem.
+- Demo server APIs are for local demos only (`CACHOU_DEMO`); do not expose them publicly.
 
 ## License
 

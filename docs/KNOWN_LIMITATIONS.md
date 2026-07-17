@@ -22,7 +22,8 @@ Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTUR
 
 - Nested layouts work via `Layout` + `Outlet`.
 - Route **`load`**, **`action`**, **`fileRoutes`**, `redirect` / `notFound`, and history modes are available.
-- Not a full meta-framework: no built-in **auth**, **i18n**, or cloud **deploy adapters** (document patterns yourself or wait for later releases).
+- Not a meta-framework: no cloud deploy adapters, hosting, or battery-included app shell.
+- **Auth / i18n / UI kit / SEO / upload / …** exist as small primitives under subpath exports. They are not full product systems — wire your own backend, locale files, and design system.
 
 ## SSR & deploy
 

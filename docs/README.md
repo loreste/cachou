@@ -3,7 +3,7 @@
 **Version:** 0.4.5 (experimental 0.x)  
 **Package:** `cachoujs`
 
-CachouJS is a fine-grained reactive JavaScript UI framework. Components set up once; signals update exact DOM bindings without a virtual DOM. An optional `.cachou` SFC compiler (pure JS by default; native Go binary optional) turns components into JS modules. Privileged server features in this repo are demo-only and gated by `CACHOU_DEMO`.
+Fine-grained reactive JavaScript UI library. Components set up once; signals update exact DOM bindings (no virtual DOM). Optional `.cachou` SFC compiler (JS by default; native Go binary optional). Privileged server features in this monorepo are demo-only and gated by `CACHOU_DEMO`.
 
 ---
 
