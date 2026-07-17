@@ -1,6 +1,6 @@
 /**
  * Pure JavaScript .cachou SFC compiler (no Go required).
- * Mirrors the Go compiler subset: script/style/template, {expr}, {{ literal }}, scoped CSS.
+ * Canonical compiler for script/style/template, {expr}, {{ literal }}, scoped CSS, and bind().
  */
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from "node:fs";
 import { dirname, join, relative, basename, extname, resolve } from "node:path";
@@ -15,6 +15,23 @@ function lineCol(content, index) {
     } else col++;
   }
   return { line, col };
+}
+
+function formatCompilerError(file, error) {
+  const message = error?.message || String(error);
+  const position = message.match(/(?:at|near) (\d+):(\d+)/i);
+  if (!position) return `${file}: ${message}`;
+
+  const line = Number(position[1]);
+  const column = Number(position[2]);
+  let sourceLine = "";
+  try {
+    sourceLine = readFileSync(file, "utf8").split(/\r?\n/)[line - 1] || "";
+  } catch {
+    // Keep the positional diagnostic when the source cannot be reread.
+  }
+  const caret = `${" ".repeat(Math.max(0, column - 1))}^`;
+  return `${file}:${line}:${column}\n${sourceLine}\n${caret} ${message}`;
 }
 
 function uppercaseFirst(str) {
@@ -237,6 +254,15 @@ function appendScopeAttrToSelector(selector, scopeAttr) {
   const attr = `[${scopeAttr}]`;
   const trimmed = selector.trim();
   if (!trimmed) return trimmed;
+
+  // Keep trailing selector comments after the scoped compound. Placing the
+  // attribute after a comment would turn `.card /* note */` into a descendant
+  // selector once CSS comments are removed.
+  const trailingComment = trimmed.match(/^([\s\S]*?)(\s+\/\*[\s\S]*\*\/\s*)$/);
+  if (trailingComment) {
+    return `${appendScopeAttrToSelector(trailingComment[1], scopeAttr)}${trailingComment[2]}`;
+  }
+
   let insertAt = trimmed.length;
   for (let i = trimmed.length - 1; i >= 0; i--) {
     if (trimmed[i] === ":") {
@@ -318,6 +344,12 @@ function findCSSOpenBrace(css, start) {
   let quote = 0;
   let escaped = false;
   for (let i = start; i < css.length; i++) {
+    if (!quote && css[i] === "/" && css[i + 1] === "*") {
+      const close = css.indexOf("*/", i + 2);
+      if (close === -1) return -1;
+      i = close + 1;
+      continue;
+    }
     const ch = css[i];
     if (quote) {
       if (escaped) {
@@ -345,6 +377,12 @@ function findMatchingBrace(css, open) {
   let quote = 0;
   let escaped = false;
   for (let i = open; i < css.length; i++) {
+    if (!quote && css[i] === "/" && css[i + 1] === "*") {
+      const close = css.indexOf("*/", i + 2);
+      if (close === -1) return -1;
+      i = close + 1;
+      continue;
+    }
     const ch = css[i];
     if (quote) {
       if (escaped) {
@@ -377,6 +415,20 @@ function scopeCSSBlock(css, scopeAttr) {
   while (i < css.length) {
     while (i < css.length && /\s/.test(css[i])) i++;
     if (i >= css.length) break;
+
+    // Consume standalone comments before scanning the next rule so braces in
+    // comments cannot become CSS block delimiters.
+    if (css[i] === "/" && css[i + 1] === "*") {
+      const close = css.indexOf("*/", i + 2);
+      if (close === -1) {
+        const { line, col } = lineCol(css, i);
+        throw new Error(`unclosed CSS comment at ${line}:${col}`);
+      }
+      out += css.slice(i, close + 2) + "\n";
+      i = close + 2;
+      continue;
+    }
+
     const headerStart = i;
     const open = findCSSOpenBrace(css, i);
     if (open === -1) {
@@ -413,7 +465,341 @@ function scopeCSSBlock(css, scopeAttr) {
   return out.trim();
 }
 
-function renderExpression(compiledHTML) {
+function findMatchingParen(input, open) {
+  let depth = 0;
+  let quote = "";
+  let escaped = false;
+  for (let i = open; i < input.length; i++) {
+    const ch = input[i];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === quote) {
+        quote = "";
+      }
+      continue;
+    }
+    if (ch === "\"" || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") depth++;
+    else if (ch === ")") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function sanitizeVBindName(expr) {
+  const name = String(expr)
+    .replace(/[^a-zA-Z0-9_.[\]()]/g, "-")
+    .replace(/[.()[\]]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return name || "binding";
+}
+
+function hashVBindExpression(expr) {
+  let hash = 2166136261;
+  for (let i = 0; i < expr.length; i++) {
+    hash ^= expr.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function isSimpleIdentifier(expr) {
+  return /^[A-Za-z_$][\w$]*$/.test(expr);
+}
+
+function compileVBindCSS(css) {
+  const bindings = [];
+  const seen = new Map();
+  let output = "";
+  let cursor = 0;
+
+  while (cursor < css.length) {
+    const start = css.indexOf("bind(", cursor);
+    if (start === -1) {
+      output += css.slice(cursor);
+      break;
+    }
+    const before = start === 0 ? "" : css[start - 1];
+    if (before && /[\w-]/.test(before)) {
+      output += css.slice(cursor, start + 5);
+      cursor = start + 5;
+      continue;
+    }
+    const close = findMatchingParen(css, start + 4);
+    if (close === -1) {
+      const { line, col } = lineCol(css, start);
+      throw new Error(`unclosed CSS bind() expression at ${line}:${col}`);
+    }
+    const expr = css.slice(start + 5, close).trim();
+    if (!expr) {
+      const { line, col } = lineCol(css, start);
+      throw new Error(`empty CSS bind() expression at ${line}:${col}`);
+    }
+    const baseName = sanitizeVBindName(expr);
+    let name = baseName;
+    if (seen.has(name) && seen.get(name) !== expr) {
+      name = `${baseName}-${hashVBindExpression(expr)}`;
+      while (seen.has(name) && seen.get(name) !== expr) {
+        name += "-x";
+      }
+    }
+    if (!seen.has(name)) {
+      seen.set(name, expr);
+      bindings.push({ expr, name });
+    }
+    output += css.slice(cursor, start) + `var(--cachou-v-${name})`;
+    cursor = close + 1;
+  }
+
+  if (bindings.length === 0) return { css, setup: "" };
+  const lines = [
+    "const $__cachouVBindOwner = getOwner();",
+    "const $__cachouVBindDisposers = new WeakMap();",
+    "const $__cachouVBindRef = (node, disposedNode) => {",
+    "  if (!node) {",
+    "    const dispose = $__cachouVBindDisposers.get(disposedNode);",
+    "    dispose?.();",
+    "    if (disposedNode) $__cachouVBindDisposers.delete(disposedNode);",
+    "    return;",
+    "  }",
+    "  if ($__cachouVBindOwner?.disposed) return;",
+    "  const dispose = runWithOwner($__cachouVBindOwner, () => effect(() => {"
+  ];
+  for (const binding of bindings) {
+    const expression = isSimpleIdentifier(binding.expr) ? `${binding.expr}()` : binding.expr;
+    lines.push(`    node.style.setProperty("--cachou-v-${binding.name}", String(${expression}));`);
+  }
+  lines.push("  }));", "  $__cachouVBindDisposers.set(node, dispose);", "};");
+  return { css: output, setup: lines.join("\n") };
+}
+
+function injectVBindRefs(html) {
+  const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+  let output = "";
+  let cursor = 0;
+  let depth = 0;
+  let injected = false;
+  for (let i = 0; i < html.length; i++) {
+    if (html[i] !== "<" || !/[A-Za-z/]/.test(html[i + 1] || "")) continue;
+    const end = findTagEnd(html, i + 1);
+    if (end === -1) return { html, injected: false };
+    const closing = html[i + 1] === "/";
+    const tagSource = closing ? html.slice(i + 2, end) : html.slice(i + 1, end);
+    const tagMatch = tagSource.match(/^([A-Za-z][\w:-]*)/);
+    if (!tagMatch) continue;
+    const tagName = tagMatch[1].toLowerCase();
+    const tagText = html.slice(i, end + 1);
+    if (closing) {
+      output += html.slice(cursor, i) + tagText;
+      cursor = end + 1;
+      depth = Math.max(0, depth - 1);
+      i = end;
+      continue;
+    }
+    const selfClosing = /\/\s*>$/.test(tagText) || voidTags.has(tagName);
+    output += html.slice(cursor, i);
+    if (depth === 0) {
+      const insertAt = tagText.length - (selfClosing ? tagText.match(/\/\s*>$/)[0].length : 1);
+      output += tagText.slice(0, insertAt) + " ref={$__cachouVBindRef}" + tagText.slice(insertAt);
+      injected = true;
+    } else {
+      output += tagText;
+    }
+    cursor = end + 1;
+    if (!selfClosing) depth++;
+    i = end;
+  }
+  output += html.slice(cursor);
+  return { html: output, injected };
+}
+
+const staticVoidTags = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"
+]);
+const staticUnsupportedTags = new Set([
+  "html", "head", "body", "base", "script", "style", "template", "textarea", "title", "select", "option",
+  "table", "caption", "colgroup", "col", "tbody", "thead", "tfoot", "tr", "td", "th", "svg", "math"
+]);
+
+function parseStaticAttributes(source) {
+  const attrs = [];
+  const names = new Set();
+  let index = 0;
+
+  while (index < source.length) {
+    while (index < source.length && /\s/.test(source[index])) index++;
+    if (index >= source.length) break;
+    if (source[index] === "/" && /^\s*$/.test(source.slice(index))) break;
+
+    const nameMatch = source.slice(index).match(/^([^\s=/>]+)/);
+    if (!nameMatch) return null;
+    const name = nameMatch[1];
+    const normalizedName = name.toLowerCase();
+    if (names.has(normalizedName) || name.includes("{") || name.includes("}")) return null;
+    names.add(normalizedName);
+    index += name.length;
+    while (index < source.length && /\s/.test(source[index])) index++;
+
+    let value = "";
+    if (source[index] === "=") {
+      index++;
+      while (index < source.length && /\s/.test(source[index])) index++;
+      const quote = source[index];
+      if (quote === '"' || quote === "'") {
+        index++;
+        const end = source.indexOf(quote, index);
+        if (end === -1) return null;
+        value = source.slice(index, end);
+        index = end + 1;
+      } else {
+        const valueMatch = source.slice(index).match(/^[^\s>]+/);
+        if (!valueMatch) return null;
+        value = valueMatch[0].replace(/\/$/, (match, offset, whole) => offset === whole.length - 1 ? "" : match);
+        index += valueMatch[0].length;
+      }
+    }
+
+    // Entity decoding and namespace/property semantics are intentionally left
+    // to htmlStatic until the compiler has a dedicated implementation for them.
+    if (value.includes("&") || name.startsWith(".") || name.startsWith("#")) return null;
+    attrs.push({ name, value });
+  }
+  return attrs;
+}
+
+function parseStaticDOM(template) {
+  if (!template || template.includes("${") || template.includes("&")) return null;
+  const root = { type: "root", children: [] };
+  const stack = [root];
+  let index = 0;
+
+  const append = node => stack[stack.length - 1].children.push(node);
+
+  while (index < template.length) {
+    if (template.startsWith("<!--", index)) {
+      const end = template.indexOf("-->", index + 4);
+      if (end === -1) return null;
+      const value = template.slice(index + 4, end);
+      if (value.includes("--") || value.endsWith("-")) return null;
+      append({ type: "comment", value });
+      index = end + 3;
+      continue;
+    }
+
+    if (template[index] !== "<") {
+      const end = template.indexOf("<", index);
+      const value = template.slice(index, end === -1 ? template.length : end);
+      if (value) append({ type: "text", value });
+      index = end === -1 ? template.length : end;
+      continue;
+    }
+
+    if (template.startsWith("</", index)) {
+      const end = template.indexOf(">", index + 2);
+      if (end === -1 || stack.length === 1) return null;
+      const name = template.slice(index + 2, end).trim().toLowerCase();
+      const current = stack[stack.length - 1];
+      if (current.type !== "element" || current.tagName !== name) return null;
+      stack.pop();
+      index = end + 1;
+      continue;
+    }
+
+    if (template[index + 1] === "!" || template[index + 1] === "?") return null;
+    const end = findTagEnd(template, index + 1);
+    if (end === -1) return null;
+    const source = template.slice(index + 1, end);
+    const match = source.match(/^([A-Za-z][\w:-]*)([\s\S]*)$/);
+    if (!match) return null;
+    const tagName = match[1].toLowerCase();
+    if (staticUnsupportedTags.has(tagName)) return null;
+    const remainder = match[2];
+    const selfClosing = /\/\s*$/.test(remainder);
+    if (selfClosing && !staticVoidTags.has(tagName)) return null;
+    const attrSource = selfClosing ? remainder.replace(/\/\s*$/, "") : remainder;
+    const attrs = parseStaticAttributes(attrSource);
+    if (!attrs) return null;
+    const node = { type: "element", tagName, attrs, children: [] };
+    append(node);
+    if (!selfClosing && !staticVoidTags.has(tagName)) stack.push(node);
+    index = end + 1;
+  }
+
+  return stack.length === 1 && root.children.length > 0 ? root : null;
+}
+
+function emitStaticDOMNode(node, lines, parentName, counter) {
+  if (node.type === "text") {
+    const name = `text${counter.value++}`;
+    lines.push(`const ${name} = document.createTextNode(${JSON.stringify(node.value)});`);
+    lines.push(`${parentName}.appendChild(${name});`);
+    return;
+  }
+  if (node.type === "comment") {
+    const name = `comment${counter.value++}`;
+    lines.push(`const ${name} = document.createComment(${JSON.stringify(node.value)});`);
+    lines.push(`${parentName}.appendChild(${name});`);
+    return;
+  }
+
+  const name = `node${counter.value++}`;
+  lines.push(`const ${name} = document.createElement(${JSON.stringify(node.tagName)});`);
+  for (const attr of node.attrs) {
+    lines.push(`${name}.setAttribute(${JSON.stringify(attr.name)}, ${JSON.stringify(attr.value)});`);
+  }
+  for (const child of node.children) emitStaticDOMNode(child, lines, name, counter);
+  lines.push(`${parentName}.appendChild(${name});`);
+}
+
+function compileStaticDOMFactory(template) {
+  const ast = parseStaticDOM(template);
+  if (!ast) return null;
+  const lines = ["() => {"];
+  const counter = { value: 0 };
+  const roots = [];
+  for (const child of ast.children) {
+    if (child.type === "element") {
+      const name = `root${counter.value++}`;
+      lines.push(`const ${name} = document.createElement(${JSON.stringify(child.tagName)});`);
+      for (const attr of child.attrs) {
+        lines.push(`${name}.setAttribute(${JSON.stringify(attr.name)}, ${JSON.stringify(attr.value)});`);
+      }
+      for (const nested of child.children) emitStaticDOMNode(nested, lines, name, counter);
+      roots.push(name);
+    } else if (child.type === "text") {
+      const name = `rootText${counter.value++}`;
+      lines.push(`const ${name} = document.createTextNode(${JSON.stringify(child.value)});`);
+      roots.push(name);
+    } else {
+      const name = `rootComment${counter.value++}`;
+      lines.push(`const ${name} = document.createComment(${JSON.stringify(child.value)});`);
+      roots.push(name);
+    }
+  }
+  if (roots.length === 1) {
+    lines.push(`return ${roots[0]};`);
+  } else {
+    lines.push("const fragment = document.createDocumentFragment();");
+    for (const root of roots) lines.push(`fragment.appendChild(${root});`);
+    lines.push("return fragment;");
+  }
+  lines.push("}");
+  return lines.join("\n");
+}
+
+function renderExpression(compiledHTML, staticFactory = null) {
+  if (staticFactory) {
+    return `(typeof Cachou.createCompiledStatic === "function" ? Cachou.createCompiledStatic(${JSON.stringify(compiledHTML)}, ${staticFactory}) : htmlStatic(${JSON.stringify(compiledHTML)}))`;
+  }
   if (!compiledHTML.includes("${")) {
     return `htmlStatic(${JSON.stringify(compiledHTML)})`;
   }
@@ -479,7 +865,8 @@ function writeSourceMap(mapPath, fileName, sourceName, sourceContent, generated,
 
 /** Pragmatic TS strip for simple annotations in <script> (not a full parser). */
 export function stripTypeScript(script) {
-  let out = script;
+  const masked = maskTypeScriptNonCode(script);
+  let out = masked.code;
   // remove interface / type blocks
   out = out.replace(/^\s*interface\s+\w+[\s\S]*?\{[\s\S]*?\}\s*$/gm, "");
   out = out.replace(/^\s*type\s+\w+\s*=\s*[^;]+;/gm, "");
@@ -491,7 +878,58 @@ export function stripTypeScript(script) {
   out = out.replace(/\)\s*:\s*[A-Za-z0-9_<>|\[\]\s.,]+\s*\{/g, ") {");
   // strip variable annotations: const x: Type =
   out = out.replace(/\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*:\s*[A-Za-z0-9_<>|\[\]\s.,]+\s*=/g, "$1 $2 =");
-  return out;
+  return masked.restore(out);
+}
+
+function maskTypeScriptNonCode(input) {
+  const tokens = [];
+  let code = "";
+  let index = 0;
+
+  while (index < input.length) {
+    const start = index;
+    const quote = input[index];
+    if (quote === "'" || quote === '"' || quote === "`") {
+      index++;
+      let escaped = false;
+      while (index < input.length) {
+        const ch = input[index++];
+        if (escaped) {
+          escaped = false;
+        } else if (ch === "\\") {
+          escaped = true;
+        } else if (ch === quote) {
+          break;
+        }
+      }
+    } else if (input.startsWith("//", index)) {
+      index += 2;
+      while (index < input.length && input[index] !== "\n" && input[index] !== "\r") index++;
+    } else if (input.startsWith("/*", index)) {
+      index += 2;
+      while (index < input.length && !input.startsWith("*/", index)) index++;
+      if (index < input.length) index += 2;
+    } else {
+      code += input[index++];
+      continue;
+    }
+
+    const raw = input.slice(start, index);
+    const marker = `__CACHOU_TS_TOKEN_${tokens.length}__`;
+    const newlines = raw.replace(/[^\r\n]/g, "");
+    const masked = marker + newlines;
+    tokens.push({ masked, raw });
+    code += masked;
+  }
+
+  return {
+    code,
+    restore(value) {
+      let restored = value;
+      for (const token of tokens) restored = restored.replace(token.masked, token.raw);
+      return restored;
+    }
+  };
 }
 
 /**
@@ -525,6 +963,7 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
 
   let scopedHTML = sections.template;
   let scopedCSS = "";
+  let vBindSetup = "";
   if (sections.style) {
     if (sections.styleScoped) {
       scopedHTML = scopeTemplate(sections.template, scopeID);
@@ -535,7 +974,21 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
     }
   }
 
+  if (scopedCSS) {
+    const compiledVBind = compileVBindCSS(scopedCSS);
+    scopedCSS = compiledVBind.css;
+    if (compiledVBind.setup) {
+      const injected = injectVBindRefs(scopedHTML);
+      if (!injected.injected) {
+        throw new Error("CSS bind() requires a template with an element root");
+      }
+      scopedHTML = injected.html;
+      vBindSetup = compiledVBind.setup;
+    }
+  }
+
   const compiledHTML = compileTemplateExpressions(scopedHTML);
+  const staticFactory = compiledHTML.includes("${") ? null : compileStaticDOMFactory(compiledHTML);
   let styleImport = "";
   if (scopedCSS) {
     const cssPath = join(dirname(outputPath), nameWithoutExt + ".css");
@@ -544,6 +997,7 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
   }
 
   const mapFile = nameWithoutExt + ".js.map";
+  const setup = [sections.script, vBindSetup].filter(Boolean).join("\n\n");
   const outputJS = `// Generated by CachouJS Compiler (JS) - DO NOT EDIT
 // Source: ${base.replace(/\\/g, "/")}
 import * as Cachou from "${runtime}";
@@ -595,10 +1049,10 @@ const {
 
 export default function ${componentName}(props = {}) {
   // --- Component Setup ---
-${indentLines(sections.script, "  ")}
+${indentLines(setup, "  ")}
 
   // --- Render ---
-  return ${renderExpression(compiledHTML)};
+  return ${renderExpression(compiledHTML, staticFactory)};
 }
 //# sourceMappingURL=${mapFile}
 `;
@@ -661,7 +1115,7 @@ export function runCli(argv = process.argv.slice(2)) {
       const r = compileFile(file, { outDir: out, runtime });
       console.log(`Compiled: ${file} -> ${r.outputPath} (Component: ${r.componentName})`);
     } catch (err) {
-      console.error(`Error compiling file ${file}: ${err.message || err}`);
+      console.error(`Error compiling file ${formatCompilerError(file, err)}`);
       failed = true;
     }
   }
@@ -671,7 +1125,7 @@ export function runCli(argv = process.argv.slice(2)) {
       console.log(`Compiled: -> ${r.outputPath} (Component: ${r.componentName})`);
     }
     for (const e of errors) {
-      console.error(`Error compiling file ${e.file}: ${e.error.message || e.error}`);
+      console.error(`Error compiling file ${formatCompilerError(e.file, e.error)}`);
       failed = true;
     }
   }

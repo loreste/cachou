@@ -28,5 +28,7 @@ compileDir("src/components", { outDir: "src/components", runtime: "cachoujs" });
 
 ## Engine
 
-This package ships a **pure JavaScript** implementation (no Go required).  
-The monorepo may also build native `bin/cachou-compiler` binaries via Go for speed; the root wrapper prefers native, then JS.
+This package ships the **canonical pure JavaScript** implementation (no Go required). The root
+launcher and Vite plugin use it first so output is predictable across platforms. The older Go
+implementation can still be built for investigation with `npm run compiler:build`, but it is not
+the supported compilation path.

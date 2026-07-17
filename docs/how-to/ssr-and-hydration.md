@@ -31,7 +31,81 @@ export async function handle(req, res) {
 }
 ```
 
-Call `dehydrate()` and `getSSRHead()` **immediately after** the matching `renderToStringAsync` so they use the last completed SSR context.
+For a sequential server handler, calling `dehydrate()` and `getSSRHead()` immediately after the matching render uses the last completed SSR context. For concurrent handlers, pass an explicit context so one request can never serialize another request's state:
+
+```javascript
+import { createSSRContext, renderToStringAsync, dehydrate, getSSRHead } from "cachoujs";
+
+const context = createSSRContext();
+const appHtml = await renderToStringAsync(App, { path: req.url, request: req, context });
+const stateScript = dehydrate(context);
+const headHtml = getSSRHead(context);
+```
+
+If concurrent renders are detected, implicit `dehydrate()` and `getSSRHead()` calls fail closed instead of returning an ambiguous request's output.
+
+## Fast route preloading
+
+Pages with known route data can avoid the generic async discovery pass by loading data before rendering:
+
+```javascript
+const appHtml = await renderToStringAsync(data => App(data), {
+  path: req.url,
+  request: req,
+  preload: ({ request, signal }) => loadPageData(request, signal)
+});
+```
+
+The preload function receives the request and abort signal. Its result is passed to the component, which renders once after loading completes. Components that still discover pending resources retain the normal safe fallback behavior.
+
+Enable structured diagnostics during development:
+
+```javascript
+import { configureLogger, createLogger } from "cachoujs";
+
+configureLogger({ level: "debug" });
+const log = createLogger("checkout");
+log.info("starting", { orderId });
+```
+
+Framework events include SSR stages, resource failures, navigation errors, hydration mismatches, cleanup errors, timing, and request-local SSR context IDs. Logging is silent by default and never throws into application code.
+
+## OpenTelemetry-compatible tracing
+
+CachouJS tracing follows the OpenTelemetry model and W3C `traceparent` format, but
+does not bundle an exporter or SDK. It is disabled by default and can be bridged
+to the application's OpenTelemetry SDK:
+
+```javascript
+import { configureTracing } from "cachoujs";
+
+configureTracing({
+  enabled: process.env.NODE_ENV !== "production",
+  sampleRate: 0.1,
+  exporter: span => otelTracer.startActiveSpan(span.name, active => {
+    active.setAttributes(span.attributes);
+    for (const event of span.events) active.addEvent(event.name, event.attributes);
+    if (span.status.code === "ERROR") active.recordException(span.status.message);
+    active.end();
+  })
+});
+```
+
+SSR spans accept the incoming W3C header and automatically cover SSR stages,
+resource fetches, hydration, and framework events. Pass the request through so
+concurrent requests retain separate trace IDs:
+
+```javascript
+const html = await renderToStringAsync(App, {
+  request: req,
+  path: req.url,
+  traceparent: req.headers.get?.("traceparent") || req.headers.traceparent
+});
+```
+
+Trace attributes are bounded and redact credentials, cookies, tokens, secrets,
+and authorization values. Do not put user payloads or access tokens into custom
+span attributes; use stable IDs or application-side correlation fields instead.
 
 ## Client hydrate
 
@@ -54,7 +128,7 @@ Each `renderToStringAsync` uses a fresh context (resource cache, counters, head)
 import { renderToStream, Island, hydrateIslands, html } from "cachoujs";
 
 // Server: ReadableStream / async iterable of HTML chunks
-const stream = renderToStream(App, { path: req.url });
+const stream = renderToStream(App, { path: req.url, signal: req.signal });
 
 // Mark interactive regions for partial hydration
 function Page() {

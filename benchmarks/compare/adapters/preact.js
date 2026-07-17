@@ -8,7 +8,7 @@ export const preactAdapter = {
 
   initialRows(target, rows) {
     render(h(Table, { rows }), target);
-    render(null, target);
+    return () => render(null, target);
   },
 
   textFanout(target, count, updates) {
@@ -76,6 +76,31 @@ export const preactAdapter = {
       render(h(ManySpans, { iteration: i }), target);
       render(null, target);
     }
+  },
+
+  dashboardRefresh(target, cards, updates) {
+    let setValue;
+    function App() {
+      const state = useState(0);
+      setValue = state[1];
+      return h(
+        "section",
+        { className: "dashboard-grid" },
+        cards.map(card => h(
+          "article",
+          { className: "metric-card", key: card.id },
+          h("h3", null, card.label),
+          h("strong", null, state[0]),
+          h("p", null, card.status)
+        ))
+      );
+    }
+    render(h(App), target);
+    for (let i = 1; i <= updates; i++) setValue(i);
+    if (target.querySelector("strong")?.textContent !== String(updates)) {
+      throw new Error("Preact dashboard value did not commit");
+    }
+    render(null, target);
   }
 };
 

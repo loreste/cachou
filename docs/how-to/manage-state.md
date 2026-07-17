@@ -59,7 +59,7 @@ total(); // computes now
 total(); // cached until items() changes
 ```
 
-Memos are **lazy**: no work until first read. Put pure expensive derives here instead of inside every template binding.
+Memos are **lazy**: no work until first read. Put pure expensive derives here instead of inside every template binding. A memo only notifies downstream effects when its result changes; use `equals: false` when every dependency change must propagate.
 
 ---
 

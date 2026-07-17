@@ -60,6 +60,8 @@ SQLite file path is `cachou.db` in the process working directory (gitignored).
 | `CACHOU_TEST_PORT` | `5177` | Port for the browser test Vite instance |
 | `CACHOU_TEST_BROWSER` | auto | `chromium` / `playwright` forces Playwright; `safari` forces Safari osascript runner |
 | `CACHOU_COMPARE_SAMPLES` | harness default | Number of samples per competitive benchmark scenario (use `30` for publishable runs) |
+| `CACHOU_SSR_BENCH_SAMPLES` | `5` | Repeated samples for SSR throughput benchmarks |
+| `CACHOU_SSR_BENCH_SCALE` | `1` | Multiplier for SSR benchmark iterations |
 | `CACHOU_COMPARE_RESULTS_PATH` | OS temp file | Where the compare harness POSTs JSON results |
 
 ---

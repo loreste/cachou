@@ -23,8 +23,11 @@ async function measure(adapter, scenario) {
   for (let i = 0; i < sampleCount; i++) {
     cleanupTarget();
     const start = performance.now();
-    await scenario.run(adapter, target);
+    const cleanup = await scenario.run(adapter, target);
     samples.push(performance.now() - start);
+    if (typeof cleanup === "function") {
+      await cleanup();
+    }
     cleanupTarget();
   }
   samples.sort((a, b) => a - b);

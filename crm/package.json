@@ -16,6 +16,7 @@
     "smoke": "node scripts/smoke.mjs",
     "smoke:postgres": "CRM_DB_MODE=postgres POSTGRES_DSN=postgres://crm:crm@127.0.0.1:55433/crm?sslmode=disable node scripts/smoke.mjs",
     "ui:smoke": "node scripts/ui-smoke.mjs",
+    "perf": "npm run compile && node scripts/perf.mjs",
     "visual:smoke": "node scripts/visual-smoke.mjs",
     "visual:baseline": "CRM_UPDATE_VISUAL_BASELINE=1 node scripts/visual-smoke.mjs",
     "stress": "node scripts/stress.mjs",

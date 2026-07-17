@@ -49,12 +49,14 @@ async function runSafariTests() {
       activate
       if (count of windows) = 0 then make new document
       set URL of front document to "${url}"
+      set lastTitle to ""
       repeat 200 times
         delay 0.1
         set pageTitle to name of front document
+        set lastTitle to pageTitle
         if pageTitle starts with "CACHOU_TESTS_DONE:" then return pageTitle
       end repeat
-      error "Timed out waiting for browser tests"
+      error "Timed out waiting for browser tests; last progress: " & lastTitle
     end tell
   `;
   const title = await runOsascript(script);

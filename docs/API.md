@@ -1,6 +1,6 @@
 # API Reference
 
-Public APIs exported from **`cachoujs`** (v0.4.4). Types also live in `src/index.d.ts`.
+Public APIs exported from **`cachoujs`** (v0.4.5). Types also live in `src/index.d.ts`.
 
 Subpath imports: `cachoujs/html`, `cachoujs/reactivity`, `cachoujs/router`, `cachoujs/forms`, `cachoujs/a11y`, `cachoujs/files`, `cachoujs/vite`.
 
@@ -66,10 +66,12 @@ Creates an ownership root. Dispose tears down owned effects and cleanups.
 ### `memo(fn, options?)`
 
 ```ts
-function memo<T>(fn: () => T): () => T;
+function memo<T>(fn: () => T, options?: { equals?: false | ((a: T, b: T) => boolean) }): () => T;
 ```
 
 Lazy derived value. Computes on first read; invalidates when dependencies change.
+When the derived result compares equal, downstream effects are not rerun.
+Pass `equals: false` to always notify downstream subscribers.
 
 ### `store(initialValue)`
 
@@ -125,6 +127,10 @@ Keyed list mapping with DOM-oriented reuse when used inside `html`.
 | `reactiveItems` | `true` | When `false`, treat items as immutable snapshots |
 | `uniqueKeys` | `false` | When `true`, skip duplicate-key bookkeeping |
 
+When immutable keyed items keep the same array identity, `mapArray` reuses the
+previous mapped result. Create a new array for inserts, removals, or reorders;
+do not mutate an immutable snapshot in place.
+
 ---
 
 ## Resources
@@ -139,6 +145,7 @@ type ResourceControls<T> = {
   error: () => any;
   refetch: () => Promise<void>;
   mutate: (data: T) => void;
+  dispose: () => void;
   invalidate: () => void;
   getRequestId: () => number;
   getLatestAppliedRequestId: () => number;
@@ -157,6 +164,19 @@ function createResource<S, T>(
 ```
 
 **Options:** `key`, `staleTime`, `cancelPrevious` (default true), `revalidateOnFocus`, `revalidateOnReconnect`, `timeoutMs`, `dedupe`.
+
+The browser cache is bounded to 256 entries by default. Configure it at
+application startup; `maxEntries: 0` disables resolved-data retention:
+
+```ts
+function configureResourceCache(options?: { maxEntries?: number }): {
+  maxEntries: number;
+  size: number;
+};
+```
+
+This limit applies only to the process-wide browser cache. SSR resource caches
+remain request-local and are discarded with their SSR context.
 
 ### `invalidateResource(key)`
 
@@ -181,9 +201,16 @@ function prefetchResource<T>(
 ```ts
 function html(strings: TemplateStringsArray, ...values: any[]): HTMLElement | HTMLElement[] | DocumentFragment;
 function htmlStatic(markup: string): HTMLElement | HTMLElement[] | DocumentFragment | SafeHTML;
+function createCompiledStatic(markup: string, factory?: () => Node | DocumentFragment): any;
 ```
 
 See [Templates](./TEMPLATES.md).
+
+`createCompiledStatic` is the runtime boundary used by the canonical `.cachou`
+compiler for conservative fully static templates. It evaluates the DOM factory
+only in a browser and returns the exact markup during SSR. Application code
+should generally use `html` or `htmlStatic` directly; the compiler falls back
+to `htmlStatic` when parsing semantics could differ.
 
 ### `render` / `mount` / `unmount` / `hydrate`
 
@@ -201,8 +228,8 @@ Low-level DOM cleanup helpers used by the reconciler and advanced integrations.
 ### `renderToString` / `renderToStringAsync`
 
 ```ts
-function renderToString(Component: () => any): string;
-function renderToStringAsync(Component: () => any, options?: { path?: string }): Promise<string>;
+function renderToString(Component: () => any, options?: { path?: string; request?: any; traceparent?: string; context?: SSRContext }): string;
+function renderToStringAsync(Component: () => any, options?: { path?: string; request?: any; signal?: AbortSignal; traceparent?: string; context?: SSRContext; preload?: (ctx: { request: any; signal: AbortSignal | null }) => any | Promise<any> }): Promise<string>;
 ```
 
 `options.path` sets the SSR router path.
@@ -301,8 +328,12 @@ function navigate(path: string, options?: {
 }): boolean;
 
 function beforeNavigate(
-  handler: (event: { from: string; to: string; replace: boolean }) => boolean | void
+  handler: (event: { from: string; to: string; replace: boolean; signal: AbortSignal }) => boolean | void | Promise<boolean | void>
 ): () => void;
+
+function go(delta: number): boolean;
+function back(): boolean;
+function forward(): boolean;
 
 function getPath(): string;
 function getQueryParams(): Record<string, string>;
@@ -334,10 +365,19 @@ See [use-file-based-routing](./how-to/use-file-based-routing.md).
 ## SSR
 
 ```ts
-function dehydrate(): string; // <script id="__CACHOU_STATE__">…
+function dehydrate(context?: SSRContext): string; // <script id="__CACHOU_STATE__">…
 function resolvePendingResources(): Promise<void>;
 function resetResourceCounter(): void;
-function getSSRHead(): string;
+function getSSRHead(context?: SSRContext): string;
+function renderToStream(Component: () => any, options?: {
+  path?: string;
+  request?: any;
+  signal?: AbortSignal;
+  shell?: boolean;
+  traceparent?: string;
+  context?: SSRContext;
+  preload?: (ctx: { request: any; signal: AbortSignal | null }) => any | Promise<any>;
+}): ReadableStream | AsyncGenerator<string>;
 function resetSSRHead(): void; // internal/reset helper via reactivity
 
 function createSSRContext(): SSRContext;
@@ -353,6 +393,10 @@ const appHtml = await renderToStringAsync(App, { path: url });
 const stateScript = dehydrate();
 const headHtml = getSSRHead();
 ```
+
+For concurrent request handlers, create one context per request and pass it to
+the render and serialization calls. Implicit serialization fails closed when
+overlapping renders make the last-completed context ambiguous.
 
 ---
 
@@ -422,6 +466,26 @@ function onFrameworkEvent(listener: (event: FrameworkEvent) => void): () => void
 function emitFrameworkEvent(event: { type: string; [key: string]: any }): void;
 ```
 
+Tracing is disabled by default. It uses W3C `traceparent` IDs and emits finished
+spans through an application-provided exporter. The core does not depend on an
+OpenTelemetry SDK.
+
+```ts
+function configureTracing(options?: {
+  enabled?: boolean;
+  sampleRate?: number;
+  exporter?: ((span: CachouSpanExport) => void) | { export(span: CachouSpanExport): void } | null;
+}): { enabled: boolean; sampleRate: number; hasExporter: boolean };
+function startSpan(name: string, options?: {
+  parent?: CachouSpan;
+  traceparent?: string | CachouSpanContext;
+  attributes?: Record<string, any>;
+}): CachouSpan;
+function runWithSpan<T>(span: CachouSpan, fn: () => T): T;
+function getSpanTraceparent(span?: CachouSpan | null): string;
+function parseTraceparent(value: string): CachouSpanContext | null;
+```
+
 ### Framework event types (non-exhaustive)
 
 | Type | When |
@@ -481,6 +545,7 @@ export function cachou(options?: {
   dirs?: string[];
   runtime?: string;
   aliasRuntime?: boolean;
+  runtimeEntry?: string;
 }): Plugin;
 
 export function runCachouCompiler(args?: string[], options?: { cwd?: string; runtime?: string }): Promise<void>;
@@ -764,7 +829,7 @@ See [Image guide](./IMAGE.md).
 
 ```ts
 function guard(
-  middlewareFn: (to: string, from: string, next: (arg?: false | string) => void) => void | Promise<void>
+  middlewareFn: (to: string, from: string, next: (arg?: false | string) => void, signal?: AbortSignal) => void | Promise<void>
 ): () => void;
 ```
 

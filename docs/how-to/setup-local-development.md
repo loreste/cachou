@@ -5,7 +5,7 @@ Use this when you want to run the demo app, edit framework code, or work on `.ca
 ## Requirements
 
 - **Node.js 20+** for Vite, scripts, server APIs, and builds.
-- **Go 1.22+** only if you rebuild the compiler binary (`npm run compiler:build`). Day-to-day compile uses the binary if present, else `go run`.
+- **Go 1.22+** only if you explicitly investigate the legacy compiler (`npm run compiler:build`). Day-to-day compilation uses the canonical JavaScript compiler.
 - **Playwright Chromium** for default browser tests: `npx playwright install chromium`.
 - Safari remains optional on macOS (`CACHOU_TEST_BROWSER=safari`).
 
@@ -45,16 +45,17 @@ PORT=8080 npm run dev
 CACHOU_PORT=8080 npm run dev
 ```
 
-## Rebuild the compiler binary
+## Inspect the legacy Go compiler
 
-After editing `compiler.go`:
+The normal toolchain does not need Go. If you are specifically investigating the legacy
+implementation:
 
 ```bash
 npm run compiler:build
 npm run compile
 ```
 
-Skip automatic postinstall builds:
+Skip any legacy postinstall build:
 
 ```bash
 CACHOU_SKIP_COMPILER_BUILD=1 npm install

@@ -114,6 +114,13 @@ configureRouter({ history: "hash" });
 configureRouter({ history: "memory", initialPath: "/" });
 ```
 
+`beforeNavigate` and `guard` also run for back/forward traversal through
+CachouJS-owned browser and hash history entries. A cancelled traversal is
+restored to its previous history position. Entries created by other code are
+updated directly because their original history position cannot be recovered
+safely. Route loaders still receive an `AbortSignal`, so a rapid traversal or
+navigation cannot commit stale data.
+
 ## Richer path patterns (0.4)
 
 | Pattern | Matches |

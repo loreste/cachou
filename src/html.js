@@ -1,14 +1,29 @@
-import { createRoot, effect, emitFrameworkEvent, onCleanup, resetResourceCounter, resetSSRHead, resolvePendingResources, createSSRContext, runWithSSRContext, runWithSSRContextAsync, setLastSSRContext, getSSRHead, dehydrate } from "./reactivity.js";
+import { batch, createRoot, effect, emitFrameworkEvent, getOwner, onCleanup, resetResourceCounter, resetSSRHead, resolvePendingResources, createSSRContext, runWithSSRContext, runWithSSRContextAsync, setLastSSRContext, getSSRHead, dehydrate } from "./reactivity.js";
 import { reconcile } from "./reconcile.js";
 import { setSSRPath } from "./router-state.js";
 import { applyDirective } from "./directives.js";
+import { takeRequestEvent, beginSSRRender, endSSRRender } from "./ssr-context.js";
+import { extractTraceparent, isTracingEnabled, runWithSpan, startSpan } from "./tracing.js";
+import { addNodeCleanup, cleanupNode, activateCleanupTracking, hasActiveCleanupRegistrations, markAttachedChildrenCleanup, markAttachedNodeCleanup, markCleanupParents, needsCleanup, setCleanupEventReporter } from "./dom-cleanup.js";
 
-const templateCache = new WeakMap();
-const textElementCache = new WeakMap();
-const tableRowCache = new WeakMap();
-const nodeCleanups = new WeakMap();
-const cleanupParents = new WeakSet();
+setCleanupEventReporter(emitFrameworkEvent);
+
+export { addNodeCleanup, cleanupNode } from "./dom-cleanup.js";
+
+const templateShapeCache = new WeakMap();
+const templateCaches = new WeakMap();
+const ssrStaticTemplateCache = new WeakMap();
+const weakMapFactory = () => new WeakMap();
 const rootDisposers = new WeakMap();
+
+function getDocumentCache(caches, doc, factory = weakMapFactory) {
+  let cache = caches.get(doc);
+  if (!cache) {
+    cache = factory();
+    caches.set(doc, cache);
+  }
+  return cache;
+}
 
 class SafeHTML {
   constructor(value) {
@@ -25,6 +40,7 @@ const securityPolicy = {
   // Prefer CSP + class toggles in production apps; demos may re-enable inline styles.
   allowInlineStyles: true
 };
+const blockedDataMimeTypes = new Set(["image/svg+xml", "text/html", "application/xhtml+xml", "text/javascript", "application/javascript"]);
 
 /** Safer defaults for production apps. Call once at bootstrap. */
 export function applyProductionSecurityDefaults() {
@@ -83,86 +99,159 @@ const delegatedEvents = new Set([
   "touchend"
 ]);
 
-const registeredEvents = (globalThis.__CACHOU_EVENTS__ = globalThis.__CACHOU_EVENTS__ || new Set());
+function isNearestDisconnectedHandler(event, node, property) {
+  let current = event.target;
+  while (current && current !== node) {
+    if (current[property]) return false;
+    current = current.parentNode;
+  }
+  return current === node;
+}
+
+const urlAttributes = new Set([
+  "href",
+  "src",
+  "srcset",
+  "action",
+  "formaction",
+  "xlink:href",
+  "data",
+  "poster",
+  "cite",
+  "background",
+  "manifest"
+]);
+
+const registeredEventsByDocument = new WeakMap();
+const documentEventRegistryKey = typeof Symbol === "function" ? Symbol("cachouDelegatedEvents") : "__cachouDelegatedEvents";
+
+function getRegisteredEvents(doc) {
+  let events = doc[documentEventRegistryKey] || registeredEventsByDocument.get(doc);
+  if (!events) {
+    events = new Set();
+    registeredEventsByDocument.set(doc, events);
+    try {
+      Object.defineProperty(doc, documentEventRegistryKey, { value: events, configurable: true });
+    } catch {
+      // Some host documents do not allow expando properties; WeakMap is enough there.
+    }
+  }
+  return events;
+}
 
 function rootHasReactiveWork(disposeRoot) {
   const owner = disposeRoot && disposeRoot._owner;
   return Boolean(disposeRoot && (disposeRoot._debugTracked || (owner && ((owner.owned && owner.owned.size > 0) || (owner.cleanups && owner.cleanups.size > 0)))));
 }
 
-export function addNodeCleanup(node, cleanupFn) {
-  let cleanups = nodeCleanups.get(node);
-  if (!cleanups) {
-    cleanups = [];
-    nodeCleanups.set(node, cleanups);
-    markCleanupParents(node);
+function clearContainer(root) {
+  if (!root?.firstChild) return;
+  if (typeof root.replaceChildren === "function") {
+    root.replaceChildren();
+  } else {
+    root.textContent = "";
   }
-  cleanups.push(cleanupFn);
-}
-
-function markCleanupParents(node) {
-  let parent = node.parentNode;
-  while (parent) {
-    cleanupParents.add(parent);
-    parent = parent.parentNode;
-  }
-}
-
-export function cleanupNode(node) {
-  if (mayHaveNestedCleanups(node)) {
-    let child = node.firstChild;
-    while (child) {
-      const next = child.nextSibling;
-      cleanupNode(child);
-      child = next;
-    }
-    cleanupParents.delete(node);
-  }
-
-  const cleanups = nodeCleanups.get(node);
-  if (cleanups) {
-    for (const clean of cleanups) {
-      clean();
-    }
-    nodeCleanups.delete(node);
-  }
-}
-
-function needsCleanup(node) {
-  return cleanupParents.has(node) || nodeCleanups.has(node);
-}
-
-function mayHaveNestedCleanups(node) {
-  if (cleanupParents.has(node)) return true;
-  let child = node.firstChild;
-  while (child) {
-    if (cleanupParents.has(child) || nodeCleanups.has(child)) {
-      return true;
-    }
-    child = child.nextSibling;
-  }
-  return false;
 }
 
 const transitions = new WeakMap();
 
 export function registerTransition(node, options) {
+  activateCleanupTracking();
   transitions.set(node, options);
   markCleanupParents(node);
 }
 
-export function removeNodeWithTransition(node, onDone = () => node.remove()) {
+export function removeNodeWithTransition(node, onDone = null) {
   cleanupNode(node);
+  removeNodeAfterCleanup(node, onDone);
+}
+
+function removeNodeAfterCleanup(node, onDone = null) {
   const trans = transitions.get(node);
+  let completed = false;
+  const finish = () => {
+    if (completed) return;
+    completed = true;
+    if (node.parentNode) node.remove();
+    if (typeof onDone === "function") onDone();
+  };
   if (trans && trans.leave) {
-    trans.leave(node, () => {
-      node.remove();
-      onDone();
-    });
+    try {
+      const result = trans.leave(node, finish);
+      const finished = result?.finished || result;
+      if (finished && typeof finished.then === "function") {
+        finished.then(finish, err => {
+          emitFrameworkEvent({ type: "transition-error", node, error: err });
+          finish();
+        });
+      }
+    } catch (err) {
+      emitFrameworkEvent({ type: "transition-error", node, error: err });
+      finish();
+    }
   } else {
-    node.remove();
-    onDone();
+    finish();
   }
+}
+
+/**
+ * Dispose a group of removed siblings before applying the smallest possible
+ * number of DOM mutations. Transitioned nodes remain on their individual
+ * leave path; ordinary contiguous nodes can be deleted with one Range.
+ */
+export function removeNodesWithTransition(nodes) {
+  const immediate = [];
+  for (const node of nodes) {
+    if (!node) continue;
+    cleanupNode(node);
+    if (transitions.get(node)?.leave) {
+      removeNodeAfterCleanup(node);
+    } else if (node.parentNode) {
+      immediate.push(node);
+    }
+  }
+
+  let first = null;
+  let last = null;
+  let parent = null;
+  const flush = () => {
+    if (!first) return;
+    if (first === last) {
+      first.remove();
+    } else if (parent?.ownerDocument?.createRange) {
+      const range = parent.ownerDocument.createRange();
+      range.setStartBefore(first);
+      range.setEndAfter(last);
+      range.deleteContents();
+    } else {
+      let current = first;
+      while (current) {
+        const next = current.nextSibling;
+        current.remove();
+        if (current === last) break;
+        current = next;
+      }
+    }
+    first = null;
+    last = null;
+    parent = null;
+  };
+
+  for (const node of immediate) {
+    const nodeParent = node.parentNode;
+    if (!nodeParent || (parent && (nodeParent !== parent || last.nextSibling !== node))) {
+      flush();
+    }
+    if (!nodeParent) continue;
+    if (!first) {
+      first = node;
+      last = node;
+      parent = nodeParent;
+    } else {
+      last = node;
+    }
+  }
+  flush();
 }
 
 function getNodeByPath(root, path) {
@@ -246,9 +335,6 @@ function normalizeVal(val) {
   if (val === null || val === undefined || val === false) {
     return [];
   }
-  if (val instanceof Node) {
-    return [val];
-  }
   if (val instanceof SafeHTML) {
     const template = document.createElement("template");
     template.innerHTML = val.toString();
@@ -257,7 +343,22 @@ function normalizeVal(val) {
   if (val instanceof DocumentFragment) {
     return Array.from(val.childNodes);
   }
+  if (val instanceof Node) {
+    return [val];
+  }
   if (Array.isArray(val)) {
+    // mapArray commonly returns a flat array of DOM nodes. Reusing it avoids
+    // recursive normalization and a second allocation on every render.
+    let isFlatNodeArray = true;
+    for (let i = 0; i < val.length; i++) {
+      const item = val[i];
+      if (!(i in val) || !(item instanceof Node) || item.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+        isFlatNodeArray = false;
+        break;
+      }
+    }
+    if (isFlatNodeArray) return val;
+
     const nodes = [];
     for (const item of val) {
       const normalized = normalizeVal(item);
@@ -282,7 +383,7 @@ function escapeAttribute(value) {
 }
 
 function isURLAttribute(name) {
-  return ["href", "src", "action", "formaction", "xlink:href"].includes(name.toLowerCase());
+  return urlAttributes.has(name.toLowerCase());
 }
 
 function isSafeURLValue(value) {
@@ -297,6 +398,7 @@ function isSafeURLValue(value) {
     }
     if (parsed.protocol === "data:") {
       const mime = raw.slice(5, raw.indexOf(",") === -1 ? raw.length : raw.indexOf(",")).split(";")[0].toLowerCase();
+      if (blockedDataMimeTypes.has(mime)) return false;
       return securityPolicy.allowedDataMimeTypes.some(allowed => mime.startsWith(allowed));
     }
     return true;
@@ -306,11 +408,35 @@ function isSafeURLValue(value) {
 }
 
 function sanitizeAttributeValue(name, value) {
+  if (name.toLowerCase() === "srcset" && !isSafeSrcsetValue(value)) {
+    warnSecurity("blocked unsafe srcset URL.", { attribute: name, value: String(value) });
+    return null;
+  }
   if (isURLAttribute(name) && !isSafeURLValue(value)) {
     warnSecurity(`blocked unsafe ${name} URL.`, { attribute: name, value: String(value) });
     return null;
   }
   return value;
+}
+
+function isSafeSrcsetValue(value) {
+  const compact = String(value || "").replace(/[\u0000-\u001F\u007F\s]+/g, "").toLowerCase();
+  if (!compact) return true;
+  // srcset contains multiple URL candidates and optional descriptors. Scan
+  // every explicit scheme so a later candidate cannot bypass the configured
+  // protocol and data-MIME policy without pretending to fully parse the format.
+  const protocols = compact.match(/[a-z][a-z0-9+.-]*:/g) || [];
+  for (const protocol of protocols) {
+    if (!securityPolicy.allowedURLProtocols.includes(protocol)) return false;
+    if (protocol === "data:") {
+      const dataMatch = compact.match(/data:([^,;]*)/);
+      const mime = dataMatch?.[1] || "";
+      if (blockedDataMimeTypes.has(mime) || !securityPolicy.allowedDataMimeTypes.some(allowed => mime.startsWith(allowed))) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 function sanitizeStyleValue(value) {
@@ -326,6 +452,29 @@ function sanitizeStyleValue(value) {
     return "";
   }
   return raw;
+}
+
+function isRawHTMLSink(name) {
+  return name === "innerHTML" || name === "innerhtml" ||
+    name === "outerHTML" || name === "outerhtml" || name === "srcdoc";
+}
+
+function sanitizeRawHTMLSink(name, value) {
+  if (value === null || value === undefined || value === false) return value;
+  if (value instanceof SafeHTML) return value.toString();
+  warnSecurity(`blocked untrusted ${name} HTML sink; use trustedHTML() after sanitizing the value.`, { attribute: name });
+  return null;
+}
+
+function normalizePropertyName(name) {
+  if (name === "innerhtml") return "innerHTML";
+  if (name === "outerhtml") return "outerHTML";
+  return name;
+}
+
+function getSSRAttributeName(source) {
+  const match = source.match(/(?:^|[\s<])([^\s"'=<>/]+)\s*=\s*$/);
+  return match ? match[1].replace(/^\./, "").toLowerCase() : "";
 }
 
 function stringifySSRValue(value, isAttrValue) {
@@ -359,9 +508,7 @@ export function updateChild(anchor, val, oldNodes) {
       parent.insertBefore(n, anchor);
     }
   } else if (newNodes.length === 0) {
-    for (const n of oldNodes) {
-      removeNodeWithTransition(n);
-    }
+    removeNodesWithTransition(oldNodes);
   } else {
     reconcile(parent, oldNodes, newNodes, anchor);
   }
@@ -387,6 +534,17 @@ function replaceStaticChild(anchor, val) {
   }
   if (newNodes.length === 1) {
     anchor.replaceWith(newNodes[0]);
+    markAttachedNodeCleanup(newNodes[0]);
+    return;
+  }
+  if (isOnlyChildAnchor(anchor) && typeof parent.replaceChildren === "function") {
+    parent.replaceChildren(...newNodes);
+    if (hasActiveCleanupRegistrations()) markAttachedChildrenCleanup(parent);
+    return;
+  }
+  if (typeof anchor.replaceWith === "function") {
+    anchor.replaceWith(...newNodes);
+    if (hasActiveCleanupRegistrations()) markAttachedChildrenCleanup(parent);
     return;
   }
   const fragment = document.createDocumentFragment();
@@ -394,6 +552,7 @@ function replaceStaticChild(anchor, val) {
     fragment.appendChild(n);
   }
   parent.insertBefore(fragment, anchor);
+  if (hasActiveCleanupRegistrations()) markAttachedChildrenCleanup(parent);
   anchor.remove();
 }
 
@@ -406,52 +565,88 @@ function bindValue(node, binding, values) {
   if (binding.type === "event") {
     const eventName = binding.name;
     if (delegatedEvents.has(eventName)) {
-      // 1. Assign dynamic handler to node property reactively
-      const stop = effect(() => {
-        node["$$" + eventName] = values[binding.index];
-      });
-      addNodeCleanup(node, stop);
+      // Static handlers are immutable for this node. Avoid an effect and its
+      // cleanup allocation; signal-backed handlers retain reactive updates.
+      const prop = "$$" + eventName;
+      const handler = values[binding.index];
+      if (handler?.$$cachouSignal) {
+        node[prop] = handler();
+        const subscriber = value => {
+          node[prop] = value;
+        };
+        handler.$$cachouSignal.subscribe(subscriber);
+        addNodeCleanup(node, () => handler.$$cachouSignal.unsubscribe(subscriber));
+      } else {
+        node[prop] = handler;
+      }
 
       // 2. Local fallback listener to support event execution in disconnected DOM trees
-      node.addEventListener(eventName, (e) => {
-        if (!node.isConnected) {
-          let curr = e.target;
-          const prop = "$$" + eventName;
-          while (curr) {
-            const fn = curr[prop];
-            if (fn) {
-              fn.call(curr, e);
-              if (e.cancelBubble) break;
+      const disconnectedListener = (e) => {
+        if (!node.isConnected && isNearestDisconnectedHandler(e, node, prop)) {
+          batch(() => {
+            let curr = e.target;
+            while (curr) {
+              const fn = curr[prop];
+              if (fn) {
+                fn.call(curr, e);
+                if (e.cancelBubble) break;
+              }
+              curr = curr.parentNode;
             }
-            curr = curr.parentNode;
-          }
+          });
         }
-      });
+      };
+      node.addEventListener(eventName, disconnectedListener);
+      addNodeCleanup(node, () => node.removeEventListener(eventName, disconnectedListener));
 
       // 3. Set up global document listener if not yet registered
-      if (!registeredEvents.has(eventName)) {
-        registeredEvents.add(eventName);
-        document.addEventListener(eventName, (e) => {
-          let curr = e.target;
-          const prop = "$$" + eventName;
-          while (curr && curr !== document) {
-            const handler = curr[prop];
-            if (handler) {
-              handler.call(curr, e);
-              if (e.cancelBubble) break;
-            }
-            curr = curr.parentNode;
-          }
-        });
+      const ownerDocument = node.ownerDocument || document;
+      const eventDocument = ownerDocument.defaultView?.document || ownerDocument;
+      const eventDocuments = new Set([eventDocument]);
+      if (typeof document !== "undefined" && document !== eventDocument) {
+        eventDocuments.add(document);
+      }
+      for (const targetDocument of eventDocuments) {
+        const registeredEvents = getRegisteredEvents(targetDocument);
+        if (!registeredEvents.has(eventName)) {
+          registeredEvents.add(eventName);
+          targetDocument.addEventListener(eventName, (e) => {
+            const prop = "$$" + eventName;
+            const path = typeof e.composedPath === "function"
+              ? e.composedPath()
+              : (() => {
+                  const nodes = [];
+                  let curr = e.target;
+                  while (curr) {
+                    nodes.push(curr);
+                    if (curr === targetDocument) break;
+                    curr = curr.parentNode;
+                  }
+                  return nodes;
+                })();
+            batch(() => {
+              for (const curr of path) {
+                if (curr === targetDocument) break;
+                const handler = curr[prop];
+                if (handler) {
+                  handler.call(curr, e);
+                  if (e.cancelBubble) break;
+                }
+              }
+            });
+          });
+        }
       }
     } else {
       // Non-delegating fallback (e.g. scroll, play, load)
-      node.addEventListener(eventName, (e) => {
+      const listener = (e) => {
         const handler = values[binding.index];
         if (typeof handler === "function") {
-          handler(e);
+          batch(() => handler(e));
         }
-      });
+      };
+      node.addEventListener(eventName, listener);
+      addNodeCleanup(node, () => node.removeEventListener(eventName, listener));
     }
   } else if (binding.type === "attribute") {
     // Custom directives: use:name=${value}
@@ -497,20 +692,22 @@ function bindValue(node, binding, values) {
           }
         };
         if (get.$$cachouSignal) {
-          assignValue();
-          const subscriber = assignValue;
-          get.$$cachouSignal.subscribers.add(subscriber);
+          assignValue(get());
+          const subscriber = value => assignValue(value);
+          get.$$cachouSignal.subscribe(subscriber);
           addNodeCleanup(node, () => {
-            get.$$cachouSignal.subscribers.delete(subscriber);
+            get.$$cachouSignal.unsubscribe(subscriber);
           });
         } else {
           const stop = effect(assignValue);
           addNodeCleanup(node, stop);
         }
         const eventName = prop === "checked" ? "change" : "input";
-        node.addEventListener(eventName, (e) => {
+        const onInput = (e) => {
           set(prop === "checked" ? e.target.checked : e.target.value);
-        });
+        };
+        node.addEventListener(eventName, onInput);
+        addNodeCleanup(node, () => node.removeEventListener(eventName, onInput));
       }
       return;
     }
@@ -524,16 +721,18 @@ function bindValue(node, binding, values) {
         ? (val) => node.className = val ? className : ""
         : (val) => node.classList.toggle(className, Boolean(val));
       if (typeof initialVal !== "function") {
-        setClass(Boolean(initialVal));
+        setClass(initialVal);
         return;
       }
       if (initialVal.$$cachouSignal) {
-        setClass(Boolean(initialVal()));
-        const subscriber = () => setClass(Boolean(initialVal()));
-        initialVal.$$cachouSignal.subscribers.add(subscriber);
-        addNodeCleanup(node, () => {
-          initialVal.$$cachouSignal.subscribers.delete(subscriber);
-        });
+        setClass(initialVal());
+        if (canAssignClassName && initialVal.$$cachouSignal.subscribeClass) {
+          const binding = initialVal.$$cachouSignal.subscribeClass(node, className);
+          addNodeCleanup(node, () => initialVal.$$cachouSignal.unsubscribeClass(binding));
+        } else {
+          initialVal.$$cachouSignal.subscribe(setClass);
+          addNodeCleanup(node, () => initialVal.$$cachouSignal.unsubscribe(setClass));
+        }
         return;
       }
       const stop = effect(() => {
@@ -580,8 +779,12 @@ function bindValue(node, binding, values) {
       const refVal = values[binding.index];
       if (typeof refVal === "function") {
         refVal(node);
+        addNodeCleanup(node, () => refVal(null, node));
       } else if (refVal && typeof refVal === "object") {
         refVal.current = node;
+        addNodeCleanup(node, () => {
+          if (refVal.current === node) refVal.current = null;
+        });
       }
       return;
     }
@@ -596,10 +799,10 @@ function bindValue(node, binding, values) {
     }
     if (initialVal.$$cachouSignal) {
       setAttributeBinding(node, name, isProp, initialVal());
-      const subscriber = () => setAttributeBinding(node, name, isProp, initialVal());
-      initialVal.$$cachouSignal.subscribers.add(subscriber);
+      const subscriber = value => setAttributeBinding(node, name, isProp, value);
+      initialVal.$$cachouSignal.subscribe(subscriber);
       addNodeCleanup(node, () => {
-        initialVal.$$cachouSignal.subscribers.delete(subscriber);
+        initialVal.$$cachouSignal.unsubscribe(subscriber);
       });
       return;
     }
@@ -627,22 +830,22 @@ function bindValue(node, binding, values) {
       if (textOnlyParent) {
         const textNode = document.createTextNode(initialVal() ?? "");
         node.replaceWith(textNode);
-        const subscriber = () => {
-          textNode.nodeValue = initialVal() ?? "";
+        const subscriber = value => {
+          textNode.nodeValue = value ?? "";
         };
-        initialVal.$$cachouSignal.subscribers.add(subscriber);
+        initialVal.$$cachouSignal.subscribe(subscriber);
         addNodeCleanup(textOnlyParent, () => {
-          initialVal.$$cachouSignal.subscribers.delete(subscriber);
+          initialVal.$$cachouSignal.unsubscribe(subscriber);
         });
         return;
       }
       currentNodes = updateChild(node, initialVal(), currentNodes);
-      const subscriber = () => {
-        currentNodes = updateChild(node, initialVal(), currentNodes);
+      const subscriber = value => {
+        currentNodes = updateChild(node, value, currentNodes);
       };
-      initialVal.$$cachouSignal.subscribers.add(subscriber);
+      initialVal.$$cachouSignal.subscribe(subscriber);
       addNodeCleanup(node, () => {
-        initialVal.$$cachouSignal.subscribers.delete(subscriber);
+        initialVal.$$cachouSignal.unsubscribe(subscriber);
         for (const n of currentNodes) {
           cleanupNode(n);
         }
@@ -668,15 +871,31 @@ function bindValue(node, binding, values) {
 }
 
 function setAttributeBinding(node, name, isProp, val) {
+  const propertyName = isProp ? normalizePropertyName(name) : name;
+  if (isRawHTMLSink(name)) {
+    const safeVal = sanitizeRawHTMLSink(name, val);
+    if (safeVal === null || safeVal === undefined || safeVal === false) {
+      if (isProp) node[propertyName] = "";
+      else node.removeAttribute(name);
+      return;
+    }
+    val = safeVal;
+  }
   if (isProp) {
-    node[name] = isURLAttribute(name) ? sanitizeAttributeValue(name, val) ?? "" : val;
+    if (propertyName.toLowerCase() === "style") {
+      node[propertyName] = sanitizeStyleValue(val);
+    } else {
+      node[propertyName] = isURLAttribute(propertyName) ? sanitizeAttributeValue(propertyName, val) ?? "" : val;
+    }
   } else if (name === "class") {
     node.className = val === null || val === undefined || val === false ? "" : String(val);
   } else {
     if (val === null || val === undefined || val === false) {
       node.removeAttribute(name);
     } else {
-      const safeVal = sanitizeAttributeValue(name, val);
+      const safeVal = name.toLowerCase() === "style"
+        ? sanitizeStyleValue(val)
+        : sanitizeAttributeValue(name, val);
       if (safeVal === null) {
         node.removeAttribute(name);
       } else {
@@ -686,14 +905,23 @@ function setAttributeBinding(node, name, isProp, val) {
   }
 }
 
-export function html(strings, ...values) {
+export function html(strings) {
+  const valueCount = strings.length - 1;
   if (typeof window === "undefined" || typeof document === "undefined" || !!globalThis.__MOCK_SSR__) {
     // Server-Side Rendering (SSR) mode
+    if (valueCount === 0) {
+      let cached = ssrStaticTemplateCache.get(strings);
+      if (!cached) {
+        cached = Object.freeze(new SafeHTML(strings[0]));
+        ssrStaticTemplateCache.set(strings, cached);
+      }
+      return cached;
+    }
     let htmlString = "";
-    for (let i = 0; i < strings.length - 1; i++) {
+    for (let i = 0; i < valueCount; i++) {
       const str = strings[i];
       htmlString += str;
-      let val = values[i];
+      let val = arguments[i + 1];
       const eventMatch = str.match(/on[a-z]+=\s*(["'])?$/i);
       if (eventMatch) {
         const quote = eventMatch[1];
@@ -707,6 +935,14 @@ export function html(strings, ...values) {
         }
         const isAttrValue = str.trim().endsWith("=");
         if (isAttrValue) {
+          const attrName = getSSRAttributeName(str);
+          if (isRawHTMLSink(attrName)) {
+            val = sanitizeRawHTMLSink(attrName, val);
+          } else if (isURLAttribute(attrName)) {
+            val = sanitizeAttributeValue(attrName, val);
+          } else if (attrName === "style") {
+            val = sanitizeStyleValue(val);
+          }
           val = '"' + stringifySSRValue(val, true) + '"';
         } else {
           val = stringifySSRValue(val, false);
@@ -724,28 +960,65 @@ export function html(strings, ...values) {
     return new SafeHTML(htmlString);
   }
 
-  const tableRowRecord = getTableRowRecord(strings);
-  if (tableRowRecord && arePrimitiveTextValues(values)) {
+  const shape = getTemplateShape(strings);
+  const tableRowRecord = shape.tableRowRecord;
+  if (tableRowRecord && arePrimitiveTextArguments(arguments, valueCount)) {
     const tr = document.createElement("tr");
-    for (let i = 0; i < values.length; i++) {
-      const td = tr.insertCell();
-      td.textContent = `${tableRowRecord.prefixes[i]}${values[i] ?? ""}${tableRowRecord.suffixes[i]}`;
+    if (tableRowRecord.emptyAffixes && valueCount === 2) {
+      const firstCell = document.createElement("td");
+      const secondCell = document.createElement("td");
+      firstCell.textContent = arguments[1] ?? "";
+      secondCell.textContent = arguments[2] ?? "";
+      tr.append(firstCell, secondCell);
+      return tr;
+    }
+    if (tableRowRecord.emptyAffixes) {
+      for (let i = 0; i < valueCount; i++) {
+        const cell = document.createElement("td");
+        cell.textContent = arguments[i + 1] ?? "";
+        tr.appendChild(cell);
+      }
+    } else {
+      for (let i = 0; i < valueCount; i++) {
+        const cell = document.createElement("td");
+        cell.textContent = `${tableRowRecord.prefixes[i]}${arguments[i + 1] ?? ""}${tableRowRecord.suffixes[i]}`;
+        tr.appendChild(cell);
+      }
     }
     return tr;
   }
 
-  const textElementRecord = getTextElementRecord(strings);
-  if (textElementRecord && arePrimitiveTextValues(values)) {
+  let textElementRecord = shape.textElementRecord;
+  if (textElementRecord === undefined) {
+    textElementRecord = compileTextElementRecord(strings);
+    shape.textElementRecord = textElementRecord;
+  }
+  if (textElementRecord && arePrimitiveTextArguments(arguments, valueCount)) {
     const el = document.createElement(textElementRecord.tagName);
     let text = textElementRecord.parts[0];
-    for (let i = 0; i < values.length; i++) {
-      text += values[i] ?? "";
+    for (let i = 0; i < valueCount; i++) {
+      text += arguments[i + 1] ?? "";
       text += textElementRecord.parts[i + 1];
     }
     el.textContent = text;
     return el;
   }
 
+  const simpleChildRecord = shape.simpleChildRecord;
+  if (simpleChildRecord && !isHydrating) {
+    const value = arguments[1];
+    if (typeof value !== "function") {
+      const el = document.createElement(simpleChildRecord.tagName);
+      const nodes = normalizeVal(value);
+      for (let i = 0; i < nodes.length; i++) {
+        el.appendChild(nodes[i]);
+        if (hasActiveCleanupRegistrations()) markAttachedNodeCleanup(nodes[i]);
+      }
+      return el;
+    }
+  }
+
+  const templateCache = getDocumentCache(templateCaches, document);
   let record = templateCache.get(strings);
   if (!record) {
     record = compileTemplate(strings);
@@ -758,6 +1031,26 @@ export function html(strings, ...values) {
       return fragment.firstChild;
     }
     return fragment;
+  }
+
+  // A common compiled shape is one static child array inside an otherwise
+  // static shell. Avoid the generic binding setup when no reactive value is
+  // present; dynamic and hydrating paths retain the full machinery below.
+  if (!isHydrating && record.bindings.length === 1 && record.bindings[0].type === "child") {
+    const binding = record.bindings[0];
+    const value = arguments[binding.index + 1];
+    if (typeof value !== "function") {
+      replaceStaticChild(getNodeByPath(fragment, binding.path), value);
+      if (fragment.childNodes.length === 1) {
+        return fragment.firstChild;
+      }
+      return fragment;
+    }
+  }
+
+  const values = new Array(valueCount);
+  for (let i = 0; i < valueCount; i++) {
+    values[i] = arguments[i + 1];
   }
 
   // Resolve node targets first while the DOM structure is untouched and stable
@@ -786,14 +1079,16 @@ export function html(strings, ...values) {
   return fragment;
 }
 
-const staticHTMLCache = new Map();
+const staticHTMLCaches = new WeakMap();
 
 export function htmlStatic(markup) {
   if (typeof window === "undefined" || typeof document === "undefined" || !!globalThis.__MOCK_SSR__) {
     return new SafeHTML(String(markup));
   }
+  const staticHTMLCache = getDocumentCache(staticHTMLCaches, document, () => new Map());
   let template = staticHTMLCache.get(markup);
-  if (!template) {
+  const templateDocument = template?.ownerDocument;
+  if (!template || templateDocument?.URL !== document.URL) {
     template = document.createElement("template");
     template.innerHTML = String(markup).trim();
     staticHTMLCache.set(markup, template);
@@ -805,12 +1100,20 @@ export function htmlStatic(markup) {
   return fragment;
 }
 
-function getTableRowRecord(strings) {
-  if (tableRowCache.has(strings)) {
-    return tableRowCache.get(strings);
+/**
+ * Runtime boundary for compiler-emitted static DOM factories. The factory is
+ * deliberately only evaluated in a browser; SSR still returns the exact
+ * source markup so request rendering and hydration keep one representation.
+ */
+export function createCompiledStatic(markup, factory) {
+  if (typeof window === "undefined" || typeof document === "undefined" || !!globalThis.__MOCK_SSR__) {
+    return new SafeHTML(String(markup));
   }
+  return typeof factory === "function" ? factory() : htmlStatic(markup);
+}
+
+function compileTableRowRecord(strings) {
   if (!strings[0].match(/^<tr><td>$/i) || !strings[strings.length - 1].match(/^<\/td><\/tr>$/i)) {
-    tableRowCache.set(strings, null);
     return null;
   }
   const prefixes = [""];
@@ -818,20 +1121,19 @@ function getTableRowRecord(strings) {
   for (let i = 1; i < strings.length - 1; i++) {
     const match = strings[i].match(/^(.*)<\/td><td>(.*)$/i);
     if (!match || match[1].includes("<") || match[2].includes(">")) {
-      tableRowCache.set(strings, null);
       return null;
     }
     suffixes.push(match[1]);
     prefixes.push(match[2]);
   }
   suffixes.push("");
-  const record = { prefixes, suffixes };
-  tableRowCache.set(strings, record);
-  return record;
+  const emptyAffixes = prefixes.every(prefix => prefix === "") && suffixes.every(suffix => suffix === "");
+  return { prefixes, suffixes, emptyAffixes };
 }
 
-function arePrimitiveTextValues(values) {
-  for (const value of values) {
+function arePrimitiveTextArguments(args, valueCount) {
+  for (let i = 0; i < valueCount; i++) {
+    const value = args[i + 1];
     if (value === null || value === undefined) continue;
     const type = typeof value;
     if (type !== "string" && type !== "number" && type !== "boolean" && type !== "bigint") {
@@ -841,50 +1143,121 @@ function arePrimitiveTextValues(values) {
   return true;
 }
 
-function getTextElementRecord(strings) {
-  if (textElementCache.has(strings)) {
-    return textElementCache.get(strings);
-  }
+function compileTextElementRecord(strings) {
   const first = strings[0];
   const last = strings[strings.length - 1];
   const open = first.match(/^<([a-z][a-z0-9-]*)>$/i);
   const close = last.match(new RegExp(`^(.*)</${open ? open[1] : ""}>$`, "i"));
   if (!open || !close) {
-    textElementCache.set(strings, null);
     return null;
   }
   const tagName = open[1];
   const parts = [""];
   for (let i = 1; i < strings.length - 1; i++) {
     if (strings[i].includes("<") || strings[i].includes(">")) {
-      textElementCache.set(strings, null);
       return null;
     }
     parts.push(strings[i]);
   }
   if (close[1].includes("<") || close[1].includes(">")) {
-    textElementCache.set(strings, null);
     return null;
   }
   parts.push(close[1]);
-  const record = { tagName, parts };
-  textElementCache.set(strings, record);
-  return record;
+  return { tagName, parts };
+}
+
+function compileSimpleChildRecord(strings) {
+  if (strings.length !== 2) return null;
+  const open = strings[0].match(/^<([a-z][a-z0-9-]*)>$/i);
+  if (!open || strings[1].toLowerCase() !== `</${open[1].toLowerCase()}>`) return null;
+  return { tagName: open[1] };
+}
+
+function getTemplateShape(strings) {
+  let shape = templateShapeCache.get(strings);
+  if (!shape) {
+    shape = {
+      tableRowRecord: compileTableRowRecord(strings),
+      textElementRecord: undefined,
+      simpleChildRecord: compileSimpleChildRecord(strings)
+    };
+    templateShapeCache.set(strings, shape);
+  }
+  return shape;
 }
 
 let isHydrating = false;
 
 function warnHydration(message) {
+  emitFrameworkEvent({ type: "hydration-mismatch", message });
   if (typeof console !== "undefined" && typeof console.warn === "function") {
     console.warn(`⚡ [CachouJS Hydration]: ${message}`);
   }
 }
 
+function hydrateMergedTextBinding(clientNode, serverParent, existingServerText = null) {
+  const deferred = clientNode?.$$deferredBindings;
+  if (!deferred || deferred.length !== 1 || deferred[0].binding.type !== "child") return false;
+
+  const previous = clientNode.previousSibling;
+  const next = clientNode.nextSibling;
+  const hasTextBoundary = previous?.nodeType === Node.TEXT_NODE || next?.nodeType === Node.TEXT_NODE;
+  if (!hasTextBoundary) return false;
+
+  const prefix = previous?.nodeType === Node.TEXT_NODE ? previous.nodeValue : "";
+  const suffix = next?.nodeType === Node.TEXT_NODE ? next.nodeValue : "";
+  const candidates = existingServerText
+    ? [existingServerText]
+    : Array.from(serverParent.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+  const matches = candidates.filter(node => {
+    const value = node.nodeValue || "";
+    return value.length >= prefix.length + suffix.length && value.startsWith(prefix) && value.endsWith(suffix);
+  });
+  if (matches.length !== 1) return false;
+  const serverText = matches[0];
+
+  const raw = serverText.nodeValue || "";
+  const dynamicText = raw.slice(prefix.length, raw.length - suffix.length);
+  const fragment = serverParent.ownerDocument.createDocumentFragment();
+  if (prefix) fragment.appendChild(serverParent.ownerDocument.createTextNode(prefix));
+  const dynamicNode = serverParent.ownerDocument.createTextNode(dynamicText);
+  fragment.appendChild(dynamicNode);
+  if (suffix) fragment.appendChild(serverParent.ownerDocument.createTextNode(suffix));
+  serverText.replaceWith(fragment);
+
+  const { binding, values } = deferred[0];
+  bindValue(dynamicNode, binding, values);
+  delete clientNode.$$deferredBindings;
+  return dynamicNode;
+}
+
+function invokeSSRComponent(Component, data, hasPreload) {
+  if (typeof Component !== "function") return Component;
+  return hasPreload ? Component(data) : Component();
+}
+
+function startSSRSpan(mode, context, options = {}) {
+  if (!isTracingEnabled()) return startSpan(`cachou.ssr.${mode}`);
+  return startSpan(`cachou.ssr.${mode}`, {
+    traceparent: options.traceparent || extractTraceparent(context.request),
+    attributes: {
+      mode,
+      path: options.path || context.path || "/"
+    }
+  });
+}
+
 export function hydrate(Component, root) {
+  const traceSpan = startSpan("cachou.hydration", {
+    attributes: { hasServerRoot: Boolean(root?.firstChild) }
+  });
   const prevDispose = rootDisposers.get(root);
   if (prevDispose) {
     prevDispose();
     rootDisposers.delete(root);
+  }
+  if (needsCleanup(root)) {
+    cleanupNode(root);
   }
 
   resetResourceCounter();
@@ -892,31 +1265,59 @@ export function hydrate(Component, root) {
   let clientRoot;
   let disposeRoot;
   try {
-    clientRoot = createRoot((dispose) => {
+    clientRoot = runWithSpan(traceSpan, () => createRoot((dispose) => {
       disposeRoot = dispose;
       return typeof Component === "function" ? Component() : Component;
-    });
+    }));
+  } catch (error) {
+    traceSpan.recordException(error).setStatus({ code: "ERROR", message: "hydration setup failed" }).end();
+    throw error;
   } finally {
     isHydrating = false;
   }
   if (rootHasReactiveWork(disposeRoot)) {
     rootDisposers.set(root, disposeRoot);
+    // Hydrated roots can be removed by a parent keyed/conditional update, so
+    // their owner must be tied to the same node cleanup path as bindings.
+    addNodeCleanup(root, () => {
+      if (rootDisposers.get(root) === disposeRoot) {
+        rootDisposers.delete(root);
+      }
+      disposeRoot();
+    });
   }
+  let mismatchDetected = false;
+  const reportHydrationMismatch = (message) => {
+    mismatchDetected = true;
+    warnHydration(message);
+  };
 
   function walkAndHydrate(clientNode, serverNode) {
     if (!clientNode || !serverNode) {
-      warnHydration("Client and server DOM structure differ.");
+      reportHydrationMismatch("Client and server DOM structure differ.");
+      return;
+    }
+
+    if (
+      clientNode.nodeType === Node.COMMENT_NODE &&
+      clientNode.$$deferredBindings &&
+      serverNode.nodeType === Node.TEXT_NODE &&
+      serverNode.parentNode &&
+      hydrateMergedTextBinding(clientNode, serverNode.parentNode, serverNode)
+    ) {
       return;
     }
 
     if (clientNode.nodeType !== serverNode.nodeType) {
-      warnHydration(`Node type mismatch: expected ${clientNode.nodeType}, found ${serverNode.nodeType}.`);
+      reportHydrationMismatch(`Node type mismatch: expected ${clientNode.nodeType}, found ${serverNode.nodeType}.`);
+      return;
     } else if (
       clientNode.nodeType === Node.ELEMENT_NODE &&
       serverNode.nodeType === Node.ELEMENT_NODE &&
       clientNode.nodeName !== serverNode.nodeName
     ) {
-      warnHydration(`Element mismatch: expected <${clientNode.nodeName.toLowerCase()}>, found <${serverNode.nodeName.toLowerCase()}>.`);
+      reportHydrationMismatch(`Element mismatch: expected <${clientNode.nodeName.toLowerCase()}>, found <${serverNode.nodeName.toLowerCase()}>.`);
+      return;
     }
 
     if (clientNode.$$deferredBindings) {
@@ -935,6 +1336,7 @@ export function hydrate(Component, root) {
             if (serverNode.nodeName === newNodes[0].nodeName) {
               walkAndHydrate(newNodes[0], serverNode);
               childBinding.binding.node = serverNode;
+              delete clientNode.$$deferredBindings;
               return;
             } else {
               for (const n of newNodes) {
@@ -944,6 +1346,7 @@ export function hydrate(Component, root) {
               for (const n of newNodes) {
                 walkAndHydrate(n, n);
               }
+              delete clientNode.$$deferredBindings;
               return;
             }
           }
@@ -953,19 +1356,36 @@ export function hydrate(Component, root) {
       for (const { binding, values } of clientNode.$$deferredBindings) {
         bindValue(serverNode, binding, values);
       }
+      delete clientNode.$$deferredBindings;
     }
 
     let clientChild = clientNode.firstChild;
     let serverChild = serverNode.firstChild;
 
     while (clientChild) {
+      if (clientChild.$$deferredBindings && serverChild?.nodeType === Node.TEXT_NODE) {
+        const dynamicNode = hydrateMergedTextBinding(clientChild, serverNode, serverChild);
+        if (dynamicNode) {
+          serverChild = dynamicNode.nextSibling;
+          clientChild = clientChild.nextSibling;
+          continue;
+        }
+      }
+      if (!serverChild) {
+        const dynamicNode = hydrateMergedTextBinding(clientChild, serverNode);
+        if (dynamicNode) {
+          serverChild = dynamicNode.nextSibling;
+          clientChild = clientChild.nextSibling;
+          continue;
+        }
+      }
       walkAndHydrate(clientChild, serverChild);
       clientChild = clientChild.nextSibling;
       serverChild = serverChild ? serverChild.nextSibling : null;
     }
 
     if (serverChild) {
-      warnHydration("Server DOM contains extra nodes not present in the client template.");
+      reportHydrationMismatch("Server DOM contains extra nodes not present in the client template.");
     }
   }
 
@@ -973,7 +1393,31 @@ export function hydrate(Component, root) {
   if (clientRoot instanceof Element) {
     serverStart = root.firstElementChild || serverStart;
   }
-  walkAndHydrate(clientRoot, serverStart);
+  try {
+    runWithSpan(traceSpan, () => walkAndHydrate(clientRoot, serverStart));
+    if (mismatchDetected) {
+      if (rootDisposers.get(root) === disposeRoot) {
+        rootDisposers.delete(root);
+      }
+      disposeRoot?.();
+      if (needsCleanup(root)) cleanupNode(root);
+      clearContainer(root);
+      mount(Component, root);
+    }
+    traceSpan.setStatus({ code: "OK" });
+  } catch (error) {
+    if (rootDisposers.get(root) === disposeRoot) {
+      rootDisposers.delete(root);
+    }
+    disposeRoot?.();
+    if (needsCleanup(root)) {
+      cleanupNode(root);
+    }
+    traceSpan.recordException(error).setStatus({ code: "ERROR", message: "hydration failed" });
+    throw error;
+  } finally {
+    traceSpan.end();
+  }
 }
 
 export function render(Component, root) {
@@ -985,7 +1429,7 @@ export function render(Component, root) {
   if (needsCleanup(root)) {
     cleanupNode(root);
   }
-  root.textContent = "";
+  clearContainer(root);
   let disposeRoot;
   const el = createRoot((dispose) => {
     disposeRoot = dispose;
@@ -996,6 +1440,8 @@ export function render(Component, root) {
   }
   if (el) {
     root.appendChild(el);
+    markAttachedNodeCleanup(el);
+    markAttachedChildrenCleanup(root);
   }
 }
 
@@ -1008,7 +1454,7 @@ export function mount(Component, root) {
   if (needsCleanup(root)) {
     cleanupNode(root);
   }
-  root.textContent = "";
+  clearContainer(root);
 
   let disposeRoot;
   const el = createRoot((dispose) => {
@@ -1021,6 +1467,8 @@ export function mount(Component, root) {
   }
   if (el) {
     root.appendChild(el);
+    markAttachedNodeCleanup(el);
+    markAttachedChildrenCleanup(root);
   }
 
   let disposed = false;
@@ -1036,7 +1484,7 @@ export function mount(Component, root) {
     if (needsCleanup(root)) {
       cleanupNode(root);
     }
-    root.textContent = "";
+    clearContainer(root);
   };
 }
 
@@ -1049,40 +1497,130 @@ export function unmount(root) {
   if (needsCleanup(root)) {
     cleanupNode(root);
   }
-  root.textContent = "";
+  clearContainer(root);
 }
 
-export function renderToString(Component) {
-  const context = createSSRContext();
-  const html = runWithSSRContext(context, () => {
-    resetResourceCounter();
-    resetSSRHead();
-    return String(typeof Component === "function" ? Component() : Component);
-  });
-  setLastSSRContext(context);
-  return html;
+function throwIfSSRAborted(signal, stage) {
+  if (!signal?.aborted) return;
+  const error = new Error(`SSR render aborted during ${stage}.`);
+  error.name = "AbortError";
+  throw error;
+}
+
+export function renderToString(Component, options = {}) {
+  const context = options.context || createSSRContext();
+  context.request = options.request !== undefined ? options.request : (context.request ?? takeRequestEvent());
+  beginSSRRender(context);
+  const traceSpan = startSSRSpan("string", context, options);
+  let disposeRoot;
+  let completed = false;
+  const startedAt = Date.now();
+  try {
+    const html = runWithSpan(traceSpan, () => runWithSSRContext(context, () => {
+      emitFrameworkEvent({ type: "ssr-start", mode: "string" });
+      resetResourceCounter();
+      resetSSRHead();
+      const output = String(createRoot(dispose => {
+        disposeRoot = dispose;
+        return typeof Component === "function" ? Component() : Component;
+      }));
+      emitFrameworkEvent({ type: "ssr-complete", mode: "string", durationMs: Date.now() - startedAt, bytes: output.length, passes: 1 });
+      return output;
+    }));
+    traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: html.length, passes: 1 });
+    completed = true;
+    return html;
+  } catch (error) {
+    traceSpan.recordException(error).setStatus({ code: "ERROR", message: "SSR render failed" });
+    runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-error", mode: "string", stage: "render", durationMs: Date.now() - startedAt, error })));
+    throw error;
+  } finally {
+    endSSRRender(context);
+    if (completed) setLastSSRContext(context);
+    disposeRoot?.();
+    traceSpan.end();
+  }
 }
 
 export async function renderToStringAsync(Component, options = {}) {
-  const context = createSSRContext();
-  if (options.request) {
+  const context = options.context || createSSRContext();
+  if (options.signal !== undefined) context.signal = options.signal || null;
+  if (options.request !== undefined) {
     context.request = options.request;
-    if (typeof globalThis !== "undefined") globalThis.__CACHOU_REQUEST_EVENT__ = options.request;
+  } else if (context.request === null || context.request === undefined) {
+    context.request = takeRequestEvent();
   }
-  const html = await runWithSSRContextAsync(context, async () => {
-    resetSSRHead();
-    if (options.path) {
-      setSSRPath(options.path);
-    }
-    resetResourceCounter();
-    typeof Component === "function" ? Component() : Component;
-    await resolvePendingResources();
-    resetResourceCounter();
-    return String(typeof Component === "function" ? Component() : Component);
-  });
-  // Preserve context for sequential dehydrate()/getSSRHead() after await.
-  setLastSSRContext(context);
-  return html;
+  beginSSRRender(context);
+  const traceSpan = startSSRSpan("string-async", context, options);
+  let disposeRoot;
+  let completed = false;
+  const startedAt = Date.now();
+  const hasPreload = typeof options.preload === "function";
+  let stage = "setup";
+  try {
+    const html = await runWithSpan(traceSpan, () => runWithSSRContextAsync(context, async () => {
+      emitFrameworkEvent({ type: "ssr-start", mode: "string-async" });
+      throwIfSSRAborted(context.signal, "render");
+      resetSSRHead();
+      if (options.path) {
+        setSSRPath(options.path);
+      }
+      resetResourceCounter();
+      stage = hasPreload ? "preload" : "render-initial";
+      const preloadedData = hasPreload
+        ? await options.preload({ request: context.request, signal: context.signal })
+        : undefined;
+      throwIfSSRAborted(context.signal, hasPreload ? "preload" : "render");
+      resetResourceCounter();
+      const firstPass = String(createRoot(dispose => {
+        disposeRoot = dispose;
+        return invokeSSRComponent(Component, preloadedData, hasPreload);
+      }));
+      throwIfSSRAborted(context.signal, "render-initial");
+
+      // Static pages and cache hits are complete after one pass. This is the
+      // common fast path and avoids executing the component tree twice.
+      if (context.pendingResources.size === 0 && context.resourcesStarted === 0) {
+        emitFrameworkEvent({ type: "ssr-complete", mode: "string-async", durationMs: Date.now() - startedAt, bytes: firstPass.length, passes: 1 });
+        return firstPass;
+      }
+
+      stage = "resources";
+      emitFrameworkEvent({ type: "ssr-resources", mode: "string-async", pending: context.pendingResources.size });
+      await resolvePendingResources(context.signal);
+      if (context.signal?.aborted) {
+        emitFrameworkEvent({ type: "ssr-abort", mode: "string-async", stage: "resources", durationMs: Date.now() - startedAt });
+        throwIfSSRAborted(context.signal, "resources");
+      }
+      // The initial tree only exists to discover async resources. Dispose it
+      // before the final pass so its effects, subscriptions, and cleanups do
+      // not overlap the output tree or extend request retention.
+      disposeRoot?.();
+      disposeRoot = null;
+      stage = "render-final";
+      resetSSRHead();
+      resetResourceCounter();
+      const output = String(createRoot(dispose => {
+        disposeRoot = dispose;
+        return invokeSSRComponent(Component, preloadedData, hasPreload);
+      }));
+      throwIfSSRAborted(context.signal, "render-final");
+      emitFrameworkEvent({ type: "ssr-complete", mode: "string-async", durationMs: Date.now() - startedAt, bytes: output.length, passes: 2 });
+      return output;
+    }));
+    traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: html.length });
+    completed = true;
+    return html;
+  } catch (error) {
+    traceSpan.recordException(error).setStatus({ code: "ERROR", message: `SSR ${stage} failed` });
+    runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-error", mode: "string-async", stage, durationMs: Date.now() - startedAt, error })));
+    throw error;
+  } finally {
+    endSSRRender(context);
+    if (completed) setLastSSRContext(context);
+    disposeRoot?.();
+    traceSpan.end();
+  }
 }
 
 /**
@@ -1091,34 +1629,130 @@ export async function renderToStringAsync(Component, options = {}) {
  */
 export function renderToStream(Component, options = {}) {
   const encoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
+  const streamAbortController = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const streamContext = options.context || createSSRContext();
+  const externalSignal = options.signal !== undefined ? options.signal : streamContext.signal;
+  streamContext.signal = streamAbortController?.signal || externalSignal || null;
+  if (options.request !== undefined) {
+    streamContext.request = options.request;
+  } else if (streamContext.request === null || streamContext.request === undefined) {
+    streamContext.request = takeRequestEvent();
+  }
 
   async function* generate() {
-    const context = createSSRContext();
-    if (options.request) {
-      context.request = options.request;
-      if (typeof globalThis !== "undefined") globalThis.__CACHOU_REQUEST_EVENT__ = options.request;
+    const context = streamContext;
+    let disposeRoot;
+    let completed = false;
+    let initialBody = "";
+    const startedAt = Date.now();
+    const traceSpan = startSSRSpan("stream", context, options);
+    const hasPreload = typeof options.preload === "function";
+    let preloadedData;
+    let stage = "setup";
+    let abortLogged = false;
+    let removeExternalAbortListener = null;
+    if (externalSignal && streamAbortController) {
+      const abortStream = () => streamAbortController.abort();
+      if (externalSignal.aborted) {
+        streamAbortController.abort();
+      } else {
+        externalSignal.addEventListener("abort", abortStream, { once: true });
+        removeExternalAbortListener = () => externalSignal.removeEventListener("abort", abortStream);
+      }
     }
-    await runWithSSRContextAsync(context, async () => {
-      resetSSRHead();
-      if (options.path) setSSRPath(options.path);
-      resetResourceCounter();
-      // kick render for resource registration
-      typeof Component === "function" ? Component() : Component;
-      await resolvePendingResources();
-    });
-    setLastSSRContext(context);
+    beginSSRRender(context);
+    try {
+      await runWithSpan(traceSpan, () => runWithSSRContextAsync(context, async () => {
+        emitFrameworkEvent({ type: "ssr-start", mode: "stream" });
+        throwIfSSRAborted(context.signal, "render");
+        resetSSRHead();
+        if (options.path) setSSRPath(options.path);
+        resetResourceCounter();
+        stage = hasPreload ? "preload" : "render-initial";
+        if (hasPreload) {
+          preloadedData = await options.preload({ request: context.request, signal: context.signal });
+          if (context.signal?.aborted) {
+            const error = new Error("SSR stream aborted during preload.");
+            error.name = "AbortError";
+            throw error;
+          }
+        }
+        resetResourceCounter();
+        initialBody = String(createRoot(dispose => {
+          disposeRoot = dispose;
+          return invokeSSRComponent(Component, preloadedData, hasPreload);
+        }));
+        throwIfSSRAborted(context.signal, "render-initial");
+      }));
 
-    const headHtml = runWithSSRContext(context, () => getSSRHead());
-    if (options.shell !== false) {
-      yield `<!DOCTYPE html><html><head>${headHtml}</head><body><div id="app">`;
-    }
-    const body = await runWithSSRContextAsync(context, async () => {
-      resetResourceCounter();
-      return String(typeof Component === "function" ? Component() : Component);
-    });
-    yield body;
-    if (options.shell !== false) {
-      yield `</div>${runWithSSRContext(context, () => dehydrate())}</body></html>`;
+      const headHtml = runWithSpan(traceSpan, () => runWithSSRContext(context, () => getSSRHead()));
+      const hasPendingResources = context.pendingResources.size > 0 || context.resourcesStarted > 0;
+      if (options.shell !== false && !hasPendingResources) {
+        yield `<!DOCTYPE html><html><head>${headHtml}</head><body><div id="app">`;
+      } else if (options.shell !== false) {
+        // Keep the first chunk fast without closing the head before the final
+        // resource-aware render has had a chance to publish metadata.
+        yield `<!DOCTYPE html><html><head>`;
+      }
+
+      if (!hasPendingResources) {
+        yield initialBody;
+        if (options.shell !== false) {
+          yield `</div>${runWithSSRContext(context, () => dehydrate())}</body></html>`;
+        }
+        completed = true;
+        traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: initialBody.length, passes: 1 });
+        runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-complete", mode: "stream", durationMs: Date.now() - startedAt, bytes: initialBody.length, passes: 1 })));
+        return;
+      }
+
+      stage = "resources";
+      runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-resources", mode: "stream", pending: context.pendingResources.size })));
+      await runWithSSRContextAsync(context, async () => {
+        await resolvePendingResources(context.signal);
+      });
+      if (context.signal?.aborted) {
+        abortLogged = true;
+        traceSpan.setStatus({ code: "UNSET", message: "stream aborted" });
+        runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-abort", mode: "stream", stage: "resources", durationMs: Date.now() - startedAt })));
+        return;
+      }
+
+      stage = "render-final";
+      disposeRoot?.();
+      disposeRoot = null;
+      const body = await runWithSpan(traceSpan, () => runWithSSRContextAsync(context, async () => {
+        resetSSRHead();
+        resetResourceCounter();
+        return String(createRoot(dispose => {
+          disposeRoot = dispose;
+          return invokeSSRComponent(Component, preloadedData, hasPreload);
+        }));
+      }));
+      if (options.shell !== false) {
+        const finalHeadHtml = runWithSpan(traceSpan, () => runWithSSRContext(context, () => getSSRHead()));
+        yield `${finalHeadHtml}</head><body><div id="app">${body}</div>${runWithSSRContext(context, () => dehydrate())}</body></html>`;
+      } else {
+        yield body;
+      }
+      completed = true;
+      traceSpan.setStatus({ code: "OK" }).setAttributes({ bytes: body.length, passes: 2 });
+      runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-complete", mode: "stream", durationMs: Date.now() - startedAt, bytes: body.length, passes: 2 })));
+    } catch (error) {
+      traceSpan.recordException(error).setStatus({ code: "ERROR", message: `SSR ${stage} failed` });
+      runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-error", mode: "stream", stage: context.signal?.aborted ? "abort" : stage, durationMs: Date.now() - startedAt, error })));
+      throw error;
+    } finally {
+      endSSRRender(context);
+      if (completed) setLastSSRContext(context);
+      removeExternalAbortListener?.();
+      if (!completed && context.signal?.aborted && !abortLogged) {
+        traceSpan.setStatus({ code: "UNSET", message: "stream cancelled" });
+        runWithSpan(traceSpan, () => runWithSSRContext(context, () => emitFrameworkEvent({ type: "ssr-abort", mode: "stream", stage: "cancelled", durationMs: Date.now() - startedAt })));
+      }
+      disposeRoot?.();
+      streamAbortController?.abort();
+      traceSpan.end();
     }
   }
 
@@ -1133,8 +1767,9 @@ export function renderToStream(Component, options = {}) {
         }
         controller.enqueue(encoder ? encoder.encode(String(value)) : value);
       },
-      cancel() {
-        iterator.return?.();
+      async cancel() {
+        streamAbortController?.abort();
+        await iterator.return?.();
       }
     });
   }
@@ -1143,31 +1778,71 @@ export function renderToStream(Component, options = {}) {
 }
 
 let islandSeq = 0;
+const islandHydrateModes = new Set(["load", "idle", "visible", "false"]);
+
+function normalizeIslandMode(value) {
+  if (value === false || value === "false") return "false";
+  return islandHydrateModes.has(value) ? value : "load";
+}
 
 /**
  * Island boundary for partial hydration.
  * @param {{ hydrate?: 'load'|'idle'|'visible'|'false', id?: string, children: any }} props
  */
 export function Island(props) {
-  const mode = props.hydrate || "load";
+  const mode = normalizeIslandMode(props.hydrate);
   const id = props.id || `island-${++islandSeq}`;
 
   if (typeof window === "undefined") {
     const children = typeof props.children === "function" ? props.children() : props.children;
-    const inner = children instanceof SafeHTML ? children.toString() : String(children ?? "");
-    return trustedHTML(
-      `<div data-cachou-island="${id}" data-hydrate="${mode}">${inner}</div>`
-    );
+    // Route metadata and children through the normal SSR escaping rules. A
+    // SafeHTML child remains trusted, while strings and attributes do not.
+    return html`<div data-cachou-island=${id} data-hydrate=${mode}>${children}</div>`;
   }
 
   const container = document.createElement("div");
   container.setAttribute("data-cachou-island", id);
   container.setAttribute("data-hydrate", mode);
 
+  let currentNodes = [];
+  let disposeIslandRoot = null;
+  let idleHandle = null;
+  let observer = null;
+  let disposed = false;
+
   const renderChildren = () => {
+    if (disposed) return;
     let val = typeof props.children === "function" ? props.children() : props.children;
-    const nodes = normalizeVal(val);
-    container.replaceChildren(...nodes);
+    const nextNodes = normalizeVal(val);
+    reconcile(container, currentNodes, nextNodes, null);
+    currentNodes = nextNodes;
+    markAttachedChildrenCleanup(container);
+  };
+
+  const disposeIsland = () => {
+    if (disposed) return;
+    disposed = true;
+    if (idleHandle !== null && typeof cancelIdleCallback === "function") {
+      cancelIdleCallback(idleHandle);
+      idleHandle = null;
+    }
+    observer?.disconnect();
+    observer = null;
+    disposeIslandRoot?.();
+    disposeIslandRoot = null;
+    for (const node of currentNodes) cleanupNode(node);
+    currentNodes = [];
+  };
+
+  addNodeCleanup(container, disposeIsland);
+  if (getOwner()) onCleanup(disposeIsland);
+
+  const startReactiveIsland = () => {
+    if (disposed || disposeIslandRoot) return;
+    createRoot(dispose => {
+      disposeIslandRoot = dispose;
+      effect(renderChildren);
+    });
   };
 
   if (mode === "false" || mode === false) {
@@ -1177,25 +1852,21 @@ export function Island(props) {
   }
 
   if (mode === "idle" && typeof requestIdleCallback === "function") {
-    requestIdleCallback(() => {
-      createRoot(() => {
-        effect(renderChildren);
-      });
+    idleHandle = requestIdleCallback(() => {
+      idleHandle = null;
+      startReactiveIsland();
     });
   } else if (mode === "visible" && typeof IntersectionObserver === "function") {
-    const io = new IntersectionObserver(entries => {
+    observer = new IntersectionObserver(entries => {
       if (entries.some(e => e.isIntersecting)) {
-        io.disconnect();
-        createRoot(() => {
-          effect(renderChildren);
-        });
+        observer?.disconnect();
+        observer = null;
+        startReactiveIsland();
       }
     });
-    io.observe(container);
+    observer.observe(container);
   } else {
-    createRoot(() => {
-      effect(renderChildren);
-    });
+    startReactiveIsland();
   }
 
   return container;
@@ -1205,28 +1876,64 @@ export function Island(props) {
  * Hydrate only marked islands within root (or document).
  */
 export function hydrateIslands(root = typeof document !== "undefined" ? document : null, ComponentMap = {}) {
-  if (!root || typeof root.querySelectorAll !== "function") return;
+  if (!root || typeof root.querySelectorAll !== "function") return () => {};
   const nodes = root.querySelectorAll("[data-cachou-island]");
+  const records = new Set();
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    for (const cancel of records) cancel();
+  };
   for (const node of nodes) {
     const id = node.getAttribute("data-cachou-island");
     const Comp = ComponentMap[id];
     if (typeof Comp !== "function") continue;
-    const mode = node.getAttribute("data-hydrate") || "load";
+    const mode = normalizeIslandMode(node.getAttribute("data-hydrate"));
+    let hydrated = false;
+    let observer = null;
+    let idleHandle = null;
+    const cancel = () => {
+      if (idleHandle !== null && typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(idleHandle);
+        idleHandle = null;
+      }
+      observer?.disconnect();
+      observer = null;
+      if (hydrated) {
+        const disposeRoot = rootDisposers.get(node);
+        disposeRoot?.();
+        rootDisposers.delete(node);
+        cleanupNode(node);
+      }
+    };
+    records.add(cancel);
+    addNodeCleanup(node, cancel);
     const run = () => {
+      if (disposed || hydrated || (!node.isConnected && !root.contains(node))) {
+        cancel();
+        return;
+      }
+      hydrated = true;
       hydrate(Comp, node);
     };
     if (mode === "idle" && typeof requestIdleCallback === "function") {
-      requestIdleCallback(run);
+      idleHandle = requestIdleCallback(() => {
+        idleHandle = null;
+        run();
+      });
     } else if (mode === "visible" && typeof IntersectionObserver === "function") {
-      const io = new IntersectionObserver(entries => {
+      observer = new IntersectionObserver(entries => {
         if (entries.some(e => e.isIntersecting)) {
-          io.disconnect();
+          observer?.disconnect();
+          observer = null;
           run();
         }
       });
-      io.observe(node);
+      observer.observe(node);
     } else {
       run();
     }
   }
+  return dispose;
 }

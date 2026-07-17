@@ -1,4 +1,5 @@
-import { createContext, createResource, onCleanup, useContext, signal, memo } from "./reactivity.js";
+import { createContext, createResource, onCleanup, useContext, signal, memo, emitFrameworkEvent } from "./reactivity.js";
+import { getActiveSSRContext, getRequestEvent } from "./ssr-context.js";
 import { html } from "./html.js";
 import {
   currentPath,
@@ -6,14 +7,21 @@ import {
   setSSRPath,
   configureRouter,
   getHistoryMode,
-  applyNavigation
+  applyNavigation,
+  setHistoryNavigationHandler,
+  go,
+  back,
+  forward
 } from "./router-state.js";
 
 const isClient = typeof window !== "undefined";
-export { setSSRPath, configureRouter, getHistoryMode };
+export { setSSRPath, configureRouter, getHistoryMode, go, back, forward };
 const navigationGuards = new Set();
 /** @type {Function[]} Global middleware chain (runs before route resolution). */
 const globalMiddleware = [];
+let navigationSequence = 0;
+let activeNavigationController = null;
+let activeNavigationSettler = null;
 let lastRouteParams = {};
 let lastRouteData = undefined;
 let lastNotFound = false;
@@ -93,11 +101,15 @@ export function addMiddleware(guardFn) {
  * @returns {Promise<{ proceed: boolean, redirect: string|null }>}
  * @private
  */
-async function runMiddlewareChain(chain, to, from) {
+async function runMiddlewareChain(chain, to, from, signal) {
   let index = 0;
   let result = { proceed: true, redirect: null };
 
   async function next(arg) {
+    if (signal?.aborted) {
+      result = { proceed: false, redirect: null };
+      return;
+    }
     if (arg === false) {
       result = { proceed: false, redirect: null };
       return;
@@ -108,7 +120,10 @@ async function runMiddlewareChain(chain, to, from) {
     }
     if (index < chain.length) {
       const mw = chain[index++];
-      await mw(to, from, next);
+      await mw(to, from, next, signal);
+      if (signal?.aborted) {
+        result = { proceed: false, redirect: null };
+      }
     }
   }
 
@@ -119,8 +134,34 @@ async function runMiddlewareChain(chain, to, from) {
   return result;
 }
 
+function isThenable(value) {
+  return value && typeof value.then === "function";
+}
+
+function runNavigationGuards(path, from, options, signal, startAt = 0) {
+  const guards = Array.from(navigationGuards);
+  for (let index = startAt; index < guards.length; index++) {
+    if (signal.aborted) return false;
+    const result = guards[index]({
+      from,
+      to: path,
+      replace: Boolean(options.replace),
+      signal
+    });
+    if (isThenable(result)) {
+      return Promise.resolve(result).then(value => {
+        if (value === false || signal.aborted) return false;
+        return runNavigationGuards(path, from, options, signal, index + 1);
+      });
+    }
+    if (result === false) return false;
+  }
+  return true;
+}
+
 export function getRouteParams() {
-  return { ...lastRouteParams };
+  const context = getActiveSSRContext();
+  return { ...(context ? context.routeParams : lastRouteParams) };
 }
 
 /** Reactive route params from the last matched route (snapshot updated on match). */
@@ -128,7 +169,7 @@ export function useParams() {
   return memo(() => {
     // depend on path so consumers re-render
     currentPath();
-    return { ...lastRouteParams };
+    return getRouteParams();
   });
 }
 
@@ -153,7 +194,26 @@ export function useSearchParams() {
 
 /** Data returned by the active matched route's `load` function (if any). */
 export function getRouteData() {
-  return lastRouteData;
+  const context = getActiveSSRContext();
+  return context ? context.routeData : lastRouteData;
+}
+
+function setRouteParams(params) {
+  const context = getActiveSSRContext();
+  if (context) context.routeParams = { ...params };
+  else lastRouteParams = { ...params };
+}
+
+function setRouteData(data) {
+  const context = getActiveSSRContext();
+  if (context) context.routeData = data;
+  else lastRouteData = data;
+}
+
+function setNotFound(value) {
+  const context = getActiveSSRContext();
+  if (context) context.notFound = Boolean(value);
+  else lastNotFound = Boolean(value);
 }
 
 /**
@@ -235,7 +295,7 @@ export function createAction(handler) {
         return;
       }
       if (isNotFoundError(err)) {
-        lastNotFound = true;
+        setNotFound(true);
         throw err;
       }
       setError(err);
@@ -262,36 +322,38 @@ export function createAction(handler) {
   return action;
 }
 
-export function navigate(path, options = {}) {
+export function navigate(path, options = {}, internal = null) {
+  const navigationId = ++navigationSequence;
+  activeNavigationSettler?.("superseded");
+  activeNavigationController?.abort();
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  activeNavigationController = controller;
+  const signal = controller?.signal || { aborted: false };
   const from = currentPath() + currentSearch();
-  for (const g of navigationGuards) {
-    const result = g({ from, to: path, replace: Boolean(options.replace) });
-    if (result === false) {
-      return false;
-    }
-  }
-
-  // Collect route-level middleware for the target path
-  const routeMiddleware = [];
-  const normalizedTarget = getNormalizedPath(path.split("?")[0]);
-  for (const route of registeredRoutes.values()) {
-    const m = matchPath(route.path, normalizedTarget);
-    if (m.matches && Array.isArray(route.middleware)) {
-      routeMiddleware.push(...route.middleware);
-    }
-  }
-
-  // Build combined middleware chain: global first, then route-level
-  const chain = [...globalMiddleware, ...routeMiddleware];
+  const isCurrent = () => navigationId === navigationSequence && !signal.aborted;
+  let settled = false;
+  const settle = status => {
+    if (settled) return;
+    settled = true;
+    if (activeNavigationSettler === settle) activeNavigationSettler = null;
+    internal?.onSettled?.(status);
+  };
+  activeNavigationSettler = typeof internal?.onSettled === "function" ? settle : null;
 
   const commitNavigation = () => {
+    if (!isCurrent()) {
+      settle("superseded");
+      return;
+    }
     const updateDOM = () => {
+      if (!isCurrent()) return;
       applyNavigation(path, options);
       if (options.scroll !== false && typeof window !== "undefined" && typeof window.scrollTo === "function") {
         window.scrollTo(0, 0);
       }
       if (options.focus !== false && typeof document !== "undefined") {
         queueMicrotask(() => {
+          if (!isCurrent()) return;
           const target = document.querySelector("[data-cachou-route-focus], main, h1");
           if (target && typeof target.focus === "function") {
             if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
@@ -306,24 +368,73 @@ export function navigate(path, options = {}) {
     } else {
       updateDOM();
     }
+    settle(true);
+    if (activeNavigationController === controller) activeNavigationController = null;
   };
 
-  if (chain.length === 0) {
-    commitNavigation();
+  const continueNavigation = () => {
+    if (!isCurrent()) return false;
+
+    // Collect route-level middleware for the target path.
+    const routeMiddleware = [];
+    const normalizedTarget = getNormalizedPath(path.split("?")[0]);
+    for (const route of registeredRoutes.values()) {
+      const m = matchPath(route.path, normalizedTarget);
+      if (m.matches && Array.isArray(route.middleware)) {
+        routeMiddleware.push(...route.middleware);
+      }
+    }
+
+    const chain = [...globalMiddleware, ...routeMiddleware];
+    if (chain.length === 0) {
+      commitNavigation();
+      return true;
+    }
+
+    runMiddlewareChain(chain, path, from, signal).then(result => {
+      if (!isCurrent()) return;
+      if (result.redirect) {
+        settle(true);
+        navigate(result.redirect, { replace: true });
+      } else if (result.proceed) {
+        commitNavigation();
+      } else if (activeNavigationController === controller) {
+        settle(false);
+        activeNavigationController = null;
+      }
+    }, err => {
+      if (isCurrent()) {
+        settle(false);
+        activeNavigationController = null;
+        emitFrameworkEvent({ type: "navigation-error", stage: "middleware", path, from, error: err });
+      }
+    });
+    return true;
+  };
+
+  const guardResult = runNavigationGuards(path, from, options, signal);
+  if (isThenable(guardResult)) {
+    guardResult.then(allowed => {
+      if (allowed) continueNavigation();
+      else {
+        settle(false);
+        if (activeNavigationController === controller) activeNavigationController = null;
+      }
+    }, err => {
+      if (isCurrent()) {
+        settle(false);
+        activeNavigationController = null;
+        emitFrameworkEvent({ type: "navigation-error", stage: "guard", path, from, error: err });
+      }
+    });
     return true;
   }
-
-  // Run middleware asynchronously, then commit or cancel
-  runMiddlewareChain(chain, path, from).then((result) => {
-    if (result.redirect) {
-      navigate(result.redirect, { replace: true });
-    } else if (result.proceed) {
-      commitNavigation();
-    }
-  });
-
-  // Return true because cancellation is async; callers should use guards for sync blocking
-  return true;
+  if (!guardResult) {
+    settle(false);
+    if (activeNavigationController === controller) activeNavigationController = null;
+    return false;
+  }
+  return continueNavigation();
 }
 
 const registeredRoutes = new Map();
@@ -377,7 +488,7 @@ export function Layout(props) {
     }
 
     const params = { ...(exactLayout.params || {}), ...(layoutMatch.params || {}) };
-    lastRouteParams = params;
+    setRouteParams(params);
 
     let childView = null;
     let childParams = params;
@@ -393,13 +504,13 @@ export function Layout(props) {
         if (score > bestScore) {
           bestScore = score;
           childParams = { ...params, ...(m.params || {}) };
-          lastRouteParams = childParams;
+          setRouteParams(childParams);
           const routeMeta = child.$$cachouRoute;
           childView = () => {
             if (routeMeta.getLoadState) {
               const state = routeMeta.getLoadState(childParams);
               childRouteData = state;
-              lastRouteData = state.data();
+              setRouteData(state.data());
               return RouteDataContext.Provider({
                 value: { ...state, params: childParams },
                 children: () => {
@@ -508,6 +619,52 @@ function matchPath(routePath, pathValue) {
     routeParts.pop();
   }
 
+  // Optional segments can be omitted even when the next route segment is a
+  // literal (for example `/docs/:lang?/guide`). Try the consuming branch
+  // first, then the omitted branch, while keeping the common route shape on
+  // the allocation-free loop below.
+  if (routeParts.some(part => part.startsWith(":") && part.endsWith("?"))) {
+    const matchOptional = (ri, ci, params) => {
+      if (ri >= routeParts.length) {
+        if (prefixWildcard || ci === currentParts.length) return params;
+        return null;
+      }
+
+      const rPart = routeParts[ri];
+      if (rPart.startsWith(":") && rPart.endsWith("?")) {
+        const name = rPart.slice(1, -1);
+        if (ci < currentParts.length) {
+          const consumed = matchOptional(ri + 1, ci + 1, {
+            ...params,
+            [name]: decodePathSegment(currentParts[ci])
+          });
+          if (consumed) return consumed;
+        }
+        return matchOptional(ri + 1, ci, params);
+      }
+
+      if (rPart.startsWith(":") && rPart.endsWith("*")) {
+        const name = rPart.slice(1, -1);
+        return {
+          ...params,
+          [name]: currentParts.slice(ci).map(decodePathSegment).join("/")
+        };
+      }
+      if (rPart.startsWith(":")) {
+        if (ci >= currentParts.length) return null;
+        return matchOptional(ri + 1, ci + 1, {
+          ...params,
+          [rPart.slice(1)]: decodePathSegment(currentParts[ci])
+        });
+      }
+      if (ci >= currentParts.length || rPart !== currentParts[ci]) return null;
+      return matchOptional(ri + 1, ci + 1, params);
+    };
+
+    const optionalMatch = matchOptional(0, 0, {});
+    return optionalMatch ? { matches: true, params: optionalMatch } : { matches: false };
+  }
+
   const params = {};
   let ri = 0;
   let ci = 0;
@@ -599,14 +756,14 @@ export function Route(props) {
       async (src, ctx) => {
         if (!src) return undefined;
         try {
-          lastNotFound = false;
+          setNotFound(false);
           return await props.load({
             params: src.params,
             path: src.path,
             query: Object.fromEntries(new URLSearchParams(src.search || "")),
             signal: ctx && ctx.signal,
             requestId: ctx && ctx.requestId,
-            request: getRequestEventSafe()
+            request: ctx.request || getRequestEventSafe()
           });
         } catch (err) {
           if (isRedirectError(err)) {
@@ -619,7 +776,7 @@ export function Route(props) {
             return undefined;
           }
           if (isNotFoundError(err)) {
-            lastNotFound = true;
+            setNotFound(true);
             throw err;
           }
           throw err;
@@ -658,7 +815,7 @@ export function Route(props) {
     if (!m.matches) {
       return null;
     }
-    lastRouteParams = m.params || {};
+    setRouteParams(m.params || {});
 
     // No loader: preserve direct component return (compatible with existing call sites/tests).
     if (!loadControls) {
@@ -670,7 +827,7 @@ export function Route(props) {
 
     const state = getLoadState(m.params || {});
     if (getData) {
-      lastRouteData = getData();
+      setRouteData(getData());
     }
 
     // Pending first load
@@ -765,11 +922,22 @@ export function lazy(loader) {
 
 function getRequestEventSafe() {
   try {
-    // optional dependency to avoid circular hard fail
-    return globalThis.__CACHOU_REQUEST_EVENT__ || null;
+    return getRequestEvent();
   } catch {
     return null;
   }
+}
+
+// Browser history has already moved the address bar when popstate fires. Run
+// the normal guard/middleware pipeline against that target, then let
+// router-state either commit it or restore the indexed history entry.
+if (isClient) {
+  setHistoryNavigationHandler(({ path, search }) => new Promise(resolve => {
+    const result = navigate(`${path}${search}`, { replace: true, scroll: false, focus: false }, {
+      onSettled: resolve
+    });
+    if (result === false) resolve(false);
+  }));
 }
 
 export { matchPath, getNormalizedPath, lastNotFound };

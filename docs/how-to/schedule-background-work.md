@@ -40,6 +40,11 @@ task.cancel();
 
 Higher-priority work is preferred when the frame budget elapses.
 
+Synchronous task functions run during the scheduler flush, so the configured
+budget applies to their actual work. Async task functions start during that
+flush and remain interruptible; their continuation is tracked through the
+returned `finished` promise.
+
 ### Task fields
 
 - `status`: `queued` | `running` | `completed` | `cancelled` | `failed`  
@@ -77,6 +82,9 @@ html`
 ```
 
 By default a new transition cancels previous transition tasks (`cancelPrevious: false` to keep them).
+Synchronous signal writes inside one transition are batched into a single
+reactive commit; asynchronous resources and scheduled tasks remain
+interruptible through the transition signal.
 
 ---
 

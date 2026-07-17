@@ -34,6 +34,7 @@ Attackers who can open a browser page can already run arbitrary JS in that origi
 | URL attributes | `href`, `src`, `action`, … sanitized against protocol allowlist |
 | `data:` URLs | MIME prefix allowlist |
 | Inline styles | `style:` values block `javascript:` / `expression(`; can disable all inline styles |
+| HTML sinks | `innerHTML`, `outerHTML`, and `srcdoc` require `trustedHTML()` |
 | `trustedHTML` | Explicit raw HTML only |
 | Resources | Request IDs, optional abort, stale suppression, optional timeouts |
 

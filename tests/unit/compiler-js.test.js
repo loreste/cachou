@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { compileFile } from "../../packages/compiler/lib/compile.mjs";
+import { compileFile, stripTypeScript } from "../../packages/compiler/lib/compile.mjs";
 
 describe("JS compiler", () => {
   it("compiles a simple component with expressions and scoped css", () => {
@@ -38,5 +38,96 @@ describe("JS compiler", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("emits a direct static DOM factory for safe static markup", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cachou-js-static-compiler-"));
+    try {
+      const src = join(dir, "Static.cachou");
+      writeFileSync(src, `<section class="card"><h1>Static</h1><p>Fast path</p></section>`);
+      const { outputPath } = compileFile(src, { outDir: dir, runtime: "cachoujs" });
+      const js = readFileSync(outputPath, "utf8");
+      assert.match(js, /createCompiledStatic/);
+      assert.match(js, /document\.createElement\("section"\)/);
+      assert.match(js, /document\.createTextNode\("Fast path"\)/);
+      assert.doesNotMatch(js, /return htmlStatic\(/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to htmlStatic when HTML decoding or namespaces could change semantics", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cachou-js-static-fallback-"));
+    try {
+      const entitySource = join(dir, "Entity.cachou");
+      writeFileSync(entitySource, `<p>Fish &amp; chips</p>`);
+      const entityOutput = compileFile(entitySource, { outDir: dir, runtime: "cachoujs" }).outputPath;
+      assert.match(readFileSync(entityOutput, "utf8"), /return htmlStatic\(/);
+
+      const svgSource = join(dir, "Svg.cachou");
+      writeFileSync(svgSource, `<svg><circle></circle></svg>`);
+      const svgOutput = compileFile(svgSource, { outDir: dir, runtime: "cachoujs" }).outputPath;
+      assert.match(readFileSync(svgOutput, "utf8"), /return htmlStatic\(/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("compiles nested reactive CSS bind expressions and attaches them to the component root", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cachou-js-vbind-"));
+    try {
+      const src = join(dir, "Theme.cachou");
+      writeFileSync(src, `<script>
+  const [color] = signal("red");
+</script>
+<style scoped>
+.box { color: bind(color); width: bind(Math.max(1, color().length) + "px"); }
+</style>
+<div class="box">Theme</div>
+`);
+      const { outputPath } = compileFile(src, { outDir: dir, runtime: "cachoujs" });
+      const js = readFileSync(outputPath, "utf8");
+      const css = readFileSync(join(dir, "Theme.css"), "utf8");
+      assert.match(css, /var\(--cachou-v-color\)/);
+      assert.match(css, /var\(--cachou-v-Math-max-1-color-length-px\)/);
+      assert.match(js, /__cachouVBindRef/);
+      assert.match(js, /node\.style\.setProperty\("--cachou-v-color", String\(color\(\)\)\)/);
+      assert.match(js, /node\.style\.setProperty\("--cachou-v-Math-max-1-color-length-px", String\(Math\.max\(1, color\(\)\.length\) \+ "px"\)\)/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps colliding bind names distinct and binds every top-level root", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cachou-js-vbind-collision-"));
+    try {
+      const src = join(dir, "Collision.cachou");
+      writeFileSync(src, `<script>
+  const theme = { color: "red" };
+</script>
+<style scoped>
+.a { color: bind(theme.color); }
+.b { color: bind(theme["color"]); }
+</style>
+<div class="a">A</div><div class="b">B</div>
+`);
+      const { outputPath } = compileFile(src, { outDir: dir, runtime: "cachoujs" });
+      const js = readFileSync(outputPath, "utf8");
+      const css = readFileSync(join(dir, "Collision.css"), "utf8");
+      assert.match(css, /var\(--cachou-v-theme-color\)/);
+      assert.match(css, /var\(--cachou-v-theme-color-[a-z0-9]+\)/);
+      assert.equal((js.match(/setProperty\(/g) || []).length, 2);
+      assert.equal((js.match(/ref=\$\{\$__cachouVBindRef\}/g) || []).length, 2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not strip TypeScript-looking text from strings or comments", () => {
+    const source = `const label = " as User"; // as Comment\n/* as Block */\nconst value = input as User;`;
+    assert.equal(
+      stripTypeScript(source),
+      `const label = " as User"; // as Comment\n/* as Block */\nconst value = input;`
+    );
   });
 });

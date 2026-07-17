@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -11,6 +12,60 @@ import (
 )
 
 func main() {
+	if os.Getenv("CACHOU_COMPILER_LEGACY") != "1" {
+		if err := runCanonicalCompiler(); err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				os.Exit(exitErr.ExitCode())
+			}
+			fmt.Fprintf(os.Stderr, "Error starting canonical JS compiler: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	legacyMain()
+}
+
+// runCanonicalCompiler keeps the Go entrypoint behavior identical to the
+// portable JavaScript compiler. The old Go implementation remains available
+// only for explicit compatibility/debugging via CACHOU_COMPILER_LEGACY=1.
+func runCanonicalCompiler() error {
+	compiler, err := findCanonicalCompiler()
+	if err != nil {
+		return err
+	}
+	node, err := exec.LookPath("node")
+	if err != nil {
+		return fmt.Errorf("Node.js is required for the canonical compiler: %w", err)
+	}
+	args := append([]string{compiler}, os.Args[1:]...)
+	cmd := exec.Command(node, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
+}
+
+func findCanonicalCompiler() (string, error) {
+	var candidates []string
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, "packages", "compiler", "bin", "cachou-compiler.js"))
+	}
+	if executable, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(executable)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "..", "packages", "compiler", "bin", "cachou-compiler.js"),
+			filepath.Join(exeDir, "packages", "compiler", "bin", "cachou-compiler.js"),
+		)
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("canonical compiler not found; expected packages/compiler/bin/cachou-compiler.js")
+}
+
+func legacyMain() {
 	inputDir := flag.String("dir", "", "Directory containing .cachou files to compile")
 	inputFile := flag.String("file", "", "Specific .cachou file to compile")
 	outputDir := flag.String("out", "", "Output directory for compiled .js files")

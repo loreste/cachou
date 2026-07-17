@@ -1,4 +1,4 @@
-import { removeNodeWithTransition } from "./html.js";
+import { removeNodesWithTransition } from "./html.js";
 
 /**
  * Reconciles child DOM nodes of a parent container from oldNodes to newNodes.
@@ -18,9 +18,7 @@ export function reconcile(parent, oldNodes, newNodes, anchor) {
     return;
   }
   if (newNodes.length === 0) {
-    for (const node of oldNodes) {
-      removeNodeWithTransition(node);
-    }
+    removeNodesWithTransition(oldNodes);
     return;
   }
   if (isFullReverse(oldNodes, newNodes)) {
@@ -33,16 +31,28 @@ export function reconcile(parent, oldNodes, newNodes, anchor) {
   }
 
   const newSet = new Set(newNodes);
-  const oldIndex = new Map();
 
+  const removedNodes = [];
+  for (const node of oldNodes) {
+    if (!newSet.has(node)) removedNodes.push(node);
+  }
+  if (removedNodes.length > 0) removeNodesWithTransition(removedNodes);
+
+  // Deletion-only updates are common for filtered lists. Once removed nodes
+  // are gone, an already-ordered survivor set needs no index or LIS work.
+  let alreadyOrdered = true;
+  for (let i = newNodes.length - 1; i >= 0; i--) {
+    const nextNode = newNodes[i + 1] || anchor;
+    if (newNodes[i].parentNode !== parent || newNodes[i].nextSibling !== nextNode) {
+      alreadyOrdered = false;
+      break;
+    }
+  }
+  if (alreadyOrdered) return;
+
+  const oldIndex = new Map();
   for (let i = 0; i < oldNodes.length; i++) {
     oldIndex.set(oldNodes[i], i);
-  }
-
-  for (const node of oldNodes) {
-    if (!newSet.has(node)) {
-      removeNodeWithTransition(node);
-    }
   }
 
   const sources = newNodes.map(node => oldIndex.has(node) ? oldIndex.get(node) : -1);
@@ -56,7 +66,7 @@ export function reconcile(parent, oldNodes, newNodes, anchor) {
 
     if (isExistingStableNode) {
       stableCursor--;
-    } else if (newNode.nextSibling !== nextNode) {
+    } else if (newNode.parentNode !== parent || newNode.nextSibling !== nextNode) {
       parent.insertBefore(newNode, nextNode);
     }
   }

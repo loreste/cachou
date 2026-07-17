@@ -140,6 +140,10 @@ const rows = mapArray(
 | `uniqueKeys: true` | You guarantee no duplicate keys (faster) |
 | `reactiveItems: false` | Items are immutable snapshots |
 
+For immutable keyed lists, keep the array identity stable between reads when
+the contents have not changed. `mapArray` can then reuse the mapped result;
+publish a new array for any list change.
+
 ---
 
 ## Empty, loading, and errors

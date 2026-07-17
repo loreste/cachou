@@ -15,6 +15,11 @@ import {
   matchPath,
   configureRouter,
   getHistoryMode,
+  back,
+  forward,
+  beforeNavigate,
+  navigate,
+  Route,
   redirect,
   notFound,
   isRedirectError,
@@ -113,6 +118,57 @@ describe("matchPath", () => {
     assert.equal(matchPath("/files/*", "/files/x/y").matches, true);
     assert.equal(matchPath("/users/:id", "/users/1").params.id, "1");
   });
+
+  it("backtracks optional segments before a following literal", () => {
+    const omitted = matchPath("/docs/:lang?/guide", "/docs/guide");
+    assert.equal(omitted.matches, true);
+    assert.deepEqual(omitted.params, {});
+    const present = matchPath("/docs/:lang?/guide", "/docs/en/guide");
+    assert.equal(present.matches, true);
+    assert.equal(present.params.lang, "en");
+  });
+});
+
+describe("route loader cancellation", () => {
+  it("keeps only the newest loader result and disposes the resource owner", async () => {
+    configureRouter({ history: "memory", initialPath: "/users/0" });
+    const started = [];
+    const aborted = [];
+    const rendered = [];
+    let View;
+    let dispose;
+
+    createRoot(rootDispose => {
+      dispose = rootDispose;
+      View = Route({
+        path: "/users/:id",
+        load: ({ params, signal }) => new Promise(resolve => {
+          const id = params.id;
+          started.push(id);
+          signal?.addEventListener("abort", () => aborted.push(id), { once: true });
+          setTimeout(() => resolve({ id }), id === "0" ? 30 : 1);
+        }),
+        component: (_params, state) => `user:${state.data()?.id || "pending"}`
+      });
+      effect(() => {
+        rendered.push(View());
+      });
+    });
+
+    navigate("/users/1", { scroll: false, focus: false });
+    navigate("/users/2", { scroll: false, focus: false });
+    await new Promise(resolve => setTimeout(resolve, 45));
+
+    assert.deepEqual(started, ["0", "1", "2"]);
+    assert.deepEqual(aborted.sort(), ["0", "1"]);
+    assert.equal(rendered.at(-1), "user:2");
+
+    const requestCount = started.length;
+    dispose();
+    navigate("/users/3", { scroll: false, focus: false });
+    await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(started.length, requestCount, "disposed routes do not restart loaders");
+  });
 });
 
 describe("history memory mode", () => {
@@ -123,6 +179,63 @@ describe("history memory mode", () => {
     assert.equal(currentSearch(), "?q=1");
     applyNavigation("/cart");
     assert.equal(currentPath(), "/cart");
+    applyNavigation("/checkout");
+    assert.equal(back(), true);
+    assert.equal(currentPath(), "/cart");
+    assert.equal(forward(), true);
+    assert.equal(currentPath(), "/checkout");
+    assert.equal(back(), true);
+    applyNavigation("/new");
+    assert.equal(forward(), false, "A new memory navigation removes stale forward history");
+    assert.equal(currentPath(), "/new");
+  });
+
+  it("cancels stale async navigation guards", async () => {
+    configureRouter({ history: "memory", initialPath: "/" });
+    const off = beforeNavigate(({ to, signal }) => new Promise(resolve => {
+      setTimeout(() => resolve(to !== "/blocked" && !signal.aborted), 15);
+    }));
+    try {
+      assert.equal(navigate("/blocked", { scroll: false, focus: false }), true);
+      assert.equal(navigate("/current", { scroll: false, focus: false }), true);
+      await new Promise(resolve => setTimeout(resolve, 30));
+      assert.equal(currentPath(), "/current");
+    } finally {
+      off();
+    }
+  });
+
+  it("commits only the final route during a rapid navigation burst", async () => {
+    configureRouter({ history: "memory", initialPath: "/" });
+    const observed = [];
+    const burstCount = 256;
+    let resolveObserved;
+    let timeoutId;
+    const observedComplete = new Promise((resolve, reject) => {
+      resolveObserved = resolve;
+      timeoutId = setTimeout(() => reject(new Error("navigation burst did not settle")), 1000);
+    });
+    const off = beforeNavigate(({ to, signal }) => new Promise(resolve => {
+      setTimeout(() => {
+        observed.push({ to, aborted: signal.aborted });
+        if (observed.length === burstCount) resolveObserved();
+        resolve(!signal.aborted);
+      }, 1);
+    }));
+    try {
+      const lastPath = "/item/255";
+      for (let index = 0; index < burstCount; index++) {
+        navigate(`/item/${index}`, { scroll: false, focus: false });
+      }
+      await observedComplete;
+      await new Promise(resolve => setTimeout(resolve, 0));
+      assert.equal(currentPath(), lastPath);
+      assert.ok(observed.slice(0, -1).every(entry => entry.aborted));
+      assert.deepEqual(observed.at(-1), { to: lastPath, aborted: false });
+    } finally {
+      clearTimeout(timeoutId);
+      off();
+    }
   });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./src/index.d.ts",
       "import": "./src/index.js"
+    },
+    "./browser": {
+      "types": "./src/index.d.ts",
+      "import": "./src/browser.js"
     },
     "./html": "./src/html.js",
     "./reactivity": "./src/reactivity.js",
@@ -107,6 +111,7 @@
     "bench": "node scripts/run-benchmarks.mjs",
     "bench:memory": "node scripts/run-memory-benchmarks.mjs",
     "bench:compare": "node scripts/run-competitive-benchmarks.mjs",
+    "bench:ssr": "node scripts/run-ssr-benchmarks.mjs",
     "pack:dry": "npm pack --dry-run",
     "publish:prep": "node scripts/publish-prep.mjs",
     "create": "node create-cachou/index.js",
@@ -124,6 +129,7 @@
     "crm:smoke": "npm --prefix crm run smoke",
     "crm:smoke:postgres": "npm --prefix crm run smoke:postgres",
     "crm:ui:smoke": "npm --prefix crm run ui:smoke",
+    "crm:perf": "npm --prefix crm run perf",
     "crm:visual:smoke": "npm --prefix crm run visual:smoke",
     "crm:visual:baseline": "npm --prefix crm run visual:baseline",
     "crm:stress": "npm --prefix crm run stress",

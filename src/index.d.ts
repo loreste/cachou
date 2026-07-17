@@ -2,11 +2,14 @@ declare module "cachoujs" {
   export type SignalGetter<T> = () => T;
   export type SignalSetter<T> = (value: T | ((prev: T) => T)) => void;
   export type Signal<T> = [SignalGetter<T>, SignalSetter<T>];
+  export interface EqualityOptions<T> {
+    equals?: false | ((a: T, b: T) => boolean);
+  }
 
-  export function signal<T>(initialValue: T): Signal<T>;
+  export function signal<T>(initialValue: T, options?: EqualityOptions<T> & { name?: string }): Signal<T>;
   export function effect(fn: () => void): () => void;
   export function createRoot<T>(fn: (dispose: () => void) => T): T;
-  export function memo<T>(fn: () => T): () => T;
+  export function memo<T>(fn: () => T, options?: EqualityOptions<T>): SignalGetter<T>;
   export function store<T extends object>(initialValue: T): T;
   export function batch(fn: () => void): void;
   export function onCleanup(fn: () => void): void;
@@ -16,6 +19,74 @@ declare module "cachoujs" {
   export function runWithOwner<T>(owner: any, fn: () => T): T;
   export function onFrameworkEvent(listener: (event: { type: string; time: number; [key: string]: any }) => void): () => void;
   export function emitFrameworkEvent(event: { type: string; [key: string]: any }): void;
+  export type CachouLogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
+  export interface CachouLogEntry {
+    time: number;
+    level: CachouLogLevel;
+    eventType: string;
+    scope?: string;
+    message?: string;
+    error?: { name: string; message: string; stack?: string; cause?: any };
+    [key: string]: any;
+  }
+  export function configureLogger(options?: {
+    level?: CachouLogLevel;
+    includeStack?: boolean;
+    sink?: ((entry: CachouLogEntry) => void) | null;
+  }): { level: CachouLogLevel; includeStack: boolean; hasSink: boolean };
+  export function getLoggerConfig(): { level: CachouLogLevel; includeStack: boolean; hasSink: boolean };
+  export function createLogger(scope?: string): {
+    error(message: string, details?: Record<string, any>): void;
+    warn(message: string, details?: Record<string, any>): void;
+    info(message: string, details?: Record<string, any>): void;
+    debug(message: string, details?: Record<string, any>): void;
+    trace(message: string, details?: Record<string, any>): void;
+  };
+  export interface CachouSpanContext {
+    traceId: string;
+    spanId: string;
+    traceFlags: number;
+  }
+  export interface CachouSpan {
+    isRecording(): boolean;
+    spanContext(): CachouSpanContext | null;
+    setAttribute(key: string, value: any): CachouSpan;
+    setAttributes(attributes: Record<string, any>): CachouSpan;
+    addEvent(name: string, attributes?: Record<string, any>): CachouSpan;
+    recordException(error: any): CachouSpan;
+    setStatus(status?: { code?: "UNSET" | "OK" | "ERROR"; message?: string }): CachouSpan;
+    end(endTime?: number): CachouSpan;
+  }
+  export interface CachouSpanExport {
+    name: string;
+    traceId: string;
+    spanId: string;
+    parentSpanId?: string;
+    traceFlags: number;
+    startTime: number;
+    endTime: number;
+    durationMs: number;
+    attributes: Record<string, any>;
+    events: Array<{ name: string; time: number; attributes: Record<string, any> }>;
+    status: { code: "UNSET" | "OK" | "ERROR"; message?: string };
+  }
+  export function configureTracing(options?: {
+    enabled?: boolean;
+    sampleRate?: number;
+    exporter?: ((span: CachouSpanExport) => void) | { export: (span: CachouSpanExport) => void } | null;
+  }): { enabled: boolean; sampleRate: number; hasExporter: boolean };
+  export function getTracingConfig(): { enabled: boolean; sampleRate: number; hasExporter: boolean };
+  export function startSpan(name: string, options?: { parent?: CachouSpan; traceparent?: string | CachouSpanContext; attributes?: Record<string, any> }): CachouSpan;
+  export function runWithSpan<T>(span: CachouSpan, fn: () => T): T;
+  export function getActiveSpan(): CachouSpan | null;
+  export function getSpanTraceparent(span?: CachouSpan | null): string;
+  export function parseTraceparent(value: string): CachouSpanContext | null;
+  export function formatTraceparent(context: CachouSpanContext | null): string;
+  export function extractTraceparent(request: any): CachouSpanContext | null;
+  export function createTracer(scope?: string): {
+    startSpan(name: string, options?: { parent?: CachouSpan; traceparent?: string | CachouSpanContext; attributes?: Record<string, any> }): CachouSpan;
+    withSpan<T>(name: string, fn: () => T, options?: { parent?: CachouSpan; traceparent?: string | CachouSpanContext; attributes?: Record<string, any> }): T;
+  };
   export function mapArray<T, U>(
     list: SignalGetter<T[]> | T[],
     mapFn: (item: T, index: number) => U,
@@ -25,6 +96,7 @@ declare module "cachoujs" {
 
   export function html(strings: TemplateStringsArray, ...values: any[]): HTMLElement | HTMLElement[];
   export function htmlStatic(markup: string): HTMLElement | HTMLElement[] | DocumentFragment;
+  export function createCompiledStatic(markup: string, factory?: () => Node | DocumentFragment): any;
 
   export interface Context<T> {
     Provider: (props: { value: T; children: any }) => () => any;
@@ -57,6 +129,7 @@ declare module "cachoujs" {
       error: SignalGetter<any>;
       refetch: () => Promise<void>;
       mutate: (data: T) => void;
+      dispose: () => void;
       invalidate: () => void;
       getRequestId: () => number;
       getLatestAppliedRequestId: () => number;
@@ -81,11 +154,13 @@ declare module "cachoujs" {
       error: SignalGetter<any>;
       refetch: () => Promise<void>;
       mutate: (data: T) => void;
+      dispose: () => void;
       invalidate: () => void;
       getRequestId: () => number;
       getLatestAppliedRequestId: () => number;
     }
   ];
+  export function configureResourceCache(options?: { maxEntries?: number }): { maxEntries: number; size: number };
   export function invalidateResource(key: string): void;
   export function prefetchResource<T>(
     key: string,
@@ -95,15 +170,28 @@ declare module "cachoujs" {
 
   export function webSocketSignal<T>(url: string, initialValue: T): Signal<T>;
 
-  export function dehydrate(): string;
+  export function dehydrate(context?: SSRContext): string;
+  export function getSSRHead(context?: SSRContext): string;
   export function resetResourceCounter(): void;
   export function resolvePendingResources(): Promise<void>;
   export function hydrate(Component: () => any, root: HTMLElement): void;
   export function render(Component: () => any, root: HTMLElement): void;
   export function mount(Component: () => any, root: HTMLElement): () => void;
   export function unmount(root: HTMLElement): void;
-  export function renderToString(Component: () => any): string;
-  export function renderToStringAsync(Component: () => any): Promise<string>;
+  export function renderToString(Component: () => any, options?: {
+    path?: string;
+    request?: any;
+    traceparent?: string;
+    context?: SSRContext;
+  }): string;
+  export function renderToStringAsync(Component: (data?: any) => any, options?: {
+    path?: string;
+    request?: any;
+    signal?: AbortSignal;
+    traceparent?: string;
+    context?: SSRContext;
+    preload?: (context: { request: any; signal: AbortSignal | null }) => any | Promise<any>;
+  }): Promise<string>;
   export function lazy<T>(loader: () => Promise<{ default: T } | T>): T;
   export function configureSecurityPolicy(options?: {
     allowedURLProtocols?: string[];
@@ -235,19 +323,20 @@ declare module "cachoujs" {
     initialPath?: string;
   }): { history: string };
   export function guard(
-    handler: (ctx: {
-      path: string;
-      params: Record<string, string>;
-      query: Record<string, string>;
-      next: () => Promise<any> | any;
-      redirect: (path: string, options?: { replace?: boolean }) => never;
-      cancel: () => never;
-    }) => any | Promise<any>
+    handler: (
+      to: string,
+      from: string,
+      next: (result?: false | string) => void,
+      signal?: AbortSignal
+    ) => any | Promise<any>
   ): () => void;
   export function addMiddleware(
     handler: (ctx: any) => any | Promise<any>
   ): () => void;
   export function getHistoryMode(): string;
+  export function go(delta: number): boolean;
+  export function back(): boolean;
+  export function forward(): boolean;
   export function matchPath(routePath: string, path: string): { matches: boolean; params?: Record<string, string> };
   export function useParams(): SignalGetter<Record<string, string>>;
   export function useSearchParams(): [
@@ -271,9 +360,17 @@ declare module "cachoujs" {
     options: any;
   }
   export class NotFoundError extends Error {}
-  export function renderToStream(Component: any, options?: { path?: string; request?: any; shell?: boolean }): ReadableStream | AsyncGenerator<string>;
+  export function renderToStream(Component: (data?: any) => any, options?: {
+    path?: string;
+    request?: any;
+    signal?: AbortSignal;
+    shell?: boolean;
+    traceparent?: string;
+    context?: SSRContext;
+    preload?: (context: { request: any; signal: AbortSignal | null }) => any | Promise<any>;
+  }): ReadableStream | AsyncGenerator<string>;
   export function Island(props: { hydrate?: "load" | "idle" | "visible" | "false" | false; id?: string; children?: any }): any;
-  export function hydrateIslands(root?: ParentNode | null, ComponentMap?: Record<string, any>): void;
+  export function hydrateIslands(root?: ParentNode | null, ComponentMap?: Record<string, any>): () => void;
   export function getRequestEvent(): any;
   export function setRequestEvent(event: any): void;
 
@@ -304,17 +401,24 @@ declare module "cachoujs" {
   ): any[];
   export function applyProductionSecurityDefaults(): ReturnType<typeof configureSecurityPolicy>;
   export function installSSRAsyncHooks(asyncHooksModule: { AsyncLocalStorage: new () => any }): void;
-  export function createSSRContext(): {
+  export type SSRContext = {
+    id: string;
     ssrCache: Record<string | number, any>;
+    resourceCache?: Map<any, any>;
+    resourceInflight?: Map<any, Promise<any>>;
     resourceCounter: number;
+    resourcesStarted: number;
     pendingResources: Set<Promise<any>>;
-    head: { title: string; meta: any[] };
+    head: { title: string; meta: any[]; links?: any[]; jsonld?: any[]; scripts?: any[] };
+    request?: any;
+    signal?: AbortSignal | null;
   };
-  export function runWithSSRContext<T>(context: ReturnType<typeof createSSRContext>, fn: () => T): T;
-  export function runWithSSRContextAsync<T>(context: ReturnType<typeof createSSRContext>, fn: () => Promise<T>): Promise<T>;
+  export function createSSRContext(): SSRContext;
+  export function runWithSSRContext<T>(context: SSRContext, fn: () => T): T;
+  export function runWithSSRContextAsync<T>(context: SSRContext, fn: () => Promise<T>): Promise<T>;
   export function Link(props: { href: string; class?: string; children: any }): HTMLElement;
   export function navigate(path: string, options?: { replace?: boolean; scroll?: boolean; focus?: boolean; viewTransition?: boolean }): boolean;
-  export function beforeNavigate(handler: (event: { from: string; to: string; replace: boolean }) => boolean | void): () => void;
+  export function beforeNavigate(handler: (event: { from: string; to: string; replace: boolean; signal: AbortSignal }) => boolean | void | Promise<boolean | void>): () => void;
   export function getPath(): string;
   export function getQueryParams(): Record<string, string>;
   export function getRouteParams(): Record<string, string>;

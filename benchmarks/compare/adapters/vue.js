@@ -7,7 +7,7 @@ export const vueAdapter = {
     const app = createApp({ render: () => h(Table, { rows }) });
     app.mount(target);
     await nextTick();
-    app.unmount();
+    return () => app.unmount();
   },
 
   async textFanout(target, count, updates) {
@@ -68,6 +68,30 @@ export const vueAdapter = {
       await nextTick();
       app.unmount();
     }
+  },
+
+  async dashboardRefresh(target, cards, updates) {
+    const value = ref(0);
+    const app = createApp({
+      render: () => h(
+        "section",
+        { class: "dashboard-grid" },
+        cards.map(card => h(
+          "article",
+          { class: "metric-card", key: card.id },
+          [h("h3", null, card.label), h("strong", null, value.value), h("p", null, card.status)]
+        ))
+      )
+    });
+    app.mount(target);
+    for (let i = 1; i <= updates; i++) {
+      value.value = i;
+      await nextTick();
+    }
+    if (target.querySelector("strong")?.textContent !== String(updates)) {
+      throw new Error("Vue dashboard value did not commit");
+    }
+    app.unmount();
   }
 };
 

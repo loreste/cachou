@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "CachouJS DevTools",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Inspect CachouJS reactive graphs and framework events on any page that exposes window.__CACHOU_RUNTIME__.",
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "action": {
     "default_title": "Cachou DevTools",
     "default_popup": "popup.html"
@@ -15,15 +21,24 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["page-bridge.js", "panel-inject.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "page-bridge.js",
+        "panel-inject.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "icons": {

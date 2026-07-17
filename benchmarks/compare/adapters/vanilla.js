@@ -9,6 +9,7 @@ export const vanillaAdapter = {
     }
     table.appendChild(tbody);
     target.appendChild(table);
+    return () => clearTarget(target);
   },
 
   textFanout(target, count, updates) {
@@ -24,6 +25,7 @@ export const vanillaAdapter = {
         node.textContent = String(value);
       }
     }
+    clearTarget(target);
   },
 
   attributeFanout(target, count, updates) {
@@ -40,6 +42,7 @@ export const vanillaAdapter = {
         node.className = active ? "active" : "";
       }
     }
+    clearTarget(target);
   },
 
   keyedReverse(target, rows) {
@@ -57,6 +60,7 @@ export const vanillaAdapter = {
     for (const row of reversed) {
       tbody.appendChild(nodeById.get(row.id));
     }
+    clearTarget(target);
   },
 
   formInput(target, count) {
@@ -70,6 +74,7 @@ export const vanillaAdapter = {
     if (value !== `value-${count - 1}`) {
       throw new Error("DOM floor input state did not update");
     }
+    clearTarget(target);
   },
 
   mountUnmount(target, loops) {
@@ -83,8 +88,40 @@ export const vanillaAdapter = {
       target.appendChild(frag);
       target.replaceChildren();
     }
+  },
+
+  dashboardRefresh(target, cards, updates) {
+    const section = document.createElement("section");
+    section.className = "dashboard-grid";
+    const values = [];
+    for (const card of cards) {
+      const article = document.createElement("article");
+      article.className = "metric-card";
+      const heading = document.createElement("h3");
+      heading.textContent = card.label;
+      const value = document.createElement("strong");
+      value.textContent = "0";
+      values.push(value);
+      const status = document.createElement("p");
+      status.textContent = card.status;
+      article.append(heading, value, status);
+      section.appendChild(article);
+    }
+    target.appendChild(section);
+    for (let i = 1; i <= updates; i++) {
+      const text = String(i);
+      for (const value of values) value.textContent = text;
+    }
+    if (values[0]?.textContent !== String(updates)) {
+      throw new Error("DOM dashboard value did not commit");
+    }
+    clearTarget(target);
   }
 };
+
+function clearTarget(target) {
+  target.replaceChildren();
+}
 
 function rowNode(row) {
   const tr = document.createElement("tr");

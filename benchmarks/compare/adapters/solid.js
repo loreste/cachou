@@ -13,7 +13,7 @@ export const solidAdapter = {
         </tbody>
       </table>
     `, target);
-    dispose();
+    return dispose;
   },
 
   textFanout(target, count, updates) {
@@ -64,5 +64,25 @@ export const solidAdapter = {
       const dispose = render(() => html`<div>${Array.from({ length: 100 }, (_, j) => html`<span>${i}:${j}</span>`)}</div>`, target);
       dispose();
     }
+  },
+
+  dashboardRefresh(target, cards, updates) {
+    const [value, setValue] = createSignal(0);
+    const dispose = render(() => html`
+      <section class="dashboard-grid">
+        ${cards.map(card => html`
+          <article class="metric-card">
+            <h3>${card.label}</h3>
+            <strong>${value}</strong>
+            <p>${card.status}</p>
+          </article>
+        `)}
+      </section>
+    `, target);
+    for (let i = 1; i <= updates; i++) setValue(i);
+    if (target.querySelector("strong")?.textContent !== String(updates)) {
+      throw new Error("Solid dashboard value did not commit");
+    }
+    dispose();
   }
 };

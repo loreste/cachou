@@ -8,7 +8,8 @@ const port = Number(process.env.CACHOU_BENCH_PORT || 5178);
 const isCi = process.env.CI === "true" || process.env.CI === "1";
 const regressionRatio = process.env.CACHOU_BENCH_RATIO || (isCi ? "2.5" : "1.5");
 const regressionSlackMs = process.env.CACHOU_BENCH_SLACK_MS || (isCi ? "25" : "5");
-const url = `http://127.0.0.1:${port}/benchmarks/?ratio=${encodeURIComponent(regressionRatio)}&slackMs=${encodeURIComponent(regressionSlackMs)}`;
+const sampleCount = Math.max(1, Number(process.env.CACHOU_BENCH_SAMPLES || 3));
+const url = `http://127.0.0.1:${port}/benchmarks/?ratio=${encodeURIComponent(regressionRatio)}&slackMs=${encodeURIComponent(regressionSlackMs)}&samples=${sampleCount}`;
 const preferSafari = process.env.CACHOU_TEST_BROWSER === "safari";
 const preferPlaywright =
   process.env.CACHOU_TEST_BROWSER === "chromium" ||

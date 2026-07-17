@@ -50,6 +50,10 @@ createRoot / mount
 3. **Batching** queues subscribers and flushes once when `batchDepth` returns to 0.  
 4. **Disposal** walks owned children and cleanups; subscribers are removed from dependency sets.
 
+Delegated and direct DOM event listeners execute inside a synchronous batch, so
+one user event cannot trigger duplicate intermediate renders when it writes
+multiple signals or store properties.
+
 Template bindings create small effects (or one-shot static assigns) that write to DOM nodes. List updates go through `mapArray` + `reconcile` for keyed moves.
 
 ---
@@ -101,7 +105,7 @@ client
 
 **Isolation:** each async render has its own cache/counter/head. Concurrent Node requests use AsyncLocalStorage when `installSSRAsyncHooks` has been called (production `server.js` and Vite config do this).
 
-**Sequential API:** after `await renderToStringAsync()`, `dehydrate()` uses the last completed context so apps do not need to thread context objects for the common case.
+**Sequential API:** after `await renderToStringAsync()`, `dehydrate()` uses the last completed context for the common sequential case. Concurrent handlers should pass an explicit context to rendering, `dehydrate(context)`, and `getSSRHead(context)`; implicit serialization fails closed if overlapping renders make the last context ambiguous.
 
 ---
 
@@ -194,7 +198,7 @@ CI primary path: Ubuntu + Chromium. See [how-to: quality checks](./how-to/run-qu
 | Auth | Your middleware; do not use demo APIs |
 | Global state | `signal` / `store` modules |
 | Nested chrome | `Layout` + `Outlet` |
-| Observability | `onFrameworkEvent` |
+| Observability | Structured logger, `onFrameworkEvent`, optional OpenTelemetry-compatible spans |
 | Design system | `.cachou` components + scoped CSS |
 | Meta framework | Compose Vite plugin + your file router if needed |
 

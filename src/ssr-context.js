@@ -9,33 +9,106 @@
 let AsyncLocalStorageCtor = null;
 let als = null;
 const stack = [];
+const activeSSRContexts = new Set();
+let contextSequence = 0;
 let fallback = createEmptyContext();
 /** Last completed SSR context for sequential dehydrate()/getSSRHead() after render. */
 let lastCompleted = null;
+let lastCompletedAmbiguous = false;
+let fallbackRequest = null;
 
-function createEmptyContext() {
+function createEmptyContext(id = null) {
   return {
+    id: id || `ssr-${++contextSequence}`,
     ssrCache: Object.create(null),
+    resourceCache: new Map(),
+    resourceInflight: new Map(),
     resourceCounter: 0,
+    resourcesStarted: 0,
     pendingResources: new Set(),
     head: { title: "", meta: [], links: [], jsonld: [], scripts: [] },
-    request: null
+    request: null,
+    path: "/",
+    search: "",
+    historyMode: "browser",
+    memoryPath: "/",
+    memorySearch: "",
+    memoryEntries: [{ path: "/", search: "" }],
+    memoryIndex: 0,
+    routeParams: {},
+    routeData: undefined,
+    notFound: false
   };
+}
+
+function createSerializationSnapshot(context) {
+  const snapshot = createEmptyContext(context.id);
+  snapshot.ssrCache = context.ssrCache;
+  snapshot.head = context.head;
+  snapshot.path = context.path || "/";
+  snapshot.search = context.search || "";
+  snapshot.historyMode = context.historyMode || "browser";
+  snapshot.memoryPath = context.memoryPath || "/";
+  snapshot.memorySearch = context.memorySearch || "";
+  snapshot.routeParams = context.routeParams ? { ...context.routeParams } : {};
+  snapshot.notFound = context.notFound === true;
+  return snapshot;
+}
+
+function isSSRContext(value) {
+  return Boolean(value && value.ssrCache && value.pendingResources && value.head);
+}
+
+/** Mark a renderer as active and record overlap so implicit serialization can fail closed. */
+export function beginSSRRender(context) {
+  if (!isSSRContext(context)) {
+    throw new TypeError("beginSSRRender requires a CachouJS SSR context.");
+  }
+  // A new render invalidates the implicit sequential slot until it completes.
+  // This prevents a failed request from reusing a previous request's state.
+  lastCompleted = null;
+  lastCompletedAmbiguous = true;
+  if (activeSSRContexts.size > 0) {
+    context.overlapped = true;
+    for (const active of activeSSRContexts) active.overlapped = true;
+  }
+  activeSSRContexts.add(context);
+}
+
+export function endSSRRender(context) {
+  activeSSRContexts.delete(context);
+}
+
+/** Return the request context only while an SSR render is active. */
+export function getActiveSSRContext() {
+  const storage = ensureALS();
+  if (storage) {
+    const store = storage.getStore();
+    if (store) return store;
+  }
+  return stack.length > 0 ? stack[stack.length - 1] : null;
 }
 
 /** Attach request bag (cookies, headers, url) for SSR loaders. */
 export function setRequestEvent(event) {
-  const ctx = getSSRContext();
-  ctx.request = event || null;
-  if (typeof globalThis !== "undefined") {
-    globalThis.__CACHOU_REQUEST_EVENT__ = event || null;
+  const activeContext = getActiveSSRContext();
+  if (activeContext) {
+    activeContext.request = event || null;
+  } else {
+    fallbackRequest = event || null;
   }
 }
 
 export function getRequestEvent() {
-  const ctx = getSSRContext();
-  if (ctx.request) return ctx.request;
-  return typeof globalThis !== "undefined" ? globalThis.__CACHOU_REQUEST_EVENT__ || null : null;
+  const activeContext = getActiveSSRContext();
+  return activeContext ? activeContext.request : fallbackRequest;
+}
+
+/** Consume a request bag set before an SSR context was entered. */
+export function takeRequestEvent() {
+  const event = fallbackRequest;
+  fallbackRequest = null;
+  return event;
 }
 
 function ensureALS() {
@@ -48,8 +121,12 @@ function ensureALS() {
     // Dynamic path keeps browser bundles from hard-failing on node builtins.
     // Vite SSR and Node can resolve this; client builds tree-shake SSR paths.
     const mod = globalThis.__CACHOU_ASYNC_HOOKS__ || null;
-    if (mod?.AsyncLocalStorage) {
-      AsyncLocalStorageCtor = mod.AsyncLocalStorage;
+    const builtin = typeof process.getBuiltinModule === "function"
+      ? process.getBuiltinModule("node:async_hooks")
+      : null;
+    const asyncHooks = mod?.AsyncLocalStorage ? mod : builtin;
+    if (asyncHooks?.AsyncLocalStorage) {
+      AsyncLocalStorageCtor = asyncHooks.AsyncLocalStorage;
       als = new AsyncLocalStorageCtor();
       return als;
     }
@@ -86,18 +163,34 @@ export function createSSRContext() {
 
 /** Remember context after render so dehydrate()/getSSRHead() work sequentially. */
 export function setLastSSRContext(context) {
-  lastCompleted = context;
+  if (!isSSRContext(context)) return;
+  if (context.overlapped) {
+    lastCompleted = null;
+    lastCompletedAmbiguous = true;
+    return;
+  }
+  // Implicit serialization only needs the state and head. Do not keep a
+  // request object, resource cache, inflight promises, or route data alive
+  // until the next SSR request arrives.
+  lastCompleted = createSerializationSnapshot(context);
+  lastCompletedAmbiguous = false;
 }
 
 export function getLastSSRContext() {
-  return lastCompleted;
+  return lastCompletedAmbiguous ? null : lastCompleted;
+}
+
+export function isLastSSRContextAmbiguous() {
+  return lastCompletedAmbiguous;
 }
 
 export function runWithSSRContext(context, fn) {
   const storage = ensureALS();
   if (storage) {
+    if (storage.getStore() === context) return fn();
     return storage.run(context, fn);
   }
+  if (stack[stack.length - 1] === context) return fn();
   stack.push(context);
   try {
     return fn();
@@ -109,8 +202,10 @@ export function runWithSSRContext(context, fn) {
 export async function runWithSSRContextAsync(context, fn) {
   const storage = ensureALS();
   if (storage) {
+    if (storage.getStore() === context) return fn();
     return storage.run(context, fn);
   }
+  if (stack[stack.length - 1] === context) return fn();
   stack.push(context);
   try {
     return await fn();
@@ -122,4 +217,6 @@ export async function runWithSSRContextAsync(context, fn) {
 export function resetGlobalSSRFallback() {
   fallback = createEmptyContext();
   lastCompleted = null;
+  lastCompletedAmbiguous = false;
+  fallbackRequest = null;
 }

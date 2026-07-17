@@ -18,6 +18,11 @@ const cases = [
     name: "unclosed css block",
     source: "<style>\n.card { color: red;\n</style>\n<div>Card</div>",
     expected: "unclosed CSS block"
+  },
+  {
+    name: "unclosed css comment",
+    source: "<style scoped>/* missing close\n.card { color: red; }</style>\n<div>Card</div>",
+    expected: "unclosed CSS comment"
   }
 ];
 
@@ -58,8 +63,11 @@ try {
     throw new Error(`static template: compiler failed: ${staticResult.output}`);
   }
   const staticOutput = await readFile(join(dir, "StaticOnly.js"), "utf8");
-  if (!staticOutput.includes("htmlStatic(")) {
-    throw new Error("static template: expected compiler to emit htmlStatic");
+  if (!staticOutput.includes("createCompiledStatic(")) {
+    throw new Error("static template: expected compiler to emit a direct static DOM factory");
+  }
+  if (!staticOutput.includes('document.createElement("section")')) {
+    throw new Error("static template: expected compiler to emit direct DOM creation");
   }
   if (!staticOutput.includes('from "cachoujs"')) {
     throw new Error("static template: expected package import from cachoujs");
@@ -81,7 +89,9 @@ try {
 
   const scopedFile = join(dir, "ScopedCard.cachou");
   await writeFile(scopedFile, `<style scoped>
+/* comments may contain braces: { } */
 .card { color: red; }
+.commented /* selector note */ { color: purple; }
 .card:hover { color: blue; }
 :host { display: block; }
 :global(.theme) { color: green; }
@@ -107,6 +117,13 @@ try {
   }
   if (!scopedCSS.includes(".theme { color: green; }")) {
     throw new Error("scoped style: expected :global selector to remain global");
+  }
+
+  if (!scopedCSS.includes("/* comments may contain braces: { } */")) {
+    throw new Error("scoped style: expected CSS comments to survive scanning");
+  }
+  if (!scopedCSS.includes(".commented[data-c-scopedcard] /* selector note */")) {
+    throw new Error("scoped style: expected selector comments to remain after the scope attribute");
   }
 
   const globalFile = join(dir, "GlobalCard.cachou");

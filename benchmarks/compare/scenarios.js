@@ -2,6 +2,8 @@ export const rowCount = 1000;
 export const updateCount = 100;
 export const formInputCount = 500;
 export const mountLoopCount = 100;
+export const dashboardCardCount = 200;
+export const dashboardUpdateCount = 50;
 
 export function makeRows(count, offset = 0) {
   const rows = [];
@@ -9,6 +11,14 @@ export function makeRows(count, offset = 0) {
     rows.push({ id: i + 1 + offset, label: `Row ${i + 1 + offset}` });
   }
   return rows;
+}
+
+export function makeDashboardCards(count) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    label: `Metric ${index + 1}`,
+    status: index % 3 === 0 ? "Attention" : "Healthy"
+  }));
 }
 
 export const scenarios = [
@@ -52,6 +62,13 @@ export const scenarios = [
     notes: "100 mount/unmount cycles of 100 nodes",
     run(adapter, target) {
       return adapter.mountUnmount(target, mountLoopCount);
+    }
+  },
+  {
+    name: "dashboard refresh",
+    notes: "200 nested metric cards x 50 committed refreshes",
+    run(adapter, target) {
+      return adapter.dashboardRefresh(target, makeDashboardCards(dashboardCardCount), dashboardUpdateCount);
     }
   }
 ];

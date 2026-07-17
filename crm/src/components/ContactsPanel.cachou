@@ -19,8 +19,15 @@
   }
 
   .list {
+    height: 520px;
+    min-height: 0;
     overflow: auto;
     padding: 10px;
+  }
+
+  .virtual-content {
+    position: relative;
+    width: 100%;
   }
 
   .row {
@@ -33,6 +40,8 @@
     margin-bottom: 6px;
     min-height: 64px;
     padding: 10px;
+    position: absolute;
+    right: 0;
     text-align: left;
     width: 100%;
   }
@@ -72,18 +81,21 @@
 </style>
 
 <section class="split">
-  <div class="list">
+  <div class="list" onscroll={props.onContactScroll}>
     {props.visibleContacts().length === 0 ? html`<div class="empty">No contacts match this search.</div>` : null}
-    {mapArray(props.visibleContacts, contact => html`<button
-      class=${() => props.selectedContact()?.id === contact.id ? "row selected" : "row"}
-      onclick=${() => props.setSelectedId(contact.id)}
-    >
-      <span>
-        <strong>${contact.name}</strong>
-        <small>${contact.company}</small>
-      </span>
-      <em>${contact.status}</em>
-    </button>`, contact => contact.id, { uniqueKeys: true, reactiveItems: false })}
+    <div class="virtual-content" style={() => "height:" + props.visibleContactHeight() + "px"}>
+      {mapArray(props.visibleContacts, (contact, index) => html`<button
+        class=${() => props.selectedContact()?.id === contact.id ? "row selected" : "row"}
+        style=${() => "top:" + ((props.visibleContactStart() + index) * 74) + "px"}
+        onclick=${() => props.setSelectedId(contact.id)}
+      >
+        <span>
+          <strong>${contact.name}</strong>
+          <small>${contact.company}</small>
+        </span>
+        <em>${contact.status}</em>
+      </button>`, contact => contact.id, { uniqueKeys: true, reactiveItems: false })}
+    </div>
   </div>
   <article class="detail">
     {props.selectedContact() ? props.renderDetail(props.selectedContact()) : html`<div class="empty">Select a contact.</div>`}

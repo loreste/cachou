@@ -18,14 +18,16 @@ function platformBinaryName() {
   return `cachou-compiler-${goos}-${goarch}${ext}`;
 }
 
+// The JS compiler is canonical. Native binaries remain optional accelerators,
+// but must be selected explicitly so generated output stays portable.
 const candidates = [
-  { command: join(root, "bin", "cachou-compiler"), args: userArgs, shell: false },
-  { command: join(root, "bin", "dist", platformBinaryName()), args: userArgs, shell: false },
   {
     command: process.execPath,
     args: [join(root, "packages", "compiler", "bin", "cachou-compiler.js"), ...userArgs],
     shell: false
   },
+  { command: join(root, "bin", "cachou-compiler"), args: userArgs, shell: false },
+  { command: join(root, "bin", "dist", platformBinaryName()), args: userArgs, shell: false },
   { command: "go", args: ["run", join(root, "compiler.go"), ...userArgs], shell: false }
 ];
 

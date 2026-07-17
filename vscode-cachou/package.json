@@ -2,7 +2,7 @@
   "name": "cachou",
   "displayName": "CachouJS",
   "description": "Language support, snippets, compile, and diagnostics for CachouJS (.cachou SFCs)",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "publisher": "cachoujs",
   "license": "MIT",
   "engines": {
@@ -99,7 +99,7 @@
       },
       {
         "command": "cachou.createComponent",
-        "title": "Cachou: Create Component…"
+        "title": "Cachou: Create Component\u2026"
       },
       {
         "command": "cachou.openDocs",

@@ -10,7 +10,7 @@ export const reactAdapter = {
     flushSync(() => {
       root.render(React.createElement(Table, { rows }));
     });
-    root.unmount();
+    return () => root.unmount();
   },
 
   textFanout(target, count, updates) {
@@ -90,6 +90,32 @@ export const reactAdapter = {
       flushSync(() => root.render(React.createElement(ManySpans, { iteration: i })));
       root.unmount();
     }
+  },
+
+  dashboardRefresh(target, cards, updates) {
+    let setValue;
+    const root = createRoot(target);
+    function App() {
+      const state = React.useState(0);
+      setValue = state[1];
+      return React.createElement(
+        "section",
+        { className: "dashboard-grid" },
+        cards.map(card => React.createElement(
+          "article",
+          { className: "metric-card", key: card.id },
+          React.createElement("h3", null, card.label),
+          React.createElement("strong", null, state[0]),
+          React.createElement("p", null, card.status)
+        ))
+      );
+    }
+    flushSync(() => root.render(React.createElement(App)));
+    for (let i = 1; i <= updates; i++) flushSync(() => setValue(i));
+    if (target.querySelector("strong")?.textContent !== String(updates)) {
+      throw new Error("React dashboard value did not commit");
+    }
+    root.unmount();
   }
 };
 

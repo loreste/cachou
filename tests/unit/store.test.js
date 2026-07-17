@@ -35,4 +35,38 @@ describe("store", () => {
       dispose();
     });
   });
+
+  it("tracks array length and batches mutating methods", () => {
+    createRoot(dispose => {
+      const state = store({ items: [] });
+      let runs = 0;
+      effect(() => {
+        state.items.length;
+        runs++;
+      });
+
+      assert.equal(state.items.push("a"), 1);
+      assert.equal(state.items.length, 1);
+      assert.equal(runs, 2);
+
+      state.items.unshift("b");
+      assert.deepEqual([...state.items], ["b", "a"]);
+      assert.equal(runs, 3);
+      dispose();
+    });
+  });
+
+  it("invalidates subscribers for indices removed by length truncation", () => {
+    createRoot(dispose => {
+      const state = store({ items: ["a", "b"] });
+      let seen;
+      effect(() => {
+        seen = state.items[1];
+      });
+      assert.equal(seen, "b");
+      state.items.length = 1;
+      assert.equal(seen, undefined);
+      dispose();
+    });
+  });
 });

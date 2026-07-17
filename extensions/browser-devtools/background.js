@@ -4,7 +4,7 @@ chrome.action.onClicked?.addListener?.(() => {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "cachou-ping") {
-    sendResponse({ ok: true, version: "0.4.4" });
+    sendResponse({ ok: true, version: "0.4.5" });
   }
   return false;
 });

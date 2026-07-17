@@ -93,13 +93,26 @@ Quoted `>` characters inside attributes are handled so tags do not terminate ear
 
 ### Static templates
 
-If the compiled template has **no** `${...}` interpolations, the compiler emits:
+If the compiled template has **no** `${...}` interpolations and belongs to the
+safe static subset, the compiler emits a direct DOM factory behind the runtime
+boundary:
 
 ```javascript
-return htmlStatic("...");
+return Cachou.createCompiledStatic("<section><h1>Static</h1></section>", () => {
+  const root = document.createElement("section");
+  const heading = document.createElement("h1");
+  heading.appendChild(document.createTextNode("Static"));
+  root.appendChild(heading);
+  return root;
+});
 ```
 
-instead of a live `html` template, skipping reactive binding work.
+This skips browser HTML parsing and template cloning while preserving exact
+markup on SSR. Templates containing entities, SVG/MathML namespaces, raw-text
+elements, ambiguous HTML structure, or `${...}` expressions stay on
+`htmlStatic` or `html` so browser semantics and hydration remain predictable.
+The generated module includes a compatibility fallback to `htmlStatic` when an
+older runtime does not expose `createCompiledStatic`.
 
 ---
 
@@ -198,16 +211,17 @@ cachou-compiler -dir <directory>    [-out <dir>] [-runtime cachoujs]
 ### Exit codes
 
 - Compiling a directory **fails the process** if any file errors (all errors still printed).
-- Missing Go and missing binary → wrapper prints install instructions.
+- Node.js is the only runtime required for the canonical compiler.
 
 ### Binary resolution
 
-1. `bin/cachou-compiler` if present (built for your platform)  
-2. Else `go run compiler.go` from the package root  
-3. `postinstall` runs `scripts/ensure-compiler.mjs` when Go is available  
-4. Skip build: `CACHOU_SKIP_COMPILER_BUILD=1`
+1. `packages/compiler/bin/cachou-compiler.js` (canonical, cross-platform)
+2. `go run compiler.go` or `bin/cachou-compiler` delegates to the canonical compiler
+3. `CACHOU_SKIP_COMPILER_BUILD=1` remains supported for older install scripts
 
-Published packages ship **source** (`compiler.go` + wrapper), not a single-OS Mach-O binary.
+Published packages ship the canonical JavaScript compiler. The Go source remains in the
+repository for legacy diagnostics and experiments, not as a second supported output path.
+Set `CACHOU_COMPILER_LEGACY=1` only when explicitly testing the old Go implementation.
 
 ---
 
@@ -222,7 +236,7 @@ export default defineConfig({
     cachou({
       dirs: ["src/components"], // compiled on buildStart
       runtime: "cachoujs",      // import specifier written into generated JS
-      aliasRuntime: true        // alias cachoujs → package src in monorepo/plugin context
+      aliasRuntime: true        // alias cachoujs → browser-safe runtime by default
     })
   ]
 });
@@ -233,6 +247,10 @@ Behavior:
 - Compiles all listed dirs at build start (missing dirs skipped).
 - Watches `.cachou` add/change/unlink in dev; recompiles; full reload.
 - Deletes generated `.js`/`.css` when the source `.cachou` is removed.
+
+The generated browser import is aliased to the browser-safe runtime entry by
+default, keeping server-only content loaders out of client bundles. Set
+`runtimeEntry` explicitly when a server or custom runtime entry is required.
 
 Also available as helpers:
 
@@ -256,6 +274,12 @@ Local verification:
 ```bash
 node scripts/check-compiler-diagnostics.mjs
 ```
+
+The standard quality gate also runs `node scripts/check-compiler-parity.mjs`.
+It compiles the shared fixtures through both the canonical JavaScript CLI and
+the Go entry point, then compares every generated JavaScript, CSS, and source
+map byte-for-byte. The Go entry point is expected to delegate to the canonical
+JavaScript implementation.
 
 ---
 

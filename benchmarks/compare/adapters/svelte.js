@@ -1,5 +1,6 @@
 import { mount, unmount } from "svelte";
 import AttributeFanout from "../svelte/AttributeFanout.svelte";
+import DashboardRefresh from "../svelte/DashboardRefresh.svelte";
 import FormInput from "../svelte/FormInput.svelte";
 import InitialRows from "../svelte/InitialRows.svelte";
 import KeyedReverse from "../svelte/KeyedReverse.svelte";
@@ -11,7 +12,7 @@ export const svelteAdapter = {
 
   initialRows(target, rows) {
     const component = mount(InitialRows, { target, props: { rows } });
-    unmount(component);
+    return () => unmount(component);
   },
 
   async textFanout(target, count, updates) {
@@ -46,5 +47,14 @@ export const svelteAdapter = {
       const component = mount(MountMany, { target, props: { iteration: i } });
       unmount(component);
     }
+  },
+
+  async dashboardRefresh(target, cards, updates) {
+    const component = mount(DashboardRefresh, { target, props: { cards } });
+    await component.run(updates);
+    if (target.querySelector("strong")?.textContent !== String(updates)) {
+      throw new Error("Svelte dashboard value did not commit");
+    }
+    unmount(component);
   }
 };

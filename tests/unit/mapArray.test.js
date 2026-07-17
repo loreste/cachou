@@ -41,6 +41,93 @@ describe("mapArray", () => {
     });
   });
 
+  it("reuses unique entries through repeated full reversals", () => {
+    const rows = Array.from({ length: 32 }, (_, id) => ({ id }));
+    const [list, setList] = signal(rows);
+    const mapped = mapArray(
+      list,
+      item => ({ id: item.id }),
+      item => item.id,
+      { reactiveItems: false, uniqueKeys: true }
+    );
+    const initial = mapped();
+
+    for (let cycle = 1; cycle <= 2000; cycle++) {
+      const reversed = cycle % 2 === 1;
+      setList(reversed ? rows.slice().reverse() : rows);
+      const result = mapped();
+      for (let index = 0; index < rows.length; index++) {
+        const sourceIndex = reversed ? rows.length - index - 1 : index;
+        assert.equal(result[index], initial[sourceIndex]);
+        assert.equal(result[index].id, rows[sourceIndex].id);
+      }
+    }
+  });
+
+  it("skips key recomputation for immutable identity reversals", () => {
+    const rows = Array.from({ length: 16 }, (_, id) => ({ id }));
+    let keyCalls = 0;
+    const [list, setList] = signal(rows);
+    const mapped = mapArray(
+      list,
+      item => item.id,
+      item => {
+        keyCalls++;
+        return item.id;
+      },
+      { reactiveItems: false, uniqueKeys: true }
+    );
+
+    mapped();
+    keyCalls = 0;
+    setList(rows.slice().reverse());
+    assert.deepEqual(mapped(), rows.map(row => row.id).reverse());
+    assert.equal(keyCalls, 0);
+  });
+
+  it("builds the unique lookup lazily for arbitrary updates", () => {
+    const rows = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    const [list, setList] = signal(rows);
+    const mapped = mapArray(
+      list,
+      item => ({ id: item.id }),
+      item => item.id,
+      { reactiveItems: false, uniqueKeys: true }
+    );
+    const initial = mapped();
+
+    assert.deepEqual(mapped(), initial, "Repeated reads preserve initial mapped identity");
+    setList([rows[2], rows[0], rows[1]]);
+    const reordered = mapped();
+    assert.equal(reordered[0], initial[2]);
+    assert.equal(reordered[1], initial[0]);
+    assert.equal(reordered[2], initial[1]);
+  });
+
+  it("reuses immutable keyed results when the list identity is unchanged", () => {
+    const rows = [{ id: "a" }, { id: "b" }];
+    let keyCalls = 0;
+    const [list, setList] = signal(rows);
+    const mapped = mapArray(
+      list,
+      item => ({ id: item.id }),
+      item => {
+        keyCalls++;
+        return item.id;
+      },
+      { reactiveItems: false, uniqueKeys: true }
+    );
+
+    const initial = mapped();
+    keyCalls = 0;
+    assert.equal(mapped(), initial);
+    assert.equal(keyCalls, 0);
+
+    setList(rows.slice());
+    mapped();
+    assert.equal(keyCalls, rows.length, "A new array identity still validates its keys");
+  });
+
   it("handles empty lists", () => {
     const [list, setList] = signal([]);
     const mapped = mapArray(list, x => x, x => x);

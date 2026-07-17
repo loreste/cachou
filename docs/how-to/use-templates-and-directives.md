@@ -37,6 +37,11 @@ html`
 
 Common events (`click`, `input`, `change`, `keydown`, …) are **delegated** on `document`. Others use per-node listeners and clean up with the node.
 
+Each DOM event handler runs inside one synchronous reactive transaction. Multiple
+signal or store writes from the same handler are coalesced and committed before
+the event dispatch returns; use `batch()` explicitly when coordinating work
+outside an event handler.
+
 ---
 
 ## Attributes and properties

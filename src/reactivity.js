@@ -1,12 +1,16 @@
-import { getSSRContext, createSSRContext, runWithSSRContext, runWithSSRContextAsync, installSSRAsyncHooks, resetGlobalSSRFallback, setLastSSRContext } from "./ssr-context.js";
+import { getSSRContext, getActiveSSRContext, createSSRContext, runWithSSRContext, runWithSSRContextAsync, installSSRAsyncHooks, resetGlobalSSRFallback, setLastSSRContext, getLastSSRContext, isLastSSRContextAmbiguous, beginSSRRender, endSSRRender } from "./ssr-context.js";
+import { writeLog, configureLogger, getLoggerConfig, createLogger, isLoggingEnabled } from "./logger.js";
+import { configureTracing, getTracingConfig, createTracer, startSpan, runWithSpan, getActiveSpan, getSpanTraceparent, parseTraceparent, formatTraceparent, extractTraceparent } from "./tracing.js";
+import { cleanupNode } from "./dom-cleanup.js";
 
-export { installSSRAsyncHooks, createSSRContext, runWithSSRContext, runWithSSRContextAsync, setLastSSRContext };
+export { installSSRAsyncHooks, createSSRContext, runWithSSRContext, runWithSSRContextAsync, setLastSSRContext, beginSSRRender, endSSRRender, configureLogger, getLoggerConfig, createLogger, configureTracing, getTracingConfig, createTracer, startSpan, runWithSpan, getActiveSpan, getSpanTraceparent, parseTraceparent, formatTraceparent, extractTraceparent };
 
 let activeEffect = null;
 let activeOwner = null;
 const effectStack = [];
 let batchDepth = 0;
 let batchedUpdates = new Set();
+let batchedValues = new Map();
 let activeErrorHandlers = [];
 const frameworkEventListeners = new Set();
 const scheduledQueues = {
@@ -36,6 +40,34 @@ const debugState = {
 };
 
 const resourceInflight = new Map();
+const resourceInflightTokens = new WeakMap();
+
+function registerResourceInflight(inflight, key, promise) {
+  const previous = inflight.get(key);
+  if (previous) {
+    const previousToken = resourceInflightTokens.get(previous);
+    if (previousToken) previousToken.invalidated = true;
+  }
+  const token = { invalidated: false };
+  resourceInflightTokens.set(promise, token);
+  inflight.set(key, promise);
+  return token;
+}
+
+function invalidateResourceInflight(inflight, key) {
+  const promise = inflight.get(key);
+  if (promise) {
+    const token = resourceInflightTokens.get(promise);
+    if (token) token.invalidated = true;
+  }
+  inflight.delete(key);
+}
+
+function normalizeEquals(equals) {
+  if (equals === false) return () => false;
+  if (typeof equals === "function") return equals;
+  return (a, b) => a === b;
+}
 
 function ssrCache() {
   return getSSRContext().ssrCache;
@@ -45,16 +77,51 @@ function pendingResources() {
   return getSSRContext().pendingResources;
 }
 
+function getSerializationContext(explicitContext = null) {
+  if (explicitContext) {
+    if (!explicitContext.ssrCache || !explicitContext.pendingResources || !explicitContext.head) {
+      throw new TypeError("CachouJS serialization requires a valid SSR context.");
+    }
+    return explicitContext;
+  }
+  const activeContext = getActiveSSRContext();
+  if (activeContext) return activeContext;
+  const completedContext = getLastSSRContext();
+  if (completedContext) return completedContext;
+  if (isLastSSRContextAmbiguous()) {
+    throw new Error("CachouJS has no unambiguous completed SSR output context; pass the request's SSR context to dehydrate() or getSSRHead().");
+  }
+  return getSSRContext();
+}
+
 export function onFrameworkEvent(listener) {
   frameworkEventListeners.add(listener);
   return () => frameworkEventListeners.delete(listener);
 }
 
 export function emitFrameworkEvent(event) {
+  const activeSpan = getActiveSpan();
+  const loggingEnabled = isLoggingEnabled();
+  if (frameworkEventListeners.size === 0 && !activeSpan?.isRecording() && !loggingEnabled) return;
+  const activeContext = getActiveSSRContext();
   const normalized = {
     time: Date.now(),
+    ...(activeContext?.id ? { ssrContextId: activeContext.id } : {}),
+    ...(activeContext?.path && !event.path ? { path: activeContext.path } : {}),
     ...event
   };
+  if (loggingEnabled) writeLog(normalized);
+  if (activeSpan?.isRecording()) {
+    const attributes = {};
+    for (const [key, value] of Object.entries(normalized)) {
+      if (["time", "type", "error", "node", "message"].includes(key)) continue;
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        attributes[key] = value;
+      }
+    }
+    activeSpan.addEvent(`cachou.${normalized.type || "event"}`, attributes);
+    if (normalized.error) activeSpan.recordException(normalized.error);
+  }
   for (const listener of frameworkEventListeners) {
     try {
       listener(normalized);
@@ -67,11 +134,13 @@ export function emitFrameworkEvent(event) {
 }
 
 export function resetResourceCounter() {
-  getSSRContext().resourceCounter = 0;
+  const context = getSSRContext();
+  context.resourceCounter = 0;
+  context.resourcesStarted = 0;
 }
 
-export function dehydrate() {
-  const cache = ssrCache();
+export function dehydrate(context = null) {
+  const cache = getSerializationContext(context).ssrCache;
   const json = JSON.stringify(cache)
     .replace(/</g, "\\u003c")
     .replace(/\u2028/g, "\\u2028")
@@ -82,10 +151,26 @@ export function dehydrate() {
   return `<script id="__CACHOU_STATE__">window.__CACHOU_STATE__ = ${json};</script>`;
 }
 
-export async function resolvePendingResources() {
+export async function resolvePendingResources(signal = null) {
   const pending = pendingResources();
   while (pending.size > 0) {
-    await Promise.all(Array.from(pending));
+    if (signal?.aborted) return;
+    const waitForResources = Promise.all(Array.from(pending));
+    if (!signal) {
+      await waitForResources;
+      continue;
+    }
+    let onAbort;
+    const aborted = new Promise(resolve => {
+      onAbort = resolve;
+      if (signal.aborted) resolve();
+      else signal.addEventListener("abort", resolve, { once: true });
+    });
+    try {
+      await Promise.race([waitForResources, aborted]);
+    } finally {
+      signal.removeEventListener?.("abort", onAbort);
+    }
   }
 }
 
@@ -225,6 +310,12 @@ function flushScheduledTasks() {
     }
   } finally {
     schedulerFlushing = false;
+    if (!hasScheduledTasks() && schedulerChannel) {
+      schedulerChannel.port1.onmessage = null;
+      schedulerChannel.port1.close?.();
+      schedulerChannel.port2.close?.();
+      schedulerChannel = null;
+    }
   }
 }
 
@@ -241,28 +332,39 @@ function runScheduledTask(task) {
     yieldNow
   };
 
-  Promise.resolve()
-    .then(() => task.fn(context))
-    .then(
-      value => {
-        if (task.signal.aborted) {
-          task.status = "cancelled";
-          task.resolve(undefined);
-        } else {
-          task.status = "completed";
-          task.resolve(value);
-        }
-      },
-      err => {
-        if (task.signal.aborted || (err && err.name === "AbortError")) {
-          task.status = "cancelled";
-          task.resolve(undefined);
-        } else {
-          task.status = "failed";
-          task.reject(err);
-        }
-      }
-    );
+  try {
+    const result = task.fn(context);
+    if (result && typeof result.then === "function") {
+      Promise.resolve(result).then(
+        value => completeScheduledTask(task, value),
+        err => failScheduledTask(task, err)
+      );
+    } else {
+      completeScheduledTask(task, result);
+    }
+  } catch (err) {
+    failScheduledTask(task, err);
+  }
+}
+
+function completeScheduledTask(task, value) {
+  if (task.signal.aborted) {
+    task.status = "cancelled";
+    task.resolve(undefined);
+  } else {
+    task.status = "completed";
+    task.resolve(value);
+  }
+}
+
+function failScheduledTask(task, err) {
+  if (task.signal.aborted || (err && err.name === "AbortError")) {
+    task.status = "cancelled";
+    task.resolve(undefined);
+  } else {
+    task.status = "failed";
+    task.reject(err);
+  }
 }
 
 function shouldYieldToScheduler(priority = "normal") {
@@ -299,6 +401,9 @@ export function scheduleTask(fn, options = {}) {
   const signal = controller ? controller.signal : { aborted: false };
   let resolveFinished;
   let rejectFinished;
+  let removeSourceAbortListener = null;
+  let removeTransitionAbortListener = null;
+  let settled = false;
   const task = {
     fn,
     priority,
@@ -308,7 +413,7 @@ export function scheduleTask(fn, options = {}) {
     resolve: value => resolveFinished(value),
     reject: err => rejectFinished(err),
     cancel() {
-      if (task.cancelled) return;
+      if (task.cancelled || settled) return;
       task.cancelled = true;
       task.status = "cancelled";
       if (controller && !controller.signal.aborted) {
@@ -317,10 +422,28 @@ export function scheduleTask(fn, options = {}) {
       resolveFinished(undefined);
     }
   };
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    removeSourceAbortListener?.();
+    removeTransitionAbortListener?.();
+    transition?.tasks.delete(task);
+    transition?.promises.delete(task.finished);
+  };
   task.finished = new Promise((resolve, reject) => {
-    resolveFinished = resolve;
-    rejectFinished = reject;
+    resolveFinished = value => {
+      settle();
+      resolve(value);
+    };
+    rejectFinished = err => {
+      settle();
+      reject(err);
+    };
   });
+
+  if (activeOwner || activeEffect) {
+    onCleanup(() => task.cancel());
+  }
 
   if (options.signal) {
     if (options.signal.aborted) {
@@ -328,6 +451,7 @@ export function scheduleTask(fn, options = {}) {
       return task;
     }
     options.signal.addEventListener("abort", task.cancel, { once: true });
+    removeSourceAbortListener = () => options.signal.removeEventListener("abort", task.cancel);
   }
   if (transition) {
     transition.tasks.add(task);
@@ -337,6 +461,7 @@ export function scheduleTask(fn, options = {}) {
       return task;
     }
     transition.signal.addEventListener("abort", task.cancel, { once: true });
+    removeTransitionAbortListener = () => transition.signal.removeEventListener("abort", task.cancel);
   }
 
   scheduledQueues[priority].push(task);
@@ -347,7 +472,17 @@ export function scheduleTask(fn, options = {}) {
 export function signal(initialValue, options = {}) {
   let value = initialValue;
   const subscribers = new Set();
-  const equals = options.equals !== undefined ? options.equals : (a, b) => a === b;
+  const directSubscribers = new Set();
+  const directSubscriberList = [];
+  const directSubscriberIndexes = new Map();
+  let directDispatchDepth = 0;
+  let directHoles = 0;
+  const directClassSubscribers = new Set();
+  const directClassSubscriberList = [];
+  const directClassSubscriberIndexes = new Map();
+  let directClassDispatchDepth = 0;
+  let directClassHoles = 0;
+  const equals = normalizeEquals(options.equals);
   const debugInfo = {
     type: "signal",
     name: options.name || "",
@@ -364,8 +499,6 @@ export function signal(initialValue, options = {}) {
     }
     return value;
   };
-  getter.$$cachouSignal = { subscribers };
-
   const setter = (newValue) => {
     if (typeof newValue === 'function') {
       newValue = newValue(value);
@@ -375,13 +508,150 @@ export function signal(initialValue, options = {}) {
       if (batchDepth > 0) {
         for (const sub of subscribers) {
           batchedUpdates.add(sub);
+          if (directSubscribers.has(sub)) batchedValues.set(sub, newValue);
         }
       } else {
-        const subs = Array.from(subscribers);
-        for (let i = 0; i < subs.length; i++) {
-          runSubscriber(subs[i]);
+        if (directClassSubscribers.size === subscribers.size) {
+          directClassDispatchDepth++;
+          try {
+            if (directClassHoles === 0) {
+              for (let i = 0; i < directClassSubscriberList.length; i++) {
+                const binding = directClassSubscriberList[i];
+                binding.node.className = value ? binding.className : "";
+              }
+            } else {
+              for (let i = 0; i < directClassSubscriberList.length; i++) {
+                const binding = directClassSubscriberList[i];
+                if (binding) binding.node.className = value ? binding.className : "";
+              }
+            }
+          } finally {
+            directClassDispatchDepth--;
+            if (directClassDispatchDepth === 0 && directClassHoles > directClassSubscriberList.length / 4) {
+              let write = 0;
+              for (let read = 0; read < directClassSubscriberList.length; read++) {
+                const binding = directClassSubscriberList[read];
+                if (!binding) continue;
+                directClassSubscriberList[write] = binding;
+                directClassSubscriberIndexes.set(binding, write++);
+              }
+              directClassSubscriberList.length = write;
+              directClassHoles = 0;
+            }
+          }
+        } else if (directClassSubscribers.size === 0 && directSubscribers.size === subscribers.size) {
+          directDispatchDepth++;
+          try {
+            if (directHoles === 0) {
+              for (let i = 0; i < directSubscriberList.length; i++) {
+                directSubscriberList[i](value);
+              }
+            } else {
+              for (let i = 0; i < directSubscriberList.length; i++) {
+                const subscriber = directSubscriberList[i];
+                if (subscriber) subscriber(value);
+              }
+            }
+          } finally {
+            directDispatchDepth--;
+            if (directDispatchDepth === 0 && directHoles > directSubscriberList.length / 4) {
+              let write = 0;
+              for (let read = 0; read < directSubscriberList.length; read++) {
+                const subscriber = directSubscriberList[read];
+                if (!subscriber) continue;
+                directSubscriberList[write] = subscriber;
+                directSubscriberIndexes.set(subscriber, write++);
+              }
+              directSubscriberList.length = write;
+              directHoles = 0;
+            }
+          }
+        } else {
+          const subs = Array.from(subscribers);
+          for (let i = 0; i < subs.length; i++) {
+            runSubscriber(subs[i], value);
+          }
         }
       }
+    }
+  };
+
+  const removeClassBinding = (binding) => {
+    if (!directClassSubscribers.delete(binding)) return;
+    directSubscribers.delete(binding);
+    subscribers.delete(binding);
+    const index = directClassSubscriberIndexes.get(binding);
+    if (index !== undefined && directClassSubscriberList[index]) {
+      directClassSubscriberList[index] = null;
+      directClassSubscriberIndexes.delete(binding);
+      directClassHoles++;
+    }
+    if (directClassDispatchDepth === 0 && directClassHoles > directClassSubscriberList.length / 4) {
+      let write = 0;
+      for (let read = 0; read < directClassSubscriberList.length; read++) {
+        const activeBinding = directClassSubscriberList[read];
+        if (!activeBinding) continue;
+        directClassSubscriberList[write] = activeBinding;
+        directClassSubscriberIndexes.set(activeBinding, write++);
+      }
+      directClassSubscriberList.length = write;
+      directClassHoles = 0;
+    }
+  };
+
+  getter.$$cachouSignal = {
+    subscribers,
+    subscribe(subscriber) {
+      subscribers.add(subscriber);
+      if (!directSubscribers.has(subscriber)) {
+        directSubscribers.add(subscriber);
+        directSubscriberIndexes.set(subscriber, directSubscriberList.length);
+        directSubscriberList.push(subscriber);
+      }
+    },
+    subscribeClass(node, className) {
+      const binding = {
+        node,
+        className,
+        run(value) {
+          this.node.className = value ? this.className : "";
+        }
+      };
+      subscribers.add(binding);
+      directSubscribers.add(binding);
+      directClassSubscribers.add(binding);
+      directClassSubscriberIndexes.set(binding, directClassSubscriberList.length);
+      directClassSubscriberList.push(binding);
+      return binding;
+    },
+    unsubscribe(subscriber) {
+      if (directClassSubscribers.has(subscriber)) {
+        removeClassBinding(subscriber);
+        return;
+      }
+      if (directSubscribers.delete(subscriber)) {
+        const index = directSubscriberIndexes.get(subscriber);
+        if (index !== undefined && directSubscriberList[index]) {
+          directSubscriberList[index] = null;
+          directSubscriberIndexes.delete(subscriber);
+          directHoles++;
+        }
+        if (directDispatchDepth === 0 && directHoles > directSubscriberList.length / 4) {
+          let write = 0;
+          for (let read = 0; read < directSubscriberList.length; read++) {
+            const activeSubscriber = directSubscriberList[read];
+            if (!activeSubscriber) continue;
+            directSubscriberList[write] = activeSubscriber;
+            directSubscriberIndexes.set(activeSubscriber, write++);
+          }
+          directSubscriberList.length = write;
+          directHoles = 0;
+        }
+      }
+      subscribers.delete(subscriber);
+    },
+    unsubscribeClass(binding) {
+      removeClassBinding(binding);
     }
   };
 
@@ -472,6 +742,11 @@ export function createRoot(fn) {
 
   try {
     return fn(dispose);
+  } catch (error) {
+    // A failed initializer has no safe way to return its disposer. Tear down
+    // everything created under the root before propagating the original error.
+    dispose();
+    throw error;
   } finally {
     activeOwner = prevOwner;
   }
@@ -480,10 +755,11 @@ export function createRoot(fn) {
 function cleanupEffect(eff) {
   // Dispose child computations owned by this effect before re-running it.
   if (eff.owned) {
-    for (const child of eff.owned) {
+    const children = Array.from(eff.owned);
+    eff.owned.clear();
+    for (const child of children) {
       disposeEffect(child, false);
     }
-    eff.owned.clear();
   }
 
   // Unsubscribe from all signals
@@ -496,14 +772,15 @@ function cleanupEffect(eff) {
 
   // Run registered cleanup callbacks
   if (eff.cleanups) {
-    for (const cleanupFn of eff.cleanups) {
+    const cleanups = Array.from(eff.cleanups);
+    eff.cleanups.clear();
+    for (const cleanupFn of cleanups) {
       try {
         cleanupFn();
       } catch (err) {
         console.error("Error in cleanup callback:", err);
       }
     }
-    eff.cleanups.clear();
   }
 }
 
@@ -572,7 +849,8 @@ export function memo(fn, options = {}) {
   let initialized = false;
   let dirty = true;
   const subscribers = new Set();
-  const equals = options.equals !== undefined ? options.equals : (a, b) => a === b;
+  const equals = normalizeEquals(options.equals);
+  let recompute;
 
   const memoObj = {
     type: "memo",
@@ -584,6 +862,9 @@ export function memo(fn, options = {}) {
     run() {
       if (this.disposed || dirty) return;
       dirty = true;
+      if (subscribers.size === 0) return;
+      const result = recompute();
+      if (result.completed && !result.changed) return;
       const subs = Array.from(subscribers);
       for (let i = 0; i < subs.length; i++) {
         subs[i].run();
@@ -598,6 +879,29 @@ export function memo(fn, options = {}) {
     ensureOwned(activeOwner).add(memoObj);
   }
 
+  recompute = () => {
+    cleanupEffect(memoObj);
+
+    const prevEffect = activeEffect;
+    const prevOwner = activeOwner;
+    activeEffect = memoObj;
+    activeOwner = memoObj;
+    try {
+      const next = fn();
+      const changed = !initialized || !equals(value, next);
+      if (changed) value = next;
+      initialized = true;
+      dirty = false;
+      return { changed, completed: true };
+    } catch (err) {
+      handleError(err);
+      return { changed: true, completed: false };
+    } finally {
+      activeEffect = prevEffect;
+      activeOwner = prevOwner;
+    }
+  };
+
   const read = () => {
     if (activeEffect) {
       subscribers.add(activeEffect);
@@ -607,27 +911,8 @@ export function memo(fn, options = {}) {
       return value;
     }
 
-    cleanupEffect(memoObj);
-
-    const prevEffect = activeEffect;
-    const prevOwner = activeOwner;
-    activeEffect = memoObj;
-    activeOwner = memoObj;
-    try {
-      const next = fn();
-      if (!initialized || !equals(value, next)) {
-        value = next;
-      }
-      initialized = true;
-      dirty = false;
-      return value;
-    } catch (err) {
-      handleError(err);
-      return value;
-    } finally {
-      activeEffect = prevEffect;
-      activeOwner = prevOwner;
-    }
+    recompute();
+    return value;
   };
 
   return read;
@@ -649,23 +934,33 @@ function ensureCleanups(owner) {
 
 export function batch(fn) {
   batchDepth++;
+  let result;
   try {
-    fn();
+    result = fn();
   } finally {
     batchDepth--;
     if (batchDepth === 0) {
       const updates = batchedUpdates;
-      batchedUpdates = new Set();
-      for (const sub of updates) {
-        runSubscriber(sub);
+      if (updates.size > 0) {
+        const values = batchedValues;
+        batchedUpdates = new Set();
+        batchedValues = new Map();
+        for (const sub of updates) {
+          if (typeof sub === "function" && values.has(sub)) runSubscriber(sub, values.get(sub));
+          else runSubscriber(sub);
+        }
       }
     }
   }
+  return result;
 }
 
-function runSubscriber(subscriber) {
+function runSubscriber(subscriber, value) {
   if (typeof subscriber === "function") {
-    subscriber();
+    if (arguments.length > 1) subscriber(value);
+    else subscriber();
+  } else if (arguments.length > 1) {
+    subscriber.run(value);
   } else {
     subscriber.run();
   }
@@ -674,8 +969,9 @@ function runSubscriber(subscriber) {
 const storeSignalsMap = new WeakMap();
 const rawToStoreProxy = new WeakMap();
 const storeProxyToRaw = new WeakMap();
+const arrayMutators = new Set(["copyWithin", "fill", "pop", "push", "reverse", "shift", "sort", "splice", "unshift"]);
 
-function getSignalForProp(target, prop) {
+function getSignalForProp(target, prop, initialValue) {
   let props = storeSignalsMap.get(target);
   if (!props) {
     props = new Map();
@@ -683,7 +979,7 @@ function getSignalForProp(target, prop) {
   }
   let sig = props.get(prop);
   if (!sig) {
-    const [get, set] = signal(undefined, { equals: (a, b) => a === b });
+    const [get, set] = signal(initialValue, { equals: (a, b) => a === b });
     sig = { get, set };
     props.set(prop, sig);
   }
@@ -706,10 +1002,13 @@ export function store(rawObj) {
       if (prop === "__isStore") return true;
       if (prop === "__raw") return target;
 
-      const sig = getSignalForProp(target, prop);
+      const val = Reflect.get(target, prop, proxy);
+      const sig = getSignalForProp(target, prop, val);
       sig.get(); // Register dependency
 
-      const val = Reflect.get(target, prop);
+      if (Array.isArray(target) && arrayMutators.has(prop) && typeof val === "function") {
+        return (...args) => batch(() => Reflect.apply(val, proxy, args));
+      }
       if (typeof val === "object" && val !== null) {
         return store(val);
       }
@@ -717,20 +1016,30 @@ export function store(rawObj) {
     },
     set(target, prop, value) {
       const oldVal = Reflect.get(target, prop);
+      const oldLength = Array.isArray(target) ? target.length : 0;
       if (oldVal === value) return true;
 
       const success = Reflect.set(target, prop, value);
       if (success) {
-        const sig = getSignalForProp(target, prop);
+        const sig = getSignalForProp(target, prop, oldVal);
         sig.set(value); // Trigger subscribers
+        if (Array.isArray(target) && isArrayIndex(prop) && Number(prop) >= oldLength) {
+          getSignalForProp(target, "length", oldLength).set(target.length);
+        } else if (Array.isArray(target) && prop === "length" && target.length < oldLength) {
+          const props = storeSignalsMap.get(target);
+          for (let index = target.length; index < oldLength; index++) {
+            props?.get(String(index))?.set(undefined);
+          }
+        }
       }
       return success;
     },
     deleteProperty(target, prop) {
       const exists = Reflect.has(target, prop);
+      const oldVal = Reflect.get(target, prop);
       const success = Reflect.deleteProperty(target, prop);
       if (exists && success) {
-        const sig = getSignalForProp(target, prop);
+        const sig = getSignalForProp(target, prop, oldVal);
         sig.set(undefined); // Trigger subscribers
       }
       return success;
@@ -742,6 +1051,12 @@ export function store(rawObj) {
   return proxy;
 }
 
+function isArrayIndex(prop) {
+  if (typeof prop !== "string" || prop === "") return false;
+  const index = Number(prop);
+  return Number.isInteger(index) && index >= 0 && String(index) === prop;
+}
+
 export function mapArray(listSignal, mapFn, keyFn, options = {}) {
   let cache = new Map();
   let uniqueCache = new Map();
@@ -751,9 +1066,17 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
   let warnedDuplicateUniqueKey = false;
   const reactiveItems = options.reactiveItems !== false;
   const uniqueKeys = keyFn && options.uniqueKeys === true;
+  const stableIdentityList = reactiveItems === false && uniqueKeys;
+  const emptyList = [];
+  let previousList = null;
+  let previousResult = null;
+  let hasPreviousList = false;
 
   return () => {
-    const list = (typeof listSignal === "function" ? listSignal() : listSignal) || [];
+    const list = (typeof listSignal === "function" ? listSignal() : listSignal) || emptyList;
+    if (stableIdentityList && hasPreviousList && list === previousList) {
+      return previousResult;
+    }
     if (!keyFn && debugEnabled && debugState.strict && !warnedMissingKey && list.some(item => typeof item === "object" && item !== null)) {
       warnedMissingKey = true;
       const message = "mapArray received object items without an explicit key function; reorders may reuse the wrong row.";
@@ -764,6 +1087,36 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
     }
 
     if (uniqueKeys) {
+      // Immutable keyed rows keep their identity across a full reversal. In
+      // that opted-in hot path, the previous entries already prove the keys;
+      // avoid invoking the key function 1,000 times before moving the nodes.
+      if (
+        reactiveItems === false &&
+        uniqueEntriesSnapshot.length === list.length &&
+        list.length > 1 &&
+        !(debugEnabled && debugState.strict)
+      ) {
+        let isIdentityReverse = true;
+        for (let i = 0, j = list.length - 1; i < list.length; i++, j--) {
+          if (list[i] !== uniqueEntriesSnapshot[j].item) {
+            isIdentityReverse = false;
+            break;
+          }
+        }
+        if (isIdentityReverse) {
+          const result = new Array(list.length);
+          for (let i = 0, j = list.length - 1; i < list.length; i++, j--) {
+            result[i] = uniqueEntriesSnapshot[j].mapped;
+          }
+          uniqueEntriesSnapshot.reverse();
+          uniqueKeysSnapshot.reverse();
+          previousList = list;
+          previousResult = result;
+          hasPreviousList = true;
+          return result;
+        }
+      }
+
       const keys = new Array(list.length);
       let isReverse = list.length > 1 && uniqueKeysSnapshot.length === list.length;
       for (let i = 0, j = list.length - 1; i < list.length; i++, j--) {
@@ -790,9 +1143,7 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
       }
 
       if (isReverse) {
-        const newUniqueCache = new Map();
         const result = new Array(list.length);
-        const entries = new Array(list.length);
         let canReuseReverse = true;
 
         for (let i = 0, j = list.length - 1; i < list.length; i++, j--) {
@@ -810,21 +1161,57 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
 
           entry.item = item;
           result[i] = entry.mapped;
-          entries[i] = entry;
-          newUniqueCache.set(keys[i], entry);
         }
 
         if (canReuseReverse) {
-          uniqueCache = newUniqueCache;
+          uniqueEntriesSnapshot.reverse();
           uniqueKeysSnapshot = keys;
-          uniqueEntriesSnapshot = entries;
+          previousList = list;
+          previousResult = result;
+          hasPreviousList = true;
           return result;
         }
       }
 
-      const newUniqueCache = new Map();
       const result = new Array(list.length);
       const entries = new Array(list.length);
+
+      // The first pass has no entries to look up or reconcile. Keep this
+      // branch flat because keyed initial creation is a common mount hot path.
+      if (uniqueEntriesSnapshot.length === 0) {
+        runWithDetachedOwnerBatch(() => {
+          for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            const key = keys[i];
+            const mappedItem = reactiveItems && typeof item === "object" && item !== null ? store({ ...item }) : item;
+            const reactiveItem = mappedItem !== item ? mappedItem : null;
+            const mapped = mapFn(mappedItem, i);
+            const entry = { item, mapped, mappedItem, reactiveItem };
+
+            result[i] = mapped;
+            entries[i] = entry;
+          }
+        });
+
+        // The snapshot is enough for the common next operation: a full
+        // reverse. Build the lookup map lazily for arbitrary key updates.
+        uniqueCache = null;
+        uniqueKeysSnapshot = keys;
+        uniqueEntriesSnapshot = entries;
+        previousList = list;
+        previousResult = result;
+        hasPreviousList = true;
+        return result;
+      }
+
+      if (uniqueCache === null) {
+        uniqueCache = new Map();
+        for (let i = 0; i < uniqueKeysSnapshot.length; i++) {
+          uniqueCache.set(uniqueKeysSnapshot[i], uniqueEntriesSnapshot[i]);
+        }
+      }
+
+      const newUniqueCache = new Map();
 
       for (let i = 0; i < list.length; i++) {
         const item = list[i];
@@ -858,6 +1245,9 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
       uniqueCache = newUniqueCache;
       uniqueKeysSnapshot = keys;
       uniqueEntriesSnapshot = entries;
+      previousList = list;
+      previousResult = result;
+      hasPreviousList = true;
       return result;
     }
 
@@ -910,12 +1300,24 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
     }
 
     cache = newCache;
-    
+    previousList = list;
+    previousResult = result;
+    hasPreviousList = true;
     return result;
   };
 }
 
 function runWithDetachedOwner(fn) {
+  const prevOwner = activeOwner;
+  activeOwner = null;
+  try {
+    return fn();
+  } finally {
+    activeOwner = prevOwner;
+  }
+}
+
+function runWithDetachedOwnerBatch(fn) {
   const prevOwner = activeOwner;
   activeOwner = null;
   try {
@@ -968,6 +1370,8 @@ function syncStoreObject(target, source) {
 }
 
 const resourceCache = new Map();
+const DEFAULT_RESOURCE_CACHE_MAX_ENTRIES = 256;
+let resourceCacheMaxEntries = DEFAULT_RESOURCE_CACHE_MAX_ENTRIES;
 const focusListeners = new Set();
 const reconnectListeners = new Set();
 
@@ -992,40 +1396,90 @@ function makeTimeoutError(timeoutMs) {
 }
 
 function getCachedResource(key) {
-  return resourceCache.get(key);
+  return getResourceCacheEntry(resourceCache, key);
+}
+
+function getResourceCacheEntry(cache, key) {
+  const entry = cache.get(key);
+  if (entry && cache === resourceCache) {
+    // Map insertion order provides a compact LRU without a second index.
+    cache.delete(key);
+    cache.set(key, entry);
+  }
+  return entry;
+}
+
+function setResourceCacheEntry(cache, key, entry) {
+  cache.set(key, entry);
+  if (cache !== resourceCache) return;
+  while (cache.size > resourceCacheMaxEntries) {
+    const oldest = cache.keys().next();
+    if (oldest.done) break;
+    cache.delete(oldest.value);
+  }
+}
+
+function trimResourceCache() {
+  while (resourceCache.size > resourceCacheMaxEntries) {
+    const oldest = resourceCache.keys().next();
+    if (oldest.done) break;
+    resourceCache.delete(oldest.value);
+  }
+}
+
+/**
+ * Bound browser-side resource retention. SSR request caches remain owned by
+ * their request context and are not subject to this process-wide LRU.
+ */
+export function configureResourceCache(options = {}) {
+  if (options.maxEntries !== undefined) {
+    if (!Number.isInteger(options.maxEntries) || options.maxEntries < 0) {
+      throw new RangeError("configureResourceCache({ maxEntries }) requires a non-negative integer.");
+    }
+    resourceCacheMaxEntries = options.maxEntries;
+    trimResourceCache();
+  }
+  return { maxEntries: resourceCacheMaxEntries, size: resourceCache.size };
 }
 
 export function invalidateResource(key) {
-  resourceCache.delete(key);
-  resourceInflight.delete(key);
+  const activeContext = getActiveSSRContext();
+  (activeContext?.resourceCache || resourceCache).delete(key);
+  invalidateResourceInflight(activeContext?.resourceInflight || resourceInflight, key);
   emitFrameworkEvent({ type: "resource-invalidate", key });
 }
 
 export async function prefetchResource(key, fetcher, options = {}) {
-  if (resourceCache.has(key) && options.force !== true) {
-    return resourceCache.get(key).data;
+  const activeContext = getActiveSSRContext();
+  const cache = activeContext?.resourceCache || resourceCache;
+  const inflight = activeContext?.resourceInflight || resourceInflight;
+  const cachedResource = getResourceCacheEntry(cache, key);
+  if (cachedResource && options.force !== true) {
+    return cachedResource.data;
   }
-  if (options.dedupe !== false && resourceInflight.has(key)) {
-    return resourceInflight.get(key);
+  if (options.dedupe !== false && inflight.has(key)) {
+    return inflight.get(key);
   }
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
   let timeoutId = null;
   const context = controller ? { signal: controller.signal, requestId: 0 } : { requestId: 0 };
+  let requestToken;
   const promise = (async () => {
     if (options.timeoutMs && controller) {
       timeoutId = setTimeout(() => controller.abort(makeTimeoutError(options.timeoutMs)), options.timeoutMs);
     }
     try {
       const res = await fetcher(context);
-      resourceCache.set(key, { data: res, timestamp: Date.now() });
+      if (requestToken?.invalidated) return res;
+      setResourceCacheEntry(cache, key, { data: res, timestamp: Date.now() });
       emitFrameworkEvent({ type: "resource-prefetch", key });
       return res;
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
-      resourceInflight.delete(key);
+      if (inflight.get(key) === promise) inflight.delete(key);
     }
   })();
-  resourceInflight.set(key, promise);
+  requestToken = registerResourceInflight(inflight, key, promise);
   return promise;
 }
 
@@ -1035,6 +1489,9 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
   const fetcher = hasSource ? fetcherOrOptions : sourceOrFetcher;
   const options = hasSource ? maybeOptions : fetcherOrOptions;
   const ctx = getSSRContext();
+  const activeContext = getActiveSSRContext();
+  const contextResourceCache = activeContext?.resourceCache || resourceCache;
+  const contextResourceInflight = activeContext?.resourceInflight || resourceInflight;
   const resourceIndex = ctx.resourceCounter++;
   const key = options.key || `res-${resourceIndex}`;
   const staleTime = options.staleTime ?? 0;
@@ -1045,21 +1502,23 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
   
   let initialData = undefined;
   let initialLoading = true;
-  const cache = ssrCache();
+  const cache = ctx.ssrCache;
   
   if (typeof window !== "undefined" && !globalThis.__MOCK_SSR__ && window.__CACHOU_STATE__ && window.__CACHOU_STATE__[resourceIndex] !== undefined) {
     initialData = window.__CACHOU_STATE__[resourceIndex];
     initialLoading = false;
-    resourceCache.set(initialKey, { data: initialData, timestamp: Date.now() });
+    setResourceCacheEntry(contextResourceCache, initialKey, { data: initialData, timestamp: Date.now() });
   } else if (cache[resourceIndex] !== undefined) {
     initialData = cache[resourceIndex];
     initialLoading = false;
-  } else if (resourceCache.has(initialKey)) {
-    const cache = resourceCache.get(initialKey);
-    initialData = cache.data;
-    const age = Date.now() - cache.timestamp;
-    if (age < staleTime) {
-      initialLoading = false;
+  } else {
+    const cachedResource = getResourceCacheEntry(contextResourceCache, initialKey);
+    if (cachedResource) {
+      initialData = cachedResource.data;
+      const age = Date.now() - cachedResource.timestamp;
+      if (age < staleTime) {
+        initialLoading = false;
+      }
     }
   }
 
@@ -1070,16 +1529,20 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
   let requestId = 0;
   let latestAppliedRequestId = 0;
   let activeController = null;
+  let disposed = false;
+  let stopSuspenseEffect = null;
+  let stopSourceEffect = null;
 
   const suspense = useContext(SuspenseContext);
   if (suspense) {
     const resourceId = Symbol();
-    effect(() => {
+    stopSuspenseEffect = effect(() => {
       suspense.registerLoader(resourceId, loading());
     });
   }
 
   const mutate = (newData) => {
+    if (disposed) return;
     requestId++;
     latestAppliedRequestId = requestId;
     if (activeController) {
@@ -1089,26 +1552,49 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
     setData(() => newData);
     setLoading(false);
     setError(null);
-    resourceCache.set(readKey(), { data: newData, timestamp: Date.now() });
+    setResourceCacheEntry(contextResourceCache, readKey(), { data: newData, timestamp: Date.now() });
   };
 
   const refetch = async () => {
+    if (disposed) return;
     const transition = activeTransition;
     const showLoading = !transition;
     const currentRequestId = ++requestId;
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
     const requestKey = readKey();
+    ctx.resourcesStarted = (ctx.resourcesStarted || 0) + 1;
+    const resourceSpan = startSpan("cachou.resource", {
+      attributes: {
+        requestId: currentRequestId,
+        dedupe: options.dedupe === true,
+        hasSource: hasSource === true
+      }
+    });
     let timeoutId = null;
+    let removeContextAbortListener = null;
+    let removeTransitionAbortListener = null;
+    let inflightToken = null;
 
     if (cancelPrevious && activeController) {
       activeController.abort();
     }
     activeController = controller;
+    if (controller && ctx.signal) {
+      if (ctx.signal.aborted) {
+        controller.abort();
+      } else {
+        const abortFromContext = () => controller.abort();
+        ctx.signal.addEventListener("abort", abortFromContext, { once: true });
+        removeContextAbortListener = () => ctx.signal.removeEventListener("abort", abortFromContext);
+      }
+    }
     if (transition && controller) {
       if (transition.signal.aborted) {
         controller.abort();
       } else {
-        transition.signal.addEventListener("abort", () => controller.abort(), { once: true });
+        const abortFromTransition = () => controller.abort();
+        transition.signal.addEventListener("abort", abortFromTransition, { once: true });
+        removeTransitionAbortListener = () => transition.signal.removeEventListener("abort", abortFromTransition);
       }
     }
 
@@ -1116,13 +1602,17 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
       setLoading(true);
     }
     setError(null);
+    emitFrameworkEvent({ type: "resource-start", key: requestKey, requestId: currentRequestId });
     
-    const promise = (async () => {
+    const promise = runWithSpan(resourceSpan, async () => {
       try {
-        const context = controller ? { signal: controller.signal, requestId: currentRequestId } : { requestId: currentRequestId };
+        const context = controller
+          ? { signal: controller.signal, requestId: currentRequestId, request: ctx.request }
+          : { requestId: currentRequestId, request: ctx.request };
         let fetchPromise;
-        if (options.dedupe === true && resourceInflight.has(requestKey)) {
-          fetchPromise = resourceInflight.get(requestKey);
+        if (options.dedupe === true && contextResourceInflight.has(requestKey)) {
+          fetchPromise = contextResourceInflight.get(requestKey);
+          inflightToken = resourceInflightTokens.get(fetchPromise) || null;
         } else {
           fetchPromise = Promise.resolve(hasSource ? fetcher(lastSourceValue, context) : fetcher(context));
           if (options.timeoutMs) {
@@ -1137,32 +1627,51 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
             ]);
           }
           if (options.dedupe === true) {
-            resourceInflight.set(requestKey, fetchPromise.finally(() => resourceInflight.delete(requestKey)));
+            let trackedFetchPromise;
+            trackedFetchPromise = fetchPromise.finally(() => {
+              if (contextResourceInflight.get(requestKey) === trackedFetchPromise) {
+                contextResourceInflight.delete(requestKey);
+              }
+            });
+            inflightToken = registerResourceInflight(contextResourceInflight, requestKey, trackedFetchPromise);
+            fetchPromise = trackedFetchPromise;
           }
         }
         const res = await fetchPromise;
+        if (inflightToken?.invalidated) {
+          emitFrameworkEvent({ type: "resource-stale-response", key: requestKey, requestId: currentRequestId });
+          return;
+        }
+        if (ctx.signal?.aborted || controller?.signal?.aborted) {
+          resourceSpan.setStatus({ code: "UNSET", message: "aborted" });
+          emitFrameworkEvent({ type: "resource-abort", key: requestKey, requestId: currentRequestId });
+          return;
+        }
         if (currentRequestId < requestId) {
           emitFrameworkEvent({ type: "resource-stale-response", key: requestKey, requestId: currentRequestId, latestRequestId: requestId });
           return;
         }
         latestAppliedRequestId = currentRequestId;
         setData(() => res);
-        resourceCache.set(requestKey, { data: res, timestamp: Date.now() });
+        setResourceCacheEntry(contextResourceCache, requestKey, { data: res, timestamp: Date.now() });
         if (typeof window === "undefined" || !!globalThis.__MOCK_SSR__) {
-          ssrCache()[resourceIndex] = res;
+          ctx.ssrCache[resourceIndex] = res;
         }
       } catch (err) {
         if (err && err.name === "AbortError") {
+          resourceSpan.setStatus({ code: "UNSET", message: "aborted" });
+          emitFrameworkEvent({ type: "resource-abort", key: requestKey, requestId: currentRequestId });
           return;
         }
         if (currentRequestId >= requestId) {
+          resourceSpan.recordException(err).setStatus({ code: "ERROR", message: "resource request failed" });
           setError(err);
           emitFrameworkEvent({ type: "resource-error", key: requestKey, requestId: currentRequestId, error: err });
         }
       }
-    })();
+    });
     
-    pendingResources().add(promise);
+    ctx.pendingResources.add(promise);
     if (transition) {
       transition.promises.add(promise);
     }
@@ -1173,32 +1682,41 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
       if (activeController === controller) {
         activeController = null;
       }
+      removeContextAbortListener?.();
+      removeContextAbortListener = null;
+      removeTransitionAbortListener?.();
+      removeTransitionAbortListener = null;
       if (timeoutId) clearTimeout(timeoutId);
       if (showLoading && currentRequestId >= requestId) {
         setLoading(false);
       }
-      pendingResources().delete(promise);
+      ctx.pendingResources.delete(promise);
+      resourceSpan.end();
     }
   };
 
+  let onFocus = null;
+  let onReconnect = null;
   if (typeof window !== "undefined") {
     if (options.revalidateOnFocus !== false) {
-      const onFocus = () => {
-        const cache = getCachedResource(readKey());
-        if (!cache || Date.now() - cache.timestamp >= staleTime) {
+      onFocus = () => {
+        const cachedResource = getResourceCacheEntry(contextResourceCache, readKey());
+        if (!cachedResource || Date.now() - cachedResource.timestamp >= staleTime) {
           refetch();
         }
       };
       focusListeners.add(onFocus);
-      onCleanup(() => focusListeners.delete(onFocus));
     }
     if (options.revalidateOnReconnect !== false) {
-      const onReconnect = () => {
+      onReconnect = () => {
         refetch();
       };
       reconnectListeners.add(onReconnect);
-      onCleanup(() => reconnectListeners.delete(onReconnect));
     }
+  }
+
+  if (activeOwner) {
+    onCleanup(disposeResource);
   }
 
   if (initialLoading) {
@@ -1206,7 +1724,7 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
   }
 
   if (hasSource) {
-    effect(() => {
+    stopSourceEffect = effect(() => {
       const nextSourceValue = source();
       if (!sourceInitialized) {
         sourceInitialized = true;
@@ -1217,7 +1735,40 @@ export function createResource(sourceOrFetcher, fetcherOrOptions = {}, maybeOpti
     });
   }
 
-  return [data, { loading, error, refetch, mutate, invalidate: () => invalidateResource(readKey()), getRequestId: () => requestId, getLatestAppliedRequestId: () => latestAppliedRequestId }];
+  function disposeResource() {
+    if (disposed) return;
+    disposed = true;
+    requestId++;
+    if (activeController) {
+      activeController.abort();
+      activeController = null;
+    }
+    if (onFocus) {
+      focusListeners.delete(onFocus);
+      onFocus = null;
+    }
+    if (onReconnect) {
+      reconnectListeners.delete(onReconnect);
+      onReconnect = null;
+    }
+    stopSourceEffect?.();
+    stopSourceEffect = null;
+    stopSuspenseEffect?.();
+    stopSuspenseEffect = null;
+  }
+
+  return [data, {
+    loading,
+    error,
+    refetch,
+    mutate,
+    dispose: disposeResource,
+    invalidate: () => {
+      if (!disposed) invalidateResource(readKey());
+    },
+    getRequestId: () => requestId,
+    getLatestAppliedRequestId: () => latestAppliedRequestId
+  }];
 }
 
 export function ErrorBoundary(props) {
@@ -1264,6 +1815,7 @@ export function Suspense(props) {
 
   const container = document.createElement("div");
   container.style.display = "contents";
+  let currentNodes = [];
 
   effect(() => {
     let val = isPending()
@@ -1280,7 +1832,17 @@ export function Suspense(props) {
         nodes.push(val instanceof Node ? val : document.createTextNode(String(val)));
       }
     }
+    const nextSet = new Set(nodes);
+    for (const node of currentNodes) {
+      if (!nextSet.has(node)) cleanupNode(node);
+    }
     container.replaceChildren(...nodes);
+    currentNodes = nodes;
+  });
+
+  onCleanup(() => {
+    for (const node of currentNodes) cleanupNode(node);
+    currentNodes = [];
   });
 
   return container;
@@ -1294,6 +1856,7 @@ export function Portal(props) {
   const mount = props.mount || document.body;
   const container = document.createElement("div");
   container.style.display = "contents";
+  let currentNodes = [];
 
   effect(() => {
     let val = typeof props.children === "function" ? props.children() : props.children;
@@ -1307,12 +1870,19 @@ export function Portal(props) {
         nodes.push(val instanceof Node ? val : document.createTextNode(String(val)));
       }
     }
+    const nextSet = new Set(nodes);
+    for (const node of currentNodes) {
+      if (!nextSet.has(node)) cleanupNode(node);
+    }
     container.replaceChildren(...nodes);
+    currentNodes = nodes;
   });
 
   mount.appendChild(container);
 
   onCleanup(() => {
+    for (const node of currentNodes) cleanupNode(node);
+    currentNodes = [];
     container.remove();
   });
 
@@ -1481,9 +2051,16 @@ export function webSocketSignal(url, options = {}) {
 
 export function onMount(fn) {
   if (typeof window !== "undefined" && typeof requestAnimationFrame !== "undefined") {
-    requestAnimationFrame(() => {
+    let completed = false;
+    let fallbackTimer;
+    const run = () => {
+      if (completed) return;
+      completed = true;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
       fn();
-    });
+    };
+    requestAnimationFrame(run);
+    fallbackTimer = setTimeout(run, 100);
   } else {
     fn();
   }
@@ -1633,7 +2210,10 @@ export function startTransition(fn, options = {}) {
   activeTransition = transition;
 
   try {
-    fn();
+    // Transitions are interruptible update groups. Batch synchronous signal
+    // writes so a route/filter transition commits one coherent tree update;
+    // async work still registers against the transition as before.
+    batch(fn);
   } finally {
     activeTransition = prevTransition;
   }
@@ -1685,8 +2265,69 @@ function escapeHead(value) {
     .replace(/"/g, "&quot;");
 }
 
-export function getSSRHead() {
-  const currentHeadData = getSSRContext().head;
+const headLinkAttributes = new Set([
+  "rel", "href", "as", "type", "media", "sizes", "crossorigin",
+  "integrity", "referrerpolicy", "nonce", "color", "fetchpriority",
+  "imagesrcset", "imagesizes", "hreflang", "title"
+]);
+const headLinkURLAttributes = new Set(["href", "imagesrcset"]);
+const headElementOwners = new WeakMap();
+const headManagedAttribute = "data-cachou-head-managed";
+
+function claimHeadElement(element, owner) {
+  let owners = headElementOwners.get(element);
+  if (!owners) {
+    owners = new Set();
+    headElementOwners.set(element, owners);
+  }
+  owners.add(owner);
+  element.setAttribute(headManagedAttribute, "1");
+}
+
+function releaseHeadElement(element, owner) {
+  const owners = headElementOwners.get(element);
+  if (!owners) return;
+  owners.delete(owner);
+  if (owners.size === 0) {
+    headElementOwners.delete(element);
+    element.removeAttribute(headManagedAttribute);
+    element.parentNode?.removeChild(element);
+  }
+}
+
+function isSafeHeadURL(value, attribute) {
+  const compact = String(value ?? "").trim().replace(/[\u0000-\u001F\u007F\s]+/g, "");
+  if (!compact) return true;
+  if (attribute === "imagesrcset") {
+    if (/(?:javascript|vbscript|file|about):/i.test(compact)) return false;
+    return !/data:(?:text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/javascript|application\/javascript)/i.test(compact);
+  }
+  if (compact.startsWith("#") || compact.startsWith("/") || compact.startsWith("./") || compact.startsWith("../")) {
+    return true;
+  }
+  try {
+    const protocol = new URL(compact, "http://localhost").protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getSafeHeadLinkValues(link, evaluate = false) {
+  const values = new Map();
+  for (const [key, rawValue] of Object.entries(link || {})) {
+    const name = key.toLowerCase();
+    if (!headLinkAttributes.has(name)) continue;
+    const value = evaluate && typeof rawValue === "function" ? rawValue() : rawValue;
+    if (value == null) continue;
+    if (headLinkURLAttributes.has(name) && !isSafeHeadURL(value, name)) continue;
+    values.set(name, value);
+  }
+  return values;
+}
+
+export function getSSRHead(context = null) {
+  const currentHeadData = getSerializationContext(context).head;
   let headHtml = "";
   if (currentHeadData.title) {
     headHtml += `<title>${escapeHead(currentHeadData.title)}</title>\n`;
@@ -1702,11 +2343,10 @@ export function getSSRHead() {
   }
   if (currentHeadData.links) {
     for (const link of currentHeadData.links) {
-      const attrs = Object.entries(link)
-        .filter(([, v]) => v != null)
+      const attrs = Array.from(getSafeHeadLinkValues(link))
         .map(([k, v]) => `${k}="${escapeHead(v)}"`)
         .join(" ");
-      headHtml += `<link ${attrs}>\n`;
+      if (attrs) headHtml += `<link ${attrs}>\n`;
     }
   }
   if (currentHeadData.jsonld) {
@@ -1746,39 +2386,63 @@ function mergeMeta(existing, incoming) {
  */
 export function useHead(config) {
   if (typeof window !== "undefined") {
+    const ownerToken = {};
+    const ownedElements = new Set();
+    const previousTitle = document.title;
+    let currentTitle = null;
+    const releaseOwned = () => {
+      for (const element of ownedElements) {
+        releaseHeadElement(element, ownerToken);
+      }
+      ownedElements.clear();
+      if (currentTitle !== null && document.title === currentTitle) {
+        document.title = previousTitle;
+      }
+      currentTitle = null;
+    };
+
     effect(() => {
+      releaseOwned();
       if (config.title != null) {
         const titleVal = typeof config.title === "function" ? config.title() : config.title;
         document.title = titleVal;
+        currentTitle = String(titleVal);
       }
       if (config.meta) {
         for (const item of config.meta) {
           const name = item.name || item.property;
           const content = typeof item.content === "function" ? item.content() : item.content;
-          const selector = item.name ? `meta[name="${name}"]` : `meta[property="${name}"]`;
-          let el = document.head.querySelector(selector);
+          const attribute = item.name ? "name" : "property";
+          let el = Array.from(document.head.querySelectorAll(`meta[${attribute}]`))
+            .find(candidate => candidate.getAttribute(attribute) === String(name));
           if (!el) {
             el = document.createElement("meta");
             if (item.name) el.setAttribute("name", name);
             if (item.property) el.setAttribute("property", name);
             document.head.appendChild(el);
           }
+          claimHeadElement(el, ownerToken);
+          ownedElements.add(el);
           el.setAttribute("content", content);
         }
       }
       if (config.links) {
         for (const link of config.links) {
-          const rel = link.rel || "";
-          const href = typeof link.href === "function" ? link.href() : link.href;
+          const values = getSafeHeadLinkValues(link, true);
+          const rel = values.get("rel") || "";
+          const href = values.get("href");
           let el = rel && href
-            ? document.head.querySelector(`link[rel="${rel}"][href="${href}"]`)
+            ? Array.from(document.head.querySelectorAll("link[rel][href]"))
+              .find(candidate => candidate.getAttribute("rel") === String(rel) && candidate.getAttribute("href") === String(href))
             : null;
           if (!el) {
             el = document.createElement("link");
             document.head.appendChild(el);
           }
-          for (const [k, v] of Object.entries(link)) {
-            if (v != null) el.setAttribute(k, typeof v === "function" ? v() : v);
+          claimHeadElement(el, ownerToken);
+          ownedElements.add(el);
+          for (const [k, v] of values) {
+            el.setAttribute(k, String(v));
           }
         }
       }
@@ -1791,9 +2455,12 @@ export function useHead(config) {
           el.setAttribute("data-cachou-jsonld", "1");
           el.textContent = typeof data === "string" ? data : JSON.stringify(data);
           document.head.appendChild(el);
+          claimHeadElement(el, ownerToken);
+          ownedElements.add(el);
         }
       }
     });
+    if (getOwner()) onCleanup(releaseOwned);
   } else {
     const currentHeadData = getSSRContext().head;
     if (config.title != null) {

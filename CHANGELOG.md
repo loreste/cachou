@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.4.5
+
+Patch release: runtime hardening, SSR concurrency, observability, browser entry, and compiler/DOM performance work.
+
+### Added
+
+- **`cachoujs/browser`** — browser-safe public entry that keeps server-only content/media helpers out of client bundles; Vite plugin can target it
+- **Logger** — `configureLogger`, `getLoggerConfig`, `createLogger` with level filtering and custom sinks
+- **Tracing** — W3C `traceparent` spans (`configureTracing`, `startSpan`, `runWithSpan`, `createTracer`, extract/format helpers); disabled by default
+- **DOM cleanup tracking** — `dom-cleanup` registration path for reliable node teardown
+- **`createCompiledStatic`** — compiler/runtime boundary for direct static DOM factories
+- **`configureResourceCache`** — bounded LRU for resolved resource data (`maxEntries`)
+- **Resource `dispose()`** — manual dispose for unowned resources / request cancellation
+- **Router history helpers** — `go`, `back`, `forward`
+- **Signal/memo equality options** — `equals: false` or custom equality comparator
+- **SSR options** — path/request/signal/traceparent/context/`preload` on `renderToString`, `renderToStringAsync`, `renderToStream`
+- **SSR benchmarks** — `npm run bench:ssr`
+- **Compiler parity check** — `scripts/check-compiler-parity.mjs` in the quality pipeline
+
+### Fixed / improved
+
+- **SSR concurrency** — request-scoped isolation for resource cache, head metadata, dehydrate, and memory history; fail-closed serialization; abort propagation on stream cancel
+- **Navigation** — stale async guard/loader cancellation; rapid navigation commits only the final route
+- **`mapArray`** — immutable keyed reuse, reverse/reorder identity preservation, lazy unique lookup
+- **`store`** — array length truncation invalidates removed index subscribers
+- **HTML runtime** — larger rewrite for SSR safety (URL/style sanitization, head link allowlist, island metadata escaping)
+- **JS + Go compilers** — safer static factories, nested reactive CSS binds, improved diagnostics
+- Competitive and memory benchmarks expanded; docs/API/how-tos updated for the new surface
+
+### Tests
+
+- Unit suite expanded (**514** tests), including SSR concurrency, browser entry, virtual list, mapArray, and reactivity equality paths
+- Browser tests **103/103**; benchmarks, memory, competitive, and SSR benches green under `npm run check`
+
 ## 0.4.4
 
 Patch release: validation and CI hardening.

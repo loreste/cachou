@@ -8,8 +8,9 @@ import {
   onCleanup,
   scheduleTask,
   signal,
-  startTransition
-} from "../../src/index.js";
+  startTransition,
+  virtualList
+} from "../../src/browser.js";
 import { chatSocketUrl, fetchAuditExport, fetchBenchmarkHistory, fetchBenchmarkReport, fetchDiagnostics, fetchOpsMetrics, fetchSecurity, fetchWorkspace, getAuthSession, hasPermission, health, login, logout, onUnauthorized, refreshSession, removeRecord, resetDemoData, revokeUserSessions, saveRecord, saveUser, validateStoredSession } from "./api.js";
 import ActivityPanel from "./components/ActivityPanel.js";
 import BenchmarkClaims from "./components/BenchmarkClaims.js";
@@ -90,6 +91,10 @@ let companyContacts;
 let companyDeals;
 let companyActivities;
 let visibleContacts;
+let visibleContactRows;
+let contactListStart;
+let contactListHeight;
+let contactList;
 let pipeline;
 let totals;
 let ownerLoad;
@@ -293,6 +298,16 @@ function setupCRMState() {
       contact.status
     ].some(value => String(value || "").toLowerCase().includes(q)));
   });
+  contactList = virtualList({
+    each: visibleContacts,
+    itemHeight: 74,
+    height: 520,
+    overscan: 8,
+    children: item => item
+  });
+  visibleContactRows = memo(() => contactList.windowed().items.map(entry => entry.item));
+  contactListStart = memo(() => contactList.windowed().start);
+  contactListHeight = memo(() => contactList.windowed().totalHeight);
 
   pipeline = memo(() => STAGES.map(stage => ({
     stage,
@@ -738,66 +753,68 @@ function sendChat(event) {
 
 function App() {
   setupCRMState();
-  if (!session()) return LoginView();
-  return html`<main class="shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <span class="mark">C</span>
-        <div>
-          <strong>Cachou CRM</strong>
-          <small>${() => databaseMode()}</small>
+  return html`${() => {
+    if (!session()) return LoginView();
+    return html`<main class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="mark">C</span>
+          <div>
+            <strong>Cachou CRM</strong>
+            <small>${() => databaseMode()}</small>
+          </div>
         </div>
-      </div>
-      <nav>
-        ${["overview", "contacts", "companies", "pipeline", "activities", "live room", "security", "performance lab", "benchmarks", "collaboration lab"].map(view => html`<button
-          class=${() => activeView() === view ? "active" : ""}
-          onclick=${() => switchView(view)}
-        >${view}</button>`)}
-      </nav>
-      <button class="ghost" onclick=${() => controls.refetch()}>Refresh</button>
-    </aside>
+        <nav>
+          ${["overview", "contacts", "companies", "pipeline", "activities", "live room", "security", "performance lab", "benchmarks", "collaboration lab"].map(view => html`<button
+            class=${() => activeView() === view ? "active" : ""}
+            onclick=${() => switchView(view)}
+          >${view}</button>`)}
+        </nav>
+        <button class="ghost" onclick=${() => controls.refetch()}>Refresh</button>
+      </aside>
 
-    <section class="workspace">
-      <header class="topbar">
-        <div>
-          <h1>${() => pageTitle()}</h1>
-          <p>${() => workspace() ? "Live CRM workspace backed by the API adapter." : "Loading workspace."}</p>
-        </div>
-        <div class="actions">
-          <span class="session-pill">${() => session()?.user?.name || role()}</span>
-          <input
-            aria-label="Search contacts"
-            placeholder="Search contacts"
-            value=${query}
-            oninput=${event => setQuery(event.target.value)}
-          />
-          <button onclick=${() => beginContact()}>New contact</button>
-          <button class="ghost" onclick=${() => beginDeal()}>New deal</button>
-          <button class="ghost" onclick=${loadStressContacts}>Load 5,000</button>
-          <button class="ghost" onclick=${signOut}>Sign out</button>
-        </div>
-      </header>
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <h1>${() => pageTitle()}</h1>
+            <p>${() => workspace() ? "Live CRM workspace backed by the API adapter." : "Loading workspace."}</p>
+          </div>
+          <div class="actions">
+            <span class="session-pill">${() => session()?.user?.name || role()}</span>
+            <input
+              aria-label="Search contacts"
+              placeholder="Search contacts"
+              value=${query}
+              oninput=${event => setQuery(event.target.value)}
+            />
+            <button onclick=${() => beginContact()}>New contact</button>
+            <button class="ghost" onclick=${() => beginDeal()}>New deal</button>
+            <button class="ghost" onclick=${loadStressContacts}>Load 5,000</button>
+            <button class="ghost" onclick=${signOut}>Sign out</button>
+          </div>
+        </header>
 
-      <section class="hero-strip">
-        ${() => HeroTile({ label: "Database", value: databaseMode() })}
-        ${() => HeroTile({ label: "Session", value: `${role()} view` })}
-        ${() => HeroTile({ label: "Realtime", value: `${chatStatus()} - ${chatMessages().length} messages` })}
+        <section class="hero-strip">
+          ${() => HeroTile({ label: "Database", value: databaseMode() })}
+          ${() => HeroTile({ label: "Session", value: `${role()} view` })}
+          ${() => HeroTile({ label: "Realtime", value: `${chatStatus()} - ${chatMessages().length} messages` })}
+        </section>
+        ${() => !canMoveDeals() && activeView() === "pipeline" ? html`<section class="permission-note">Read-only pipeline for ${role()} role.</section>` : null}
+
+        <section class="metrics">
+          ${() => MetricCard({ label: "Contacts", value: totals().contacts })}
+          ${() => MetricCard({ label: "Companies", value: totals().companies })}
+          ${() => MetricCard({ label: "Open deals", value: totals().openDeals })}
+          ${() => MetricCard({ label: "Pipeline", value: CURRENCY.format(totals().pipelineValue) })}
+        </section>
+
+        ${() => !workspace() ? html`<section class="empty">Loading CRM data...</section>` : viewPanel()}
+        ${() => controls.error() ? html`<section class="error">${controls.error().message}</section>` : null}
+        ${() => draft() ? editor() : null}
+        ${() => toast() ? html`<div class="toast">${toast}</div>` : null}
       </section>
-      ${() => !canMoveDeals() && activeView() === "pipeline" ? html`<section class="permission-note">Read-only pipeline for ${role()} role.</section>` : null}
-
-      <section class="metrics">
-        ${() => MetricCard({ label: "Contacts", value: totals().contacts })}
-        ${() => MetricCard({ label: "Companies", value: totals().companies })}
-        ${() => MetricCard({ label: "Open deals", value: totals().openDeals })}
-        ${() => MetricCard({ label: "Pipeline", value: CURRENCY.format(totals().pipelineValue) })}
-      </section>
-
-      ${() => !workspace() ? html`<section class="empty">Loading CRM data...</section>` : viewPanel()}
-      ${() => controls.error() ? html`<section class="error">${controls.error().message}</section>` : null}
-      ${() => draft() ? editor() : null}
-      ${() => toast() ? html`<div class="toast">${toast}</div>` : null}
-    </section>
-  </main>`;
+    </main>`;
+  }}`;
 }
 
 function LoginView() {
@@ -862,7 +879,10 @@ function Overview() {
 
 function Contacts() {
   return ContactsPanel({
-    visibleContacts,
+    visibleContacts: visibleContactRows,
+    visibleContactStart: contactListStart,
+    visibleContactHeight: contactListHeight,
+    onContactScroll: contactList.onScroll,
     selectedContact,
     setSelectedId,
     renderDetail: contactDetail

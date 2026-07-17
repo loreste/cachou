@@ -52,7 +52,12 @@ node scripts/check-compiler-diagnostics.mjs
 npm run bench              # regression vs benchmarks/baselines.json
 npm run bench:memory       # leak / memory stress
 npm run bench:compare      # vs other frameworks, DOM floor
+npm run bench:ssr          # SSR throughput: static, preload, resources, stream
 ```
+
+The regression benchmark uses three samples and gates on the median to reduce
+browser scheduling noise. Set `CACHOU_BENCH_SAMPLES=10` for a stronger local
+run; use `CACHOU_BENCH_RATIO` and `CACHOU_BENCH_SLACK_MS` to tune CI gates.
 
 Publishable competitive runs:
 

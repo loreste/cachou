@@ -44,6 +44,11 @@ export function TodoList() {
 
 Prefer `mapArray` for large lists — see [Render keyed lists](./render-keyed-lists.md).
 
+Resources created inside a mounted root are disposed automatically with that
+root. If a resource is created outside an owner, call `controls.dispose()` when
+the resource is no longer needed so in-flight work and browser revalidation
+listeners are released.
+
 ---
 
 ## Source-driven resources (search, filters)
@@ -113,6 +118,16 @@ Useful on `Link` hover or route intent.
 | `dedupe` | — | Share in-flight promises for same key |
 | `revalidateOnFocus` | — | Refetch when window focuses |
 | `revalidateOnReconnect` | — | Refetch when network returns |
+
+The browser cache keeps at most 256 resolved resource keys using LRU eviction.
+For applications with high-cardinality route or search keys, configure a
+smaller bound or disable resolved-data retention:
+
+```javascript
+import { configureResourceCache } from "cachoujs";
+
+configureResourceCache({ maxEntries: 128 });
+```
 
 ---
 

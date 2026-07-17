@@ -8,10 +8,12 @@ const execFileAsync = promisify(execFile);
 const pluginRoot = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(pluginRoot, "..");
 
-/**
- * Resolve the Cachou compiler binary or fall back to `go run`.
- */
+/** Resolve the canonical portable compiler; native builds are opt-in. */
 export function resolveCompilerCommand(cwd = process.cwd()) {
+  const jsCompiler = join(packageRoot, "packages", "compiler", "bin", "cachou-compiler.js");
+  if (existsSync(jsCompiler)) {
+    return { command: process.execPath, argsPrefix: [jsCompiler], cwd: packageRoot };
+  }
   const localBin = join(cwd, "bin", "cachou-compiler");
   const packageBin = join(packageRoot, "bin", "cachou-compiler");
   if (existsSync(localBin)) {
@@ -54,12 +56,14 @@ export async function runCachouCompiler(args = [], options = {}) {
  * @param {object} [options]
  * @param {string[]} [options.dirs] Component directories to compile on buildStart
  * @param {string} [options.runtime="cachoujs"] Import specifier written into generated JS
- * @param {boolean} [options.aliasRuntime=true] Alias `cachoujs` to this package's src in the consumer project
+ * @param {boolean} [options.aliasRuntime=true] Alias `cachoujs` to this package's browser runtime in the consumer project
+ * @param {string} [options.runtimeEntry] Runtime entry used for the generated import alias; defaults to the browser-safe entry
  */
 export function cachou(options = {}) {
   const componentDirs = options.dirs || ["src/components", "demo/components"];
   const runtime = options.runtime || "cachoujs";
   const aliasRuntime = options.aliasRuntime !== false;
+  const runtimeEntry = options.runtimeEntry || resolve(packageRoot, "src", "browser.js");
   let root = process.cwd();
 
   return {
@@ -69,7 +73,7 @@ export function cachou(options = {}) {
       return {
         resolve: {
           alias: {
-            cachoujs: resolve(packageRoot, "src", "index.js")
+            cachoujs: runtimeEntry
           }
         }
       };
