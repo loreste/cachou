@@ -106,4 +106,4 @@ Node-only helpers stay out of the browser graph.
 
 ## Versioning
 
-CachouJS is **0.x**. Published line is **0.4.x**; releases use **small patch increments** (current: **0.4.12**, next: **0.4.13**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.
+CachouJS is **0.x**. Published line is **0.4.x**; releases use **small patch increments** (current: **0.4.13**, next: **0.4.14**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.

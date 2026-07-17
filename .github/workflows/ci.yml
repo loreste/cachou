@@ -49,6 +49,8 @@ jobs:
       - name: Package dry run
         run: npm run pack:dry
 
+  # Chromium on Linux is the required quality gate (verify-linux).
+  # Safari is optional signal only and must never block merges.
   verify-macos:
     name: Verify (macOS Safari optional)
     runs-on: macos-latest

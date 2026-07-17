@@ -41,6 +41,19 @@ The SSR suite measures static string rendering, one-pass route preload, the
 two-pass async resource path, streaming resources, and concurrent request
 isolation with warmup and repeated median samples.
 
+### Latest reference medians (local, 2026-07-17)
+
+| Scenario | Median | Notes |
+|----------|--------|--------|
+| Static `renderToString` ×1000 | ~1.7ms | High ops/s string path |
+| One-pass preload ×500 | ~1.6ms | |
+| Async resource rerender ×250 | ~2.8ms | Two-pass discovery |
+| Streaming resource ×250 | ~12ms | Shell + body |
+| Concurrent isolation ×20 | ~50ms | Overlapping contexts |
+
+Competitive browser numbers live in [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md).
+Refresh both docs when release-relevant numbers move for real reasons (not noise).
+
 Current built-in adapters:
 
 - `DOM floor`: imperative DOM baseline. This is not a framework competitor.

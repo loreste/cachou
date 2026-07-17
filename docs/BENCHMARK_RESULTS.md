@@ -24,19 +24,32 @@ details, host/runtime details, installed framework versions, and tooling
 versions alongside the measurements. The historical summary keeps the same
 metadata so runs from different environments are not compared anonymously.
 
-Latest production Chromium run (`CACHOU_COMPARE_SAMPLES=30`):
+Latest production Chromium run (`CACHOU_COMPARE_SAMPLES=10`, 2026-07-17, local macOS / Playwright Chromium):
 
 ```text
 Competitive benchmarks (playwright-chromium, production): 49/49 completed
 
-initial rows: CachouJS 0.80ms, rank 4/7
-text fanout: CachouJS 5.10ms, rank 1/7
-attribute fanout: CachouJS 8.60ms, rank 2/7
-keyed reverse: CachouJS 1.10ms, rank 2/7
-form input latency: CachouJS 0.10ms, rank 2/7
-mount unmount loop: CachouJS 2.70ms, rank 2/7
-dashboard refresh: CachouJS 1.00ms, rank 1/7
+initial rows: CachouJS 0.90ms, rank 3/7 (Solid 0.60ms, DOM 0.70ms)
+text fanout: CachouJS 5.20ms, rank 1/7
+attribute fanout: CachouJS 7.60ms, rank 2/7 (DOM floor 5.40ms)
+keyed reverse: CachouJS 1.20ms, rank 2/7 (DOM floor 0.80ms)
+form input latency: CachouJS 0.10ms, rank 2/7 (tied with DOM floor at 0.10ms)
+mount unmount loop: CachouJS 3.00ms, rank 2/7 (DOM floor 2.50ms)
+dashboard refresh: CachouJS 1.10ms, rank 1/7
 ```
+
+SSR suite (`npm run bench:ssr`, same machine):
+
+```text
+static string: 1.67ms median / 1000 iters (≈597k ops/s)
+one-pass preload: 1.62ms median / 500 iters
+async resource rerender: 2.80ms median / 250 iters
+streaming resource: 12.35ms median / 250 iters
+concurrent request isolation: 49.70ms median / 20 iters (32-way isolation workload)
+SSR benchmarks: 5/5 passed
+```
+
+Memory suite (`npm run bench:memory`): **8/8 passed** (mount/unmount, keyed reverse/permute, conditional teardown, cancelled resources, cache bound).
 
 Historical Safari smoke run (`CACHOU_COMPARE_SAMPLES=3`, bundle mode not recorded):
 
@@ -54,7 +67,7 @@ Interpretation:
 
 - Initial render measures creation and attachment only. Its disposer runs after the sample; the separate mount/unmount scenario measures teardown in the timed interval.
 - The DOM adapter clears its target for non-lifecycle scenarios, so it pays the same cleanup cost as the framework adapters.
-- CachouJS currently leads text fanout and dashboard refresh, and is close to the framework leaders on initial rows, keyed reverse, attributes, forms, and lifecycle. The DOM floor remains faster on most creation-heavy scenarios, as expected for an imperative lower bound.
+- CachouJS currently leads **text fanout** and **dashboard refresh**, and is close to the framework leaders on initial rows, keyed reverse, attributes, forms, and lifecycle. The DOM floor remains faster on most creation-heavy scenarios, as expected for an imperative lower bound.
 - Direct DOM signal subscribers use a dense no-copy notification lane with churn-safe compaction; batched notifications retain the latest value for property and attribute bindings, and DOM event handlers coalesce synchronous writes into one commit.
 - Signal-backed `class:` bindings use a dedicated dense update lane when all subscribers are class bindings; mixed subscriber graphs retain the generic mutation-safe dispatch path.
 - Template shape classification is cached separately from document-owned template clones, and class directives subscribe directly without an update wrapper.
@@ -74,10 +87,12 @@ Interpretation:
 The dashboard workload is the first application-shaped comparison: all
 adapters mount 200 nested metric cards, commit 50 visible refreshes, assert the
 last committed value, and dispose the tree inside the measured operation. In
-the latest production Chromium run CachouJS measured 1.10ms median, ahead of
-the DOM floor at 1.20ms and Solid at 1.50ms. In the Safari smoke run, CachouJS measured
-1.00ms, matching the DOM floor and Solid;
+the latest production Chromium run (10 samples) CachouJS measured **1.10ms** median on
+dashboard refresh, ahead of the DOM floor at 1.20ms and Solid at 1.40ms. In the
+Safari smoke run, CachouJS measured 1.00ms, matching the DOM floor and Solid;
 Safari's millisecond timer resolution makes close ranks noisy.
+
+Last refreshed: **2026-07-17** (v0.4.13 line).
 
 Compiler static DOM microbenchmark (Chromium, 7 samples, 10,000 renders):
 

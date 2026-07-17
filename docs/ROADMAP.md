@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.4.x** (published: **0.4.12**) |
-| **Next publish** | **0.4.13** (patch by default) |
+| **Current line** | **0.4.x** (published: **0.4.13**) |
+| **Next publish** | **0.4.14** (patch by default) |
 | **Next minor** | **0.5.0** when a coherent theme lands |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
@@ -24,7 +24,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 
 ---
 
-## Where we are (0.4.12)
+## Where we are (0.4.13)
 
 ### Mature enough to build on
 
@@ -63,7 +63,7 @@ Treat these as **usable primitives**, not finished product lines:
 
 ---
 
-## Near term — finish the 0.4 line (`0.4.13` …)
+## Near term — 0.4 line complete; patches as needed (`0.4.14` …)
 
 Theme: **harden what we already ship.** No large new product surface unless it unblocks real bugs.
 
@@ -86,15 +86,17 @@ Theme: **harden what we already ship.** No large new product surface unless it u
 
 - [x] Keep README / API / how-tos in sync with each patch (modest tone) *(ongoing; 0.4.9 how-to index + new guides)*
 - [x] Fill remaining how-to gaps only where users hit real friction (SSR concurrent servers, browser entry, logger/tracing) *(0.4.9)*
-- [ ] Benchmark results and performance targets refreshed when numbers move for real reasons
+- [x] Benchmark results and performance targets refreshed when numbers move for real reasons *(0.4.13)*
 
 ### Repo hygiene
 
 - [x] CRM and demo stay examples — do not pull them into the published package *(0.4.9: package-surface tests)*
-- [ ] CI: Chromium primary; Safari remains non-blocking if flaky
-- [ ] No token/secret leakage; publish checklist remains manual and small
+- [x] CI: Chromium primary; Safari remains non-blocking if flaky *(0.4.13: documented + continue-on-error)*
+- [x] No token/secret leakage; publish checklist remains manual and small *(0.4.13: publish-prep secret scan + version/changelog gates)*
 
 **Exit criteria for “0.4 line is done enough”:** core APIs feel boring, docs match code, `npm run check` is reliable on clean machines, no known data races in SSR/router under documented patterns.
+
+**Status (0.4.13):** Near-term 0.4 checklist is complete. Further **0.4.x** patches ship only for regressions/security. The next **theme** is **0.5 — Production library line**.
 
 ---
 
@@ -223,4 +225,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.4.12** (2026-07).
+Last updated for **0.4.13** (2026-07).

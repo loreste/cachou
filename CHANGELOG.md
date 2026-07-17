@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.13
+
+Patch release: finish 0.4-line hygiene — benchmarks refreshed, publish-prep hardened, Safari CI policy explicit.
+
+### Docs
+
+- **Benchmark results** — competitive Chromium (10 samples), SSR suite, and memory suite refreshed (2026-07-17)
+- **Performance targets** — SSR reference medians table for the same machine
+
+### Tooling / hygiene
+
+- **`publish:prep`** — requires matching package versions, a CHANGELOG section for the release version, and a lightweight secret-pattern scan before unit/compiler/pack
+- **CI** — document Chromium (Linux) as the required gate; Safari remains optional/`continue-on-error`
+- Roadmap 0.4 near-term items marked complete for hygiene exit criteria
+
+
 ## 0.4.12
 
 Patch release: fix SSR/control-flow view unwrapping and reactive mount roots.
