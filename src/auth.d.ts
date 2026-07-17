@@ -16,8 +16,20 @@ declare module "cachoujs/auth" {
     userUrl?: string;
     /** Storage key for the auth token (default "auth-token"). */
     tokenKey?: string;
-    /** Storage backend (default: localStorage). */
+    /** Storage backend (default: localStorage, or sessionStorage when persist is "session"). */
     storage?: Storage;
+    /**
+     * Token persistence mode (default "local").
+     * - "local" — localStorage (survives tab close)
+     * - "session" — sessionStorage (cleared when the tab closes; better against long-lived XSS)
+     * - "none" — memory only (SSR-safe / no persistence)
+     */
+    persist?: "local" | "session" | "none";
+    /**
+     * Fetch credentials mode (e.g. "same-origin" or "include" for cookie sessions).
+     * Omitted by default so the platform default applies.
+     */
+    credentials?: RequestCredentials;
     /** Callback after successful login. */
     onLogin?: (user: any) => void;
     /** Callback after logout. */
