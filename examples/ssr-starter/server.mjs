@@ -1,10 +1,9 @@
 /**
- * Minimal Node SSR starter for CachouJS.
+ * Minimal Node SSR starter for CachouJS (hardened defaults).
  *
  *   node examples/ssr-starter/server.mjs
  *
- * Production apps should add auth, CSP headers, and real APIs.
- * Demo APIs are intentionally disabled here.
+ * Demo APIs are intentionally disabled. Add real auth on your own APIs.
  */
 import http from "node:http";
 import { createRequire } from "node:module";
@@ -19,7 +18,9 @@ const require = createRequire(import.meta.url);
 // Concurrent SSR isolation
 try {
   const asyncHooks = require("node:async_hooks");
-  const { installSSRAsyncHooks } = await import(pathToFileURL(path.join(root, "src/ssr-context.js")).href);
+  const { installSSRAsyncHooks } = await import(
+    pathToFileURL(path.join(root, "src/ssr-context.js")).href
+  );
   installSSRAsyncHooks(asyncHooks);
 } catch {
   // optional
@@ -33,8 +34,14 @@ const {
   signal,
   html,
   createResource,
-  Show
+  Show,
+  createCSPNonce,
+  buildSecurityHeaders,
+  applySecurityHeaders,
+  applyProductionSecurityDefaults
 } = await import(pathToFileURL(path.join(root, "src/index.js")).href);
+
+applyProductionSecurityDefaults();
 
 function App() {
   const [count] = signal(1);
@@ -59,19 +66,28 @@ function App() {
 const PORT = Number(process.env.PORT || process.env.CACHOU_PORT || 8787);
 
 const server = http.createServer(async (req, res) => {
-  // Explicit per-request context — safe under concurrent connections.
   const context = createSSRContext();
+  const nonce = createCSPNonce();
   try {
     const appHtml = await renderToStringAsync(App, {
       path: req.url,
       request: req,
       context
     });
-    const state = dehydrate(context);
+    const state = dehydrate(context, { nonce });
     const head = getSSRHead(context);
+
+    applySecurityHeaders(
+      res,
+      buildSecurityHeaders({
+        nonce,
+        // One nonced style block below — no blanket unsafe-inline for scripts.
+        allowInlineStyles: false
+      })
+    );
+
     res.statusCode = 200;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline'");
     res.end(`<!doctype html>
 <html lang="en">
 <head>
@@ -80,16 +96,18 @@ const server = http.createServer(async (req, res) => {
   <title>Cachou SSR Starter</title>
   ${head}
   ${state}
-  <style>body{font-family:system-ui;padding:2rem;max-width:40rem;margin:auto}</style>
+  <style nonce="${nonce}">body{font-family:system-ui;padding:2rem;max-width:40rem;margin:auto} .muted{color:#666;font-size:14px}</style>
 </head>
 <body>
   <div id="app">${appHtml}</div>
-  <p style="color:#666;font-size:14px">Server-rendered only. Hydrate by mounting the same App client-side.</p>
+  <p class="muted">Server-rendered only. Hydrate by mounting the same App client-side.</p>
 </body>
 </html>`);
   } catch (err) {
+    console.error("SSR starter error:", err);
+    applySecurityHeaders(res, buildSecurityHeaders({ allowInlineStyles: false }));
     res.statusCode = 500;
-    res.end(String(err && err.stack || err));
+    res.end("Internal Server Error");
   }
 });
 

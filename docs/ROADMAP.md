@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.4.x** (published: **0.4.10**) |
-| **Next publish** | **0.4.11** (patch by default) |
+| **Current line** | **0.4.x** (published: **0.4.11**) |
+| **Next publish** | **0.4.12** (patch by default) |
 | **Next minor** | **0.5.0** when a coherent theme lands |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
@@ -24,7 +24,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 
 ---
 
-## Where we are (0.4.10)
+## Where we are (0.4.11)
 
 ### Mature enough to build on
 
@@ -63,7 +63,7 @@ Treat these as **usable primitives**, not finished product lines:
 
 ---
 
-## Near term — finish the 0.4 line (`0.4.11` …)
+## Near term — finish the 0.4 line (`0.4.12` …)
 
 Theme: **harden what we already ship.** No large new product surface unless it unblocks real bugs.
 
@@ -223,4 +223,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.4.10** (2026-07).
+Last updated for **0.4.11** (2026-07).

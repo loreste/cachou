@@ -208,6 +208,31 @@ declare module "cachoujs" {
     allowInlineStyles: boolean;
   };
   export function trustedHTML(value: string): any;
+  /** Basic untrusted-HTML sanitizer (defense-in-depth; prefer DOMPurify for rich text). */
+  export function sanitizeHTML(input: string): string;
+  export function sanitizeAuthToken(token: unknown, options?: { maxLength?: number }): string | null;
+  export function createCSPNonce(): string;
+  export function buildContentSecurityPolicy(options?: {
+    nonce?: string;
+    allowInlineStyles?: boolean;
+    allowInlineScripts?: boolean;
+    connectSrc?: string[];
+    imgSrc?: string[];
+    extraDirectives?: string[];
+  }): string;
+  export function buildSecurityHeaders(options?: {
+    nonce?: string;
+    allowInlineStyles?: boolean;
+    allowInlineScripts?: boolean;
+    connectSrc?: string[];
+    imgSrc?: string[];
+    extraDirectives?: string[];
+    includeCOOP?: boolean;
+  }): Record<string, string>;
+  export function applySecurityHeaders(
+    res: { setHeader: (name: string, value: string) => void },
+    headers: Record<string, string>
+  ): void;
   export type RouteLoadContext = {
     params: Record<string, string>;
     path: string;

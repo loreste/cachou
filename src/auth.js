@@ -8,6 +8,7 @@
  */
 
 import { signal, batch } from "./reactivity.js";
+import { sanitizeAuthToken } from "./security.js";
 
 /* ------------------------------------------------------------------ */
 /*  SSR-safe storage                                                  */
@@ -19,9 +20,16 @@ const noopStorage = {
   removeItem() {},
 };
 
-function getStorage(storage) {
+/**
+ * @param {Storage | null | undefined} storage
+ * @param {"local" | "session" | "none"} [persist]
+ */
+function getStorage(storage, persist = "local") {
   if (storage) return storage;
+  if (persist === "none") return noopStorage;
+  if (persist === "session" && typeof sessionStorage !== "undefined") return sessionStorage;
   if (typeof localStorage !== "undefined") return localStorage;
+  if (typeof sessionStorage !== "undefined") return sessionStorage;
   return noopStorage;
 }
 
@@ -38,6 +46,8 @@ function getStorage(storage) {
  * @param {string} [config.userUrl="/api/auth/me"] - GET endpoint to fetch current user.
  * @param {string} [config.tokenKey="auth-token"] - Storage key for the auth token.
  * @param {Storage} [config.storage] - Storage backend (default: localStorage).
+ * @param {"local"|"session"|"none"} [config.persist="local"] - Prefer sessionStorage for XSS resilience.
+ * @param {RequestCredentials} [config.credentials] - Fetch credentials mode (e.g. "same-origin" for cookie sessions).
  * @param {Function} [config.onLogin] - Callback after successful login.
  * @param {Function} [config.onLogout] - Callback after logout.
  * @param {Function} [config.fetchFn] - Custom fetch function (default: globalThis.fetch).
@@ -48,7 +58,9 @@ export function createAuth(config = {}) {
   const logoutUrl = config.logoutUrl || "/api/auth/logout";
   const userUrl = config.userUrl || "/api/auth/me";
   const tokenKey = config.tokenKey || "auth-token";
-  const storage = getStorage(config.storage);
+  const persist = config.persist === "session" || config.persist === "none" ? config.persist : "local";
+  const storage = getStorage(config.storage, persist);
+  const credentials = config.credentials;
   const fetchFn = config.fetchFn || (typeof fetch !== "undefined" ? fetch : null);
 
   /* ---- Reactive state ---- */
@@ -63,20 +75,21 @@ export function createAuth(config = {}) {
    */
   function token() {
     try {
-      return storage.getItem(tokenKey) || null;
+      return sanitizeAuthToken(storage.getItem(tokenKey));
     } catch (_) {
       return null;
     }
   }
 
   /**
-   * Store a new token.
+   * Store a new token (control characters / oversized values are rejected).
    * @param {string|null} newToken
    */
   function setToken(newToken) {
     try {
-      if (newToken) {
-        storage.setItem(tokenKey, newToken);
+      const safe = sanitizeAuthToken(newToken);
+      if (safe) {
+        storage.setItem(tokenKey, safe);
       } else {
         storage.removeItem(tokenKey);
       }
@@ -116,7 +129,11 @@ export function createAuth(config = {}) {
       ...(options.headers || {}),
     };
 
-    const response = await fetchFn(url, { ...options, headers });
+    const response = await fetchFn(url, {
+      ...options,
+      headers,
+      ...(credentials ? { credentials } : {})
+    });
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));

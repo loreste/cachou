@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.11
+
+Patch release: close remaining security gaps with helpers, auth hardening, and SSR starter defaults.
+
+### Added
+
+- **`sanitizeHTML(input)`** — defense-in-depth untrusted HTML cleaner (strips script/iframe/svg/on*/javascript:)
+- **`createCSPNonce()` / `buildContentSecurityPolicy()` / `buildSecurityHeaders()` / `applySecurityHeaders()`** — reusable CSP + security header helpers for Node SSR
+- **`sanitizeAuthToken()`** — reject control characters, newlines, HTML-looking or oversized tokens
+- **`createAuth({ persist: "session" | "local" | "none", credentials })`** — prefer sessionStorage; optional fetch credentials mode
+
+### Fixed / improved
+
+- **SSR starter** — production security defaults, CSP nonces on state + styles, no stack leakage on 500
+- **Demo production server** — uses shared header helpers + `applyProductionSecurityDefaults()`
+- Docs: configure-security-policy how-to covers sanitizeHTML, CSP helpers, auth storage
+
+### Docs / tests
+
+- SECURITY.md checklist expanded
+- Unit tests for sanitizer, CSP helpers, auth token hardening
+
+
 ## 0.4.10
 
 Patch release: security hardening for demo server, static assets, WebSocket, and runtime sinks.

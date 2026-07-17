@@ -1,6 +1,6 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.4.10**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.4.11**).
 
 ---
 
@@ -9,7 +9,7 @@ CachouJS keeps privileged capabilities outside the browser runtime. This documen
 | Surface | Trust boundary | Notes |
 |---------|----------------|-------|
 | Browser runtime (`signal`, `html`, router) | Untrusted document / user input | Escapes text by default; URL and style policies apply |
-| `trustedHTML()` | Application must sanitize first | Explicit opt-out of escaping |
+| `trustedHTML()` | Application must sanitize first | Use `sanitizeHTML()` or DOMPurify before trusting |
 | Demo APIs (`/api/todos`, `/api/db-query`, `/api/files`) | **Local demo only** | Require `CACHOU_DEMO=1`; disabled on production `npm start` by default |
 | Files API | Server FS under configured root | Default root is `./sandbox`, not repo cwd |
 | DB `runQuery` | Server process | Only simple allowlisted `SELECT` statements |
@@ -37,6 +37,9 @@ Attackers who can open a browser page can already run arbitrary JS in that origi
 | HTML sinks | `innerHTML`, `outerHTML`, and `srcdoc` require `trustedHTML()` |
 | Event handlers | Non-function handlers ignored; string `on*` attribute bindings blocked |
 | `trustedHTML` | Explicit raw HTML only |
+| `sanitizeHTML` | Strips script/iframe/on*/javascript: (defense-in-depth; not a full sanitizer) |
+| CSP helpers | `createCSPNonce`, `buildSecurityHeaders`, `applySecurityHeaders` |
+| Auth tokens | `sanitizeAuthToken`; `createAuth({ persist: "session" })` |
 | Dehydrate | Optional CSP `nonce` on the state `<script>` tag |
 | Resources | Request IDs, optional abort, stale suppression, optional timeouts, bounded browser cache |
 | Tracing attributes | Sensitive keys (token, cookie, password, authorization, …) redacted |
@@ -144,6 +147,9 @@ Repo-only proving ground (not published on npm). Hardening includes:
 - [ ] No secrets in client bundles  
 - [ ] Logging for `security-block` / auth failures  
 - [ ] Pass `{ nonce }` to `dehydrate(context, { nonce })` when using CSP nonces  
+- [ ] Use `buildSecurityHeaders({ nonce })` on Node SSR responses  
+- [ ] Prefer `createAuth({ persist: "session" })` or httpOnly cookies over long-lived localStorage tokens  
+- [ ] Sanitize untrusted HTML with `sanitizeHTML` / DOMPurify before `trustedHTML`  
 
 ---
 

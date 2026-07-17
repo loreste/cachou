@@ -1,0 +1,263 @@
+/**
+ * Security helpers for Cachou apps (CSP headers, basic HTML sanitization, nonces).
+ * Complements configureSecurityPolicy / applyProductionSecurityDefaults in html.js.
+ * Browser-safe: no node: imports.
+ */
+
+/**
+ * Generate a CSP-safe nonce (base64url, 16 random bytes).
+ * Uses Web Crypto in modern Node and browsers.
+ * @returns {string}
+ */
+export function createCSPNonce() {
+  const c = globalThis.crypto;
+  if (c?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    c.getRandomValues(bytes);
+    return bytesToBase64Url(bytes);
+  }
+  // Last resort (not cryptographically strong) — still CSP-safe charset
+  let out = "";
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  for (let i = 0; i < 22; i++) {
+    out += alphabet[(Math.random() * 64) | 0];
+  }
+  return out;
+}
+
+function bytesToBase64Url(bytes) {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes).toString("base64url");
+  }
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const b64 = btoa(binary);
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+/**
+ * Build a Content-Security-Policy header value.
+ *
+ * @param {{
+ *   nonce?: string,
+ *   allowInlineStyles?: boolean,
+ *   allowInlineScripts?: boolean,
+ *   connectSrc?: string[],
+ *   imgSrc?: string[],
+ *   extraDirectives?: string[]
+ * }} [options]
+ * @returns {string}
+ */
+export function buildContentSecurityPolicy(options = {}) {
+  const nonce =
+    typeof options.nonce === "string" && /^[A-Za-z0-9+/=_-]+$/.test(options.nonce)
+      ? options.nonce
+      : "";
+  const allowInlineStyles = options.allowInlineStyles === true;
+  const allowInlineScripts = options.allowInlineScripts === true;
+  const connectSrc = Array.isArray(options.connectSrc)
+    ? options.connectSrc
+    : ["'self'", "ws:", "wss:"];
+  const imgSrc = Array.isArray(options.imgSrc) ? options.imgSrc : ["'self'", "data:"];
+
+  const scriptSrc = ["'self'"];
+  if (nonce) scriptSrc.push(`'nonce-${nonce}'`);
+  if (allowInlineScripts) scriptSrc.push("'unsafe-inline'");
+
+  const styleSrc = ["'self'"];
+  if (nonce) styleSrc.push(`'nonce-${nonce}'`);
+  // Browsers ignore 'unsafe-inline' for styles when a nonce is present in some
+  // versions; prefer nonce-only when allowInlineStyles is false.
+  if (allowInlineStyles && !nonce) styleSrc.push("'unsafe-inline'");
+  if (allowInlineStyles && nonce) styleSrc.push("'unsafe-inline'");
+
+  const directives = [
+    "default-src 'self'",
+    `script-src ${scriptSrc.join(" ")}`,
+    `style-src ${styleSrc.join(" ")}`,
+    `img-src ${imgSrc.join(" ")}`,
+    "font-src 'self'",
+    `connect-src ${connectSrc.join(" ")}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'"
+  ];
+  if (Array.isArray(options.extraDirectives)) {
+    for (const d of options.extraDirectives) {
+      if (typeof d === "string" && d.trim()) directives.push(d.trim());
+    }
+  }
+  return directives.join("; ");
+}
+
+/**
+ * Standard HTTP security headers for Node (and similar) servers.
+ *
+ * @param {{
+ *   nonce?: string,
+ *   allowInlineStyles?: boolean,
+ *   allowInlineScripts?: boolean,
+ *   connectSrc?: string[],
+ *   imgSrc?: string[],
+ *   extraDirectives?: string[],
+ *   includeCOOP?: boolean
+ * }} [options]
+ * @returns {Record<string, string>}
+ */
+export function buildSecurityHeaders(options = {}) {
+  const headers = {
+    "Content-Security-Policy": buildContentSecurityPolicy(options),
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+  };
+  if (options.includeCOOP !== false) {
+    headers["Cross-Origin-Opener-Policy"] = "same-origin";
+  }
+  return headers;
+}
+
+/**
+ * Apply a headers object to a Node-style ServerResponse.
+ * @param {{ setHeader: (k: string, v: string) => void }} res
+ * @param {Record<string, string>} headers
+ */
+export function applySecurityHeaders(res, headers) {
+  if (!res || typeof res.setHeader !== "function") return;
+  for (const [key, value] of Object.entries(headers || {})) {
+    if (value != null) res.setHeader(key, value);
+  }
+}
+
+const DANGEROUS_TAGS =
+  /<\/?(?:script|iframe|object|embed|link|meta|base|form|svg|math|template|style|frame|frameset|applet|foreignobject)(?:\s[^>]*)?>/gi;
+const EVENT_HANDLER_ATTR = /\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const JS_URL_ATTR =
+  /\s(?:href|src|xlink:href|action|formaction|poster|data)\s*=\s*(['"]?)\s*javascript:[^'"\s>]*/gi;
+const DATA_HTML_URL =
+  /\s(?:href|src)\s*=\s*(['"]?)\s*data:\s*(?:text\/html|image\/svg\+xml)[^'"\s>]*/gi;
+
+/**
+ * Basic HTML sanitizer for untrusted fragments.
+ *
+ * Removes dangerous tags, event-handler attributes, and javascript:/data HTML URLs.
+ * This is a **defense-in-depth** helper — not a full browser HTML parser.
+ * For high-risk rich text, use a dedicated library (e.g. DOMPurify) then wrap with
+ * `trustedHTML()`.
+ *
+ * @param {string} input
+ * @returns {string}
+ */
+export function sanitizeHTML(input) {
+  if (input == null) return "";
+  const html = String(input);
+
+  // Prefer DOM-based cleaning when available (browser / happy-dom / jsdom)
+  if (typeof DOMParser !== "undefined") {
+    try {
+      return sanitizeHTMLWithDOM(html);
+    } catch {
+      // fall through to string path
+    }
+  }
+
+  return sanitizeHTMLString(html);
+}
+
+function sanitizeHTMLString(html) {
+  let out = html;
+  out = out.replace(/<!--[\s\S]*?-->/g, "");
+  out = out.replace(DANGEROUS_TAGS, "");
+  out = out.replace(EVENT_HANDLER_ATTR, "");
+  out = out.replace(JS_URL_ATTR, " ");
+  out = out.replace(DATA_HTML_URL, " ");
+  out = out.replace(/javascript:/gi, "");
+  out = out.replace(/vbscript:/gi, "");
+  return out;
+}
+
+const DANGEROUS_TAG_NAMES = new Set([
+  "script",
+  "iframe",
+  "object",
+  "embed",
+  "link",
+  "meta",
+  "base",
+  "form",
+  "svg",
+  "math",
+  "template",
+  "style",
+  "frame",
+  "frameset",
+  "applet",
+  "foreignobject"
+]);
+
+function sanitizeHTMLWithDOM(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<body>${html}</body>`, "text/html");
+  const body = doc.body;
+  const walk = node => {
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType === 1) {
+        const tag = child.tagName.toLowerCase();
+        if (DANGEROUS_TAG_NAMES.has(tag)) {
+          child.remove();
+          continue;
+        }
+        const attrs = Array.from(child.attributes || []);
+        for (const attr of attrs) {
+          const name = attr.name.toLowerCase();
+          const value = attr.value || "";
+          if (name.startsWith("on")) {
+            child.removeAttribute(attr.name);
+            continue;
+          }
+          if (
+            ["href", "src", "xlink:href", "action", "formaction", "poster", "data"].includes(name)
+          ) {
+            const compact = value.replace(/[\u0000-\u001F\u007F\s]+/g, "").toLowerCase();
+            if (
+              compact.startsWith("javascript:") ||
+              compact.startsWith("vbscript:") ||
+              compact.startsWith("data:text/html") ||
+              compact.startsWith("data:image/svg+xml")
+            ) {
+              child.removeAttribute(attr.name);
+            }
+          }
+        }
+        walk(child);
+      } else if (child.nodeType === 8) {
+        child.remove();
+      }
+    }
+  };
+  walk(body);
+  return body.innerHTML;
+}
+
+/**
+ * Sanitize a bearer/session token before storage or Authorization headers.
+ * Strips control characters and enforces a max length.
+ * @param {unknown} token
+ * @param {{ maxLength?: number }} [options]
+ * @returns {string|null}
+ */
+export function sanitizeAuthToken(token, options = {}) {
+  if (token == null) return null;
+  if (typeof token !== "string" && typeof token !== "number") return null;
+  const maxLength = Number.isInteger(options.maxLength) ? options.maxLength : 8192;
+  const raw = String(token);
+  // Reject (do not silently strip) control characters / CR/LF that break headers
+  if (/[\u0000-\u001F\u007F]/.test(raw)) return null;
+  const value = raw.trim();
+  if (!value || value.length > maxLength) return null;
+  if (/[<>]/.test(value)) return null;
+  return value;
+}

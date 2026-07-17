@@ -29,9 +29,16 @@ import {
   renderToStringAsync,
   dehydrate,
   getSSRHead,
-  createSSRContext
+  createSSRContext,
+  createCSPNonce,
+  buildSecurityHeaders,
+  applySecurityHeaders,
+  applyProductionSecurityDefaults
 } from "./src/index.js";
 import App from "./demo/app.js";
+
+// Safer HTML/URL/style defaults for the production demo server.
+applyProductionSecurityDefaults();
 
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = "production";
@@ -100,33 +107,17 @@ function rateLimit(req, res) {
   return false;
 }
 
-function setSecurityHeaders(res, { nonce } = {}) {
-  // script-src uses a per-request nonce for the dehydrate state script when provided.
-  // style-src keeps 'unsafe-inline' for demo CSS-in-JS; production apps should tighten.
-  const scriptSrc = nonce
-    ? `script-src 'self' 'nonce-${nonce}'`
-    : "script-src 'self'";
-  res.setHeader(
-    "Content-Security-Policy",
-    [
-      "default-src 'self'",
-      scriptSrc,
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data:",
-      "font-src 'self'",
-      "connect-src 'self' ws: wss:",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'none'"
-    ].join("; ")
+function setSecurityHeaders(res, { nonce, allowInlineStyles = true } = {}) {
+  applySecurityHeaders(
+    res,
+    buildSecurityHeaders({
+      nonce,
+      // Demo CSS-in-JS / inline styles still need unsafe-inline for styles.
+      // Scripts use the nonce only (no unsafe-inline).
+      allowInlineStyles,
+      allowInlineScripts: false
+    })
   );
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader("X-Content-Type-Options", "nosniff");
 }
 
 const PORT = process.env.PORT || process.env.CACHOU_PORT || 5173;
@@ -258,8 +249,8 @@ const server = http.createServer(async (req, res) => {
       !url.includes(".map"));
 
   if (isHtmlRequest) {
-    const nonce = crypto.randomBytes(16).toString("base64url");
-    setSecurityHeaders(res, { nonce });
+    const nonce = createCSPNonce() || crypto.randomBytes(16).toString("base64url");
+    setSecurityHeaders(res, { nonce, allowInlineStyles: true });
     try {
       const htmlTemplatePath = path.join(DIST_ROOT, "demo", "index.html");
       if (!fs.existsSync(htmlTemplatePath)) {

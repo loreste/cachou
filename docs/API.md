@@ -1,6 +1,6 @@
 # API Reference
 
-Public APIs exported from **`cachoujs`** (v0.4.10). Types also live in `src/index.d.ts`.
+Public APIs exported from **`cachoujs`** (v0.4.11). Types also live in `src/index.d.ts`.
 
 Subpath imports: `cachoujs/browser`, `cachoujs/html`, `cachoujs/reactivity`, `cachoujs/router`, `cachoujs/forms`, `cachoujs/a11y`, `cachoujs/files`, `cachoujs/styles`, `cachoujs/transitions`, `cachoujs/plugin`, `cachoujs/content`, `cachoujs/image`, `cachoujs/media`, `cachoujs/ui`, `cachoujs/utils`, `cachoujs/vite`, and more.
 

@@ -80,6 +80,14 @@ export {
   applyProductionSecurityDefaults
 } from "./html.js";
 export {
+  createCSPNonce,
+  buildContentSecurityPolicy,
+  buildSecurityHeaders,
+  applySecurityHeaders,
+  sanitizeHTML,
+  sanitizeAuthToken
+} from "./security.js";
+export {
   Router,
   Route,
   Layout,
