@@ -170,7 +170,7 @@ declare module "cachoujs" {
 
   export function webSocketSignal<T>(url: string, initialValue: T): Signal<T>;
 
-  export function dehydrate(context?: SSRContext): string;
+  export function dehydrate(context?: SSRContext, options?: { nonce?: string }): string;
   export function getSSRHead(context?: SSRContext): string;
   export function resetResourceCounter(): void;
   export function resolvePendingResources(): Promise<void>;

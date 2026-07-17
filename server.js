@@ -1,6 +1,7 @@
 import http from "http";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 
@@ -23,7 +24,13 @@ import { getTodos, addTodo, updateTodo, deleteTodo } from "./server/db.js";
 import { setupWebSocket } from "./server/ws.js";
 import { serveFilesApi } from "./server/files.js";
 import { denyUnlessDemo, isDemoMode } from "./server/demo-guard.js";
-import { renderToStringAsync, dehydrate, getSSRHead } from "./src/index.js";
+import { resolveSafeAssetPath } from "./server/static-assets.js";
+import {
+  renderToStringAsync,
+  dehydrate,
+  getSSRHead,
+  createSSRContext
+} from "./src/index.js";
 import App from "./demo/app.js";
 
 if (!process.env.NODE_ENV) {
@@ -59,6 +66,7 @@ function safeJsonParse(str) {
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 120;
+const RATE_LIMIT_MAP_MAX = 10_000;
 
 function rateLimit(req, res) {
   const ip = req.socket.remoteAddress || "unknown";
@@ -69,22 +77,60 @@ function rateLimit(req, res) {
     rateLimitMap.set(ip, entry);
   }
   entry.count++;
+  if (rateLimitMap.size > RATE_LIMIT_MAP_MAX) {
+    for (const [key, value] of rateLimitMap) {
+      if (now - value.start > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(key);
+    }
+    // Hard cap: drop oldest half if still oversized (memory DoS guard)
+    if (rateLimitMap.size > RATE_LIMIT_MAP_MAX) {
+      let i = 0;
+      for (const key of rateLimitMap.keys()) {
+        rateLimitMap.delete(key);
+        if (++i >= Math.floor(RATE_LIMIT_MAP_MAX / 2)) break;
+      }
+    }
+  }
   if (entry.count > RATE_LIMIT_MAX) {
     res.statusCode = 429;
     res.setHeader("Content-Type", "application/json");
+    res.setHeader("Retry-After", "60");
     res.end(JSON.stringify({ error: "Too many requests" }));
     return true;
   }
   return false;
 }
 
-function setSecurityHeaders(res) {
-  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:");
+function setSecurityHeaders(res, { nonce } = {}) {
+  // script-src uses a per-request nonce for the dehydrate state script when provided.
+  // style-src keeps 'unsafe-inline' for demo CSS-in-JS; production apps should tighten.
+  const scriptSrc = nonce
+    ? `script-src 'self' 'nonce-${nonce}'`
+    : "script-src 'self'";
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      scriptSrc,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "font-src 'self'",
+      "connect-src 'self' ws: wss:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'"
+    ].join("; ")
+  );
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("X-Content-Type-Options", "nosniff");
 }
 
 const PORT = process.env.PORT || process.env.CACHOU_PORT || 5173;
+const DIST_ROOT = path.resolve(__dirname, "dist");
 
 function getMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -99,23 +145,25 @@ function getMimeType(filePath) {
     ".ico": "image/x-icon",
     ".woff": "font/woff",
     ".woff2": "font/woff2",
-    ".ttf": "font/ttf"
+    ".ttf": "font/ttf",
+    ".map": "application/json"
   };
   return mimeTypes[ext] || "application/octet-stream";
 }
 
 const server = http.createServer(async (req, res) => {
   if (rateLimit(req, res)) return;
-  setSecurityHeaders(res);
-  const url = req.url.split("?")[0].split("#")[0];
+  const url = (req.url || "/").split("?")[0].split("#")[0];
 
   if (url === "/api/files" || url === "/api/files/content") {
+    setSecurityHeaders(res);
     if (denyUnlessDemo(res, "Filesystem API")) return;
     await serveFilesApi(req, res);
     return;
   }
 
   if (url.startsWith("/api/db-query")) {
+    setSecurityHeaders(res);
     if (denyUnlessDemo(res, "Database query API")) return;
     res.setHeader("Content-Type", "application/json");
     try {
@@ -126,12 +174,13 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify(list));
     } catch (e) {
       res.statusCode = e.statusCode || 500;
-      res.end(JSON.stringify({ error: e.message }));
+      res.end(JSON.stringify({ error: e.statusCode ? e.message : "Query failed" }));
     }
     return;
   }
 
   if (url.startsWith("/api/todos")) {
+    setSecurityHeaders(res);
     if (denyUnlessDemo(res, "Todos demo API")) return;
     res.setHeader("Content-Type", "application/json");
 
@@ -141,7 +190,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify(list));
       } catch (err) {
         res.statusCode = 500;
-        res.end(JSON.stringify({ error: err.message }));
+        res.end(JSON.stringify({ error: "Failed to load todos" }));
       }
       return;
     }
@@ -150,11 +199,16 @@ const server = http.createServer(async (req, res) => {
       try {
         const raw = await collectBody(req);
         const { text } = safeJsonParse(raw);
+        if (typeof text !== "string" || text.length > 2000) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "Invalid todo text" }));
+          return;
+        }
         const newItem = await addTodo(text);
         res.end(JSON.stringify(newItem));
       } catch (e) {
         res.statusCode = e.statusCode || 400;
-        res.end(JSON.stringify({ error: e.message }));
+        res.end(JSON.stringify({ error: e.statusCode ? e.message : "Bad request" }));
       }
       return;
     }
@@ -167,7 +221,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify(updatedItem));
       } catch (e) {
         res.statusCode = e.statusCode || 400;
-        res.end(JSON.stringify({ error: e.message }));
+        res.end(JSON.stringify({ error: e.statusCode ? e.message : "Bad request" }));
       }
       return;
     }
@@ -185,17 +239,10 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: true }));
       } catch (e) {
         res.statusCode = 400;
-        res.end(JSON.stringify({ error: e.message }));
+        res.end(JSON.stringify({ error: "Bad request" }));
       }
       return;
     }
-  }
-
-  const relativeAssetPath = url.startsWith("/demo") ? url.slice(5) : url;
-  let assetPath = path.join(__dirname, "dist", relativeAssetPath);
-
-  if (fs.existsSync(assetPath) && fs.statSync(assetPath).isDirectory()) {
-    assetPath = path.join(assetPath, "index.html");
   }
 
   const isHtmlRequest =
@@ -207,11 +254,14 @@ const server = http.createServer(async (req, res) => {
       !url.includes(".png") &&
       !url.includes(".webp") &&
       !url.includes(".woff") &&
-      !url.includes(".ttf"));
+      !url.includes(".ttf") &&
+      !url.includes(".map"));
 
   if (isHtmlRequest) {
+    const nonce = crypto.randomBytes(16).toString("base64url");
+    setSecurityHeaders(res, { nonce });
     try {
-      const htmlTemplatePath = path.join(__dirname, "dist", "demo", "index.html");
+      const htmlTemplatePath = path.join(DIST_ROOT, "demo", "index.html");
       if (!fs.existsSync(htmlTemplatePath)) {
         res.statusCode = 404;
         res.end("Production build not found. Please run `npm run build` first.");
@@ -229,32 +279,64 @@ const server = http.createServer(async (req, res) => {
       };
 
       try {
-        const appHtml = await renderToStringAsync(App, { path: req.url });
-        const stateScript = dehydrate();
-        const headHtml = getSSRHead();
+        // Per-request SSR context — safe under concurrent connections.
+        const context = createSSRContext();
+        const appHtml = await renderToStringAsync(App, {
+          path: req.url,
+          request: req,
+          context
+        });
+        const stateScript = dehydrate(context, { nonce });
+        const headHtml = getSSRHead(context);
         const html = template
           .replace('<div id="app"></div>', `<div id="app">${appHtml}</div>`)
           .replace("</head>", `${stateScript}\n${headHtml}</head>`);
 
         res.statusCode = 200;
-        res.setHeader("Content-Type", "text/html");
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.end(html);
         return;
       } finally {
         globalThis.fetch = originalFetch;
       }
     } catch (e) {
+      console.error("⚡ Production SSR Error:", e);
       res.statusCode = 500;
-      res.end(`⚡ Production SSR Error: ${e.message}`);
+      res.end("Internal Server Error");
       return;
     }
   }
 
-  if (fs.existsSync(assetPath) && fs.statSync(assetPath).isFile()) {
-    res.statusCode = 200;
-    res.setHeader("Content-Type", getMimeType(assetPath));
-    fs.createReadStream(assetPath).pipe(res);
-    return;
+  setSecurityHeaders(res);
+  const assetPath = resolveSafeAssetPath(DIST_ROOT, url);
+  if (assetPath) {
+    let finalPath = assetPath;
+    try {
+      if (fs.existsSync(finalPath) && fs.statSync(finalPath).isDirectory()) {
+        const indexPath = path.join(finalPath, "index.html");
+        const indexRel = path.relative(DIST_ROOT, indexPath);
+        if (!indexRel.startsWith("..") && !path.isAbsolute(indexRel) && fs.existsSync(indexPath)) {
+          finalPath = indexPath;
+        } else {
+          finalPath = null;
+        }
+      }
+    } catch {
+      finalPath = null;
+    }
+
+    if (finalPath && fs.existsSync(finalPath) && fs.statSync(finalPath).isFile()) {
+      const base = path.basename(finalPath).toLowerCase();
+      if (base === ".env" || base.endsWith(".pem") || base.endsWith(".key")) {
+        res.statusCode = 404;
+        res.end("Not Found");
+        return;
+      }
+      res.statusCode = 200;
+      res.setHeader("Content-Type", getMimeType(finalPath));
+      fs.createReadStream(finalPath).pipe(res);
+      return;
+    }
   }
 
   res.statusCode = 404;

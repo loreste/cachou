@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.10
+
+Patch release: security hardening for demo server, static assets, WebSocket, and runtime sinks.
+
+### Fixed / improved
+
+- **Static assets** — `resolveSafeAssetPath()` confines file serving to `dist/` (blocks `../` traversal)
+- **WebSocket** — `/ws-api` requires demo mode; Origin must match Host; `db-sync` table allowlist + row cap
+- **SSR server** — per-request `createSSRContext()`; generic 500 responses (no stack leakage)
+- **CSP** — per-request nonce for dehydrate state script; `object-src 'none'`, `frame-ancestors 'none'`, COOP, Referrer-Policy
+- **Rate limit** — bounded map size to resist memory growth
+- **Todos API** — validates text type/length
+- **`dehydrate(context, { nonce })`** — optional CSP nonce attribute (rejects unsafe nonce chars)
+- **Style policy** — also blocks `-moz-binding`, `behavior:`, `@import`, `url(data:…)`
+- **Event handlers** — ignore non-function handlers; block string `on*` attribute bindings
+
+### Docs / tests
+
+- SECURITY.md updated for server/WS/CSP nonce guidance
+- Unit tests: static path traversal, WS origin, dehydrate nonce, demo mode default
+
+
 ## 0.4.9
 
 Patch release: multi-arch compiler packaging policy + how-tos for browser entry, concurrent SSR, logger/tracing.

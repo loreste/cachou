@@ -1,6 +1,6 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.4.9**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.4.10**).
 
 ---
 
@@ -13,7 +13,7 @@ CachouJS keeps privileged capabilities outside the browser runtime. This documen
 | Demo APIs (`/api/todos`, `/api/db-query`, `/api/files`) | **Local demo only** | Require `CACHOU_DEMO=1`; disabled on production `npm start` by default |
 | Files API | Server FS under configured root | Default root is `./sandbox`, not repo cwd |
 | DB `runQuery` | Server process | Only simple allowlisted `SELECT` statements |
-| WebSockets (`/ws-api`) | Same-origin demo bus | Not multi-tenant auth |
+| WebSockets (`/ws-api`) | Demo-only + same-origin Origin check | Gated by `CACHOU_DEMO`; not multi-tenant auth |
 | Your production APIs | Your authn/z | Out of scope for the framework — required for real apps |
 
 Attackers who can open a browser page can already run arbitrary JS in that origin. The goal is to prevent:
@@ -33,9 +33,11 @@ Attackers who can open a browser page can already run arbitrary JS in that origi
 | Attribute escaping | Attribute values escaped on SSR |
 | URL attributes | `href`, `src`, `action`, … sanitized against protocol allowlist |
 | `data:` URLs | MIME prefix allowlist |
-| Inline styles | `style:` values block `javascript:` / `expression(`; can disable all inline styles |
+| Inline styles | Blocks `javascript:`, `expression(`, `-moz-binding`, `behavior:`, `@import`, `url(data:…)`; can disable all inline styles |
 | HTML sinks | `innerHTML`, `outerHTML`, and `srcdoc` require `trustedHTML()` |
+| Event handlers | Non-function handlers ignored; string `on*` attribute bindings blocked |
 | `trustedHTML` | Explicit raw HTML only |
+| Dehydrate | Optional CSP `nonce` on the state `<script>` tag |
 | Resources | Request IDs, optional abort, stale suppression, optional timeouts, bounded browser cache |
 | Tracing attributes | Sensitive keys (token, cookie, password, authorization, …) redacted |
 | Logger | Silent by default; custom sinks never throw into app code |
@@ -113,12 +115,26 @@ Implementation: `server/demo-guard.js` → `sanitizeReadOnlySelect`.
 | Hidden | Dotted names excluded unless `hidden=1` |
 | Size | `CACHOU_FILES_MAX_BYTES` (default 1 MB) |
 
+## Demo production server (`server.js`)
+
+Repo-only proving ground (not published on npm). Hardening includes:
+
+| Control | Behavior |
+|---------|----------|
+| Demo gate | HTTP demo APIs + `/ws-api` require `CACHOU_DEMO` |
+| Static assets | Resolved only under `dist/` (blocks `..` traversal) |
+| SSR | Per-request `createSSRContext()` + explicit dehydrate/head |
+| CSP | Nonce on dehydrate script; `object-src 'none'`; `frame-ancestors 'none'` |
+| WS | Origin must match `Host` when present; table allowlist on `db-sync` |
+| Rate limit | 120 req/min/IP with map size cap |
+| Errors | Generic 500 bodies (no stack leakage to clients) |
+
 ---
 
 ## Production checklist
 
 - [ ] `CACHOU_DEMO` disabled  
-- [ ] CSP (prefer no `unsafe-inline` where possible)  
+- [ ] CSP (prefer nonces / hashes; avoid `unsafe-inline` for scripts)  
 - [ ] `applyProductionSecurityDefaults()` or stricter  
 - [ ] Authn/z on all real APIs  
 - [ ] Secure cookie flags  
@@ -127,6 +143,7 @@ Implementation: `server/demo-guard.js` → `sanitizeReadOnlySelect`.
 - [ ] Dependency updates / audit  
 - [ ] No secrets in client bundles  
 - [ ] Logging for `security-block` / auth failures  
+- [ ] Pass `{ nonce }` to `dehydrate(context, { nonce })` when using CSP nonces  
 
 ---
 

@@ -139,7 +139,12 @@ export function resetResourceCounter() {
   context.resourcesStarted = 0;
 }
 
-export function dehydrate(context = null) {
+/**
+ * Serialize the SSR resource cache into a state script tag.
+ * @param {object | null} [context]
+ * @param {{ nonce?: string }} [options] Optional CSP nonce for the state script
+ */
+export function dehydrate(context = null, options = {}) {
   const cache = getSerializationContext(context).ssrCache;
   const json = JSON.stringify(cache)
     .replace(/</g, "\\u003c")
@@ -148,7 +153,14 @@ export function dehydrate(context = null) {
   for (const k in cache) {
     delete cache[k];
   }
-  return `<script id="__CACHOU_STATE__">window.__CACHOU_STATE__ = ${json};</script>`;
+  const nonce =
+    (options && typeof options.nonce === "string" && options.nonce) ||
+    (context && typeof context.nonce === "string" && context.nonce) ||
+    "";
+  // Only allow a tight CSP nonce charset (base64/base64url)
+  const safeNonce = /^[A-Za-z0-9+/=_-]+$/.test(nonce) ? nonce : "";
+  const nonceAttr = safeNonce ? ` nonce="${safeNonce}"` : "";
+  return `<script id="__CACHOU_STATE__"${nonceAttr}>window.__CACHOU_STATE__ = ${json};</script>`;
 }
 
 export async function resolvePendingResources(signal = null) {

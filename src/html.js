@@ -447,7 +447,15 @@ function sanitizeStyleValue(value) {
   }
   const raw = String(value);
   const compact = raw.replace(/[\u0000-\u001F\u007F\s]+/g, "").toLowerCase();
-  if (compact.includes("javascript:") || compact.includes("expression(")) {
+  // Block classic CSS-based script gadgets and data: URLs in style sheets.
+  if (
+    compact.includes("javascript:") ||
+    compact.includes("expression(") ||
+    compact.includes("-moz-binding") ||
+    compact.includes("behavior:") ||
+    compact.includes("@import") ||
+    /url\(\s*['"]?data:/i.test(compact)
+  ) {
     warnSecurity("blocked unsafe style value.", { value: raw });
     return "";
   }
@@ -564,20 +572,37 @@ function isOnlyChildAnchor(anchor) {
 function bindValue(node, binding, values) {
   if (binding.type === "event") {
     const eventName = binding.name;
+    const rawHandler = values[binding.index];
+    // Only functions (or signal getters that yield functions) may be event handlers.
+    // String "handlers" would become XSS if ever written as HTML attributes.
+    if (
+      rawHandler != null &&
+      typeof rawHandler !== "function" &&
+      !(rawHandler && rawHandler.$$cachouSignal)
+    ) {
+      warnSecurity("ignored non-function event handler.", { event: eventName });
+      return;
+    }
     if (delegatedEvents.has(eventName)) {
       // Static handlers are immutable for this node. Avoid an effect and its
       // cleanup allocation; signal-backed handlers retain reactive updates.
       const prop = "$$" + eventName;
-      const handler = values[binding.index];
+      const handler = rawHandler;
       if (handler?.$$cachouSignal) {
-        node[prop] = handler();
+        const current = handler();
+        if (typeof current !== "function" && current != null) {
+          warnSecurity("ignored non-function event handler from signal.", { event: eventName });
+          node[prop] = null;
+        } else {
+          node[prop] = current;
+        }
         const subscriber = value => {
-          node[prop] = value;
+          node[prop] = typeof value === "function" ? value : null;
         };
         handler.$$cachouSignal.subscribe(subscriber);
         addNodeCleanup(node, () => handler.$$cachouSignal.unsubscribe(subscriber));
       } else {
-        node[prop] = handler;
+        node[prop] = typeof handler === "function" ? handler : null;
       }
 
       // 2. Local fallback listener to support event execution in disconnected DOM trees
@@ -872,7 +897,14 @@ function bindValue(node, binding, values) {
 
 function setAttributeBinding(node, name, isProp, val) {
   const propertyName = isProp ? normalizePropertyName(name) : name;
-  if (isRawHTMLSink(name)) {
+  // Never materialize on* attributes as strings — they execute as JS in the DOM.
+  if (/^on[a-z]/i.test(String(name).replace(/^\./, ""))) {
+    warnSecurity("blocked inline on* attribute binding; use onclick=${fn} handlers instead.", {
+      attribute: name
+    });
+    return;
+  }
+  if (isRawHTMLSink(name) || isRawHTMLSink(propertyName)) {
     const safeVal = sanitizeRawHTMLSink(name, val);
     if (safeVal === null || safeVal === undefined || safeVal === false) {
       if (isProp) node[propertyName] = "";
@@ -884,8 +916,10 @@ function setAttributeBinding(node, name, isProp, val) {
   if (isProp) {
     if (propertyName.toLowerCase() === "style") {
       node[propertyName] = sanitizeStyleValue(val);
+    } else if (isURLAttribute(propertyName) || isURLAttribute(name)) {
+      node[propertyName] = sanitizeAttributeValue(propertyName, val) ?? "";
     } else {
-      node[propertyName] = isURLAttribute(propertyName) ? sanitizeAttributeValue(propertyName, val) ?? "" : val;
+      node[propertyName] = val;
     }
   } else if (name === "class") {
     node.className = val === null || val === undefined || val === false ? "" : String(val);
