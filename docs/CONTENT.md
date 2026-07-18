@@ -11,8 +11,9 @@ Content collections give you a structured way to manage blog posts, docs, change
 3. [Querying content](#querying-content)
 4. [Parsing frontmatter](#parsing-frontmatter)
 5. [Server-side loading with `loadContent`](#server-side-loading-with-loadcontent)
-6. [Client-side usage](#client-side-usage)
-7. [Building a blog](#building-a-blog)
+6. [Build pipeline (`buildContent`)](#build-pipeline-buildcontent)
+7. [Client-side usage](#client-side-usage)
+8. [Building a blog](#building-a-blog)
 
 ---
 
@@ -195,6 +196,28 @@ await loadContent([
 It reads `.md`, `.mdx`, and `.json` files from each directory. Markdown files get their frontmatter parsed automatically. JSON files are parsed and stored as `{ data }` entries. Other file types are skipped.
 
 After loading, you query with `getCollection` and `getEntry` as usual.
+
+---
+
+## Build pipeline (`buildContent`)
+
+For static sites and client manifests (0.6.3+):
+
+```javascript
+import { buildContent, z } from "cachoujs/content";
+
+const { manifest, written, routes } = await buildContent(
+  [{ name: "posts", directory: "./content/posts", schema: z.object({ title: z.string() }) }],
+  {
+    outPath: "dist/content.json",
+    routeCollections: [{ name: "posts", prefix: "/blog", includeIndex: true }]
+  }
+);
+// routes → pass to cachoujs/static prerender helpers
+```
+
+Also available: `exportContentManifest`, `writeContentManifest`, `routesFromCollection`.  
+Full recipe: [Build content and images](./how-to/build-content-and-images.md).
 
 ---
 

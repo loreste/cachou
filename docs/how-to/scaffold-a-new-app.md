@@ -34,7 +34,7 @@ npm run dev
 ```text
 my-app/
 ├── index.html
-├── package.json          # cachoujs@^0.6.2 + vite
+├── package.json          # cachoujs@^0.6.3 + vite
 ├── vite.config.js        # cachoujs/vite plugin
 ├── .gitignore
 ├── README.md
@@ -60,7 +60,7 @@ my-app/
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-npm install cachoujs@^0.6.2
+npm install cachoujs@^0.6.3
 npm install -D vite @cachoujs/compiler
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -221,7 +221,8 @@
     "crm:demo:reset": "npm --prefix crm run demo:reset",
     "crm:db:postgres:up": "npm --prefix crm run db:postgres:up",
     "crm:db:postgres:start": "npm --prefix crm run db:postgres:start",
-    "crm:db:postgres:stop": "npm --prefix crm run db:postgres:stop"
+    "crm:db:postgres:stop": "npm --prefix crm run db:postgres:stop",
+    "content:build": "node examples/content-site/build.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

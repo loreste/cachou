@@ -468,3 +468,248 @@ export function clearCollection(collection) {
   const col = collections.get(name);
   if (col) col.entries.clear();
 }
+
+// ---------------------------------------------------------------------------
+// Build-time pipeline (manifest + routes for static pre-render)
+// ---------------------------------------------------------------------------
+
+/**
+ * JSON-safe clone (Dates → ISO strings).
+ * @param {any} value
+ */
+function toJsonSafe(value) {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(toJsonSafe);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = toJsonSafe(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Export loaded collections as a portable JSON-safe manifest for the client
+ * or static builds.
+ *
+ * @param {string | string[] | Array<{ name: string }> | null} [names]
+ *   Collection name(s). Omit / null = all registered collections.
+ * @param {{
+ *   includeBody?: boolean,
+ *   includeRaw?: boolean,
+ *   onlyValid?: boolean
+ * }} [options]
+ * @returns {{
+ *   version: 1,
+ *   generatedAt: string,
+ *   collections: Record<string, Array<{
+ *     slug: string,
+ *     data: any,
+ *     body?: string,
+ *     rawContent?: string,
+ *     _valid?: boolean,
+ *     _errors?: string[]
+ *   }>>
+ * }}
+ */
+export function exportContentManifest(names = null, options = {}) {
+  const includeBody = options.includeBody !== false;
+  const includeRaw = options.includeRaw === true;
+  const onlyValid = options.onlyValid === true;
+
+  let nameList;
+  if (names == null) {
+    nameList = [...collections.keys()];
+  } else if (typeof names === "string") {
+    nameList = [names];
+  } else if (Array.isArray(names)) {
+    nameList = names.map(n => (typeof n === "string" ? n : n.name));
+  } else {
+    throw new TypeError("exportContentManifest names must be string | string[] | null");
+  }
+
+  const out = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    collections: {}
+  };
+
+  for (const name of nameList) {
+    if (!collections.has(name)) {
+      throw new Error(`[CachouJS Content]: collection "${name}" is not defined.`);
+    }
+    let entries = getCollection(name);
+    if (onlyValid) {
+      entries = entries.filter(e => e._valid !== false);
+    }
+    out.collections[name] = entries.map(entry => {
+      const item = {
+        slug: entry.slug,
+        data: toJsonSafe(entry.data || {})
+      };
+      if (includeBody && entry.body != null) item.body = entry.body;
+      if (includeRaw && entry.rawContent != null) item.rawContent = entry.rawContent;
+      if (entry._valid !== undefined) item._valid = entry._valid;
+      if (entry._errors) item._errors = entry._errors;
+      return item;
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Write a content manifest to disk (Node build scripts).
+ *
+ * @param {string} outPath Absolute or relative JSON path
+ * @param {ReturnType<typeof exportContentManifest> | null} [manifest]
+ *   If omitted, exports all collections with default options.
+ * @param {{ pretty?: boolean } & Parameters<typeof exportContentManifest>[1]} [options]
+ * @returns {Promise<{ path: string, bytes: number, entryCount: number }>}
+ */
+export async function writeContentManifest(outPath, manifest = null, options = {}) {
+  if (!outPath || typeof outPath !== "string") {
+    throw new TypeError("writeContentManifest requires outPath string");
+  }
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  const data =
+    manifest ||
+    exportContentManifest(options.names ?? null, options);
+  const json = options.pretty === false
+    ? JSON.stringify(data)
+    : JSON.stringify(data, null, 2) + "\n";
+  const absolute = path.resolve(outPath);
+  await fs.mkdir(path.dirname(absolute), { recursive: true });
+  await fs.writeFile(absolute, json, "utf8");
+  let entryCount = 0;
+  for (const list of Object.values(data.collections || {})) {
+    entryCount += list.length;
+  }
+  return {
+    path: absolute,
+    bytes: Buffer.byteLength(json, "utf8"),
+    entryCount
+  };
+}
+
+/**
+ * Map collection entries to static/prerender route descriptors.
+ *
+ * @param {string | { name: string }} collection
+ * @param {{
+ *   prefix?: string,
+ *   path?: (entry: { slug: string, data: any, body?: string }) => string,
+ *   title?: (entry: { slug: string, data: any, body?: string }) => string | undefined,
+ *   onlyValid?: boolean,
+ *   includeIndex?: boolean,
+ *   indexPath?: string,
+ *   indexTitle?: string
+ * }} [options]
+ * @returns {Array<{ path: string, title?: string, slug?: string, entry?: any }>}
+ */
+export function routesFromCollection(collection, options = {}) {
+  const name = typeof collection === "string" ? collection : collection.name;
+  let entries = getCollection(name);
+  if (options.onlyValid) {
+    entries = entries.filter(e => e._valid !== false);
+  }
+
+  const prefix = options.prefix != null ? String(options.prefix) : `/${name}`;
+  const normalizedPrefix = prefix === "/" ? "" : prefix.replace(/\/+$/, "");
+
+  const routes = [];
+  if (options.includeIndex) {
+    routes.push({
+      path: options.indexPath || (normalizedPrefix || "/"),
+      title: options.indexTitle
+    });
+  }
+
+  for (const entry of entries) {
+    const path =
+      typeof options.path === "function"
+        ? options.path(entry)
+        : `${normalizedPrefix}/${entry.slug}`.replace(/\/+/g, "/");
+    const route = {
+      path: path.startsWith("/") ? path : `/${path}`,
+      slug: entry.slug,
+      entry
+    };
+    if (typeof options.title === "function") {
+      const t = options.title(entry);
+      if (t != null) route.title = t;
+    } else if (entry.data && typeof entry.data.title === "string") {
+      route.title = entry.data.title;
+    }
+    routes.push(route);
+  }
+  return routes;
+}
+
+/**
+ * One-shot build: load collections from disk, export manifest, optional write + routes.
+ *
+ * @param {Array<{ name: string, schema?: any, directory: string }>} collectionConfigs
+ * @param {{
+ *   outPath?: string,
+ *   includeBody?: boolean,
+ *   includeRaw?: boolean,
+ *   onlyValid?: boolean,
+ *   pretty?: boolean,
+ *   routeCollections?: Array<string | {
+ *     name: string,
+ *     prefix?: string,
+ *     path?: Function,
+ *     title?: Function,
+ *     includeIndex?: boolean,
+ *     indexPath?: string,
+ *     indexTitle?: string
+ *   }>
+ * }} [options]
+ * @returns {Promise<{
+ *   manifest: ReturnType<typeof exportContentManifest>,
+ *   written: { path: string, bytes: number, entryCount: number } | null,
+ *   routes: Array<{ path: string, title?: string, slug?: string, collection?: string }>
+ * }>}
+ */
+export async function buildContent(collectionConfigs, options = {}) {
+  if (!Array.isArray(collectionConfigs) || collectionConfigs.length === 0) {
+    throw new TypeError("buildContent requires a non-empty collectionConfigs array");
+  }
+  await loadContent(collectionConfigs);
+
+  const manifest = exportContentManifest(
+    collectionConfigs.map(c => c.name),
+    {
+      includeBody: options.includeBody,
+      includeRaw: options.includeRaw,
+      onlyValid: options.onlyValid
+    }
+  );
+
+  let written = null;
+  if (options.outPath) {
+    written = await writeContentManifest(options.outPath, manifest, {
+      pretty: options.pretty
+    });
+  }
+
+  const routes = [];
+  const routeSpecs = options.routeCollections || [];
+  for (const spec of routeSpecs) {
+    const name = typeof spec === "string" ? spec : spec.name;
+    const routeOpts = typeof spec === "string" ? {} : spec;
+    const list = routesFromCollection(name, {
+      ...routeOpts,
+      onlyValid: options.onlyValid ?? routeOpts.onlyValid
+    });
+    for (const r of list) {
+      routes.push({ ...r, collection: name });
+    }
+  }
+
+  return { manifest, written, routes };
+}

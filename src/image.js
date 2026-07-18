@@ -28,7 +28,7 @@ const DEFAULT_PLACEHOLDER_COLOR = "#e2e8f0";
  * @param {number|undefined} height
  * @returns {{ width: number|undefined, height: number|undefined }}
  */
-function resolveAspectRatio(aspectRatio, width, height) {
+export function resolveAspectRatio(aspectRatio, width, height) {
   if (aspectRatio == null) return { width, height };
 
   let ratio;
@@ -135,6 +135,135 @@ function placeholderStyle(placeholder, src, placeholderColor) {
  * @param {object} [props.style]              - Additional inline styles.
  * @returns {HTMLElement}
  */
+/**
+ * Build a responsive `srcset` string from a URL template or formatter.
+ *
+ * Does **not** resize images — pair with your CDN / build tool (Cloudinary,
+ * imgix, sharp pipeline, etc.). This only formats the attribute.
+ *
+ * @param {string | ((width: number) => string)} source
+ *   Template with `{w}` / `{width}` placeholders, or a function.
+ * @param {number[]} widths
+ * @param {{ density?: boolean, format?: (url: string, width: number) => string }} [options]
+ *   When `density` is true, emits `1x, 2x` style descriptors from widths as DPR.
+ * @returns {string}
+ *
+ * @example
+ * buildSrcSet("/img/hero-{w}.webp", [400, 800, 1200])
+ * // "/img/hero-400.webp 400w, /img/hero-800.webp 800w, ..."
+ *
+ * buildSrcSet((w) => `https://cdn.example/x?w=${w}`, [320, 640])
+ */
+export function buildSrcSet(source, widths, options = {}) {
+  if (!Array.isArray(widths) || widths.length === 0) {
+    throw new TypeError("buildSrcSet requires a non-empty widths array");
+  }
+  const density = options.density === true;
+  const parts = [];
+  for (const w of widths) {
+    const width = Number(w);
+    if (!Number.isFinite(width) || width <= 0) {
+      throw new TypeError(`buildSrcSet: invalid width ${w}`);
+    }
+    let url;
+    if (typeof source === "function") {
+      url = source(width);
+    } else {
+      url = String(source)
+        .replaceAll("{w}", String(width))
+        .replaceAll("{width}", String(width));
+    }
+    if (typeof options.format === "function") {
+      url = options.format(url, width);
+    }
+    // density mode: treat entries as DPR multipliers (e.g. [1, 2, 3])
+    if (density) {
+      parts.push(`${url} ${width}x`);
+    } else {
+      parts.push(`${url} ${Math.round(width)}w`);
+    }
+  }
+  return parts.join(", ");
+}
+
+/**
+ * Build a `sizes` attribute from simple breakpoint rules.
+ *
+ * @param {Array<{ max?: number, size: string } | string>} rules
+ *   Objects with optional `max` (px) and CSS length `size`, or raw fragments.
+ * @returns {string}
+ *
+ * @example
+ * buildSizes([
+ *   { max: 600, size: "100vw" },
+ *   { max: 1200, size: "50vw" },
+ *   { size: "33vw" }
+ * ])
+ * // "(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 33vw"
+ */
+export function buildSizes(rules) {
+  if (!Array.isArray(rules) || rules.length === 0) {
+    throw new TypeError("buildSizes requires a non-empty rules array");
+  }
+  return rules
+    .map(rule => {
+      if (typeof rule === "string") return rule;
+      if (!rule || typeof rule.size !== "string") {
+        throw new TypeError("buildSizes rules need a size string");
+      }
+      if (rule.max != null) {
+        return `(max-width: ${Number(rule.max)}px) ${rule.size}`;
+      }
+      return rule.size;
+    })
+    .join(", ");
+}
+
+/**
+ * Convenience props for `Image` / `<img>` from a CDN-style URL pattern.
+ *
+ * @param {{
+ *   src: string | ((width: number) => string),
+ *   widths?: number[],
+ *   sizes?: Parameters<typeof buildSizes>[0] | string,
+ *   defaultWidth?: number,
+ *   alt?: string,
+ *   [key: string]: any
+ * }} options
+ * @returns {Record<string, any>}
+ */
+export function responsiveImageProps(options = {}) {
+  if (options.src == null) {
+    throw new TypeError("responsiveImageProps requires src");
+  }
+  const widths = options.widths || [480, 768, 1024, 1280, 1600];
+  const defaultWidth = options.defaultWidth || widths[Math.min(2, widths.length - 1)];
+  let src;
+  if (typeof options.src === "function") {
+    src = options.src(defaultWidth);
+  } else if (String(options.src).includes("{w}") || String(options.src).includes("{width}")) {
+    src = String(options.src)
+      .replaceAll("{w}", String(defaultWidth))
+      .replaceAll("{width}", String(defaultWidth));
+  } else {
+    src = options.src;
+  }
+  const srcset = buildSrcSet(options.src, widths, {
+    format: options.format
+  });
+  let sizes = options.sizes;
+  if (Array.isArray(sizes)) sizes = buildSizes(sizes);
+  if (sizes == null) sizes = "100vw";
+
+  const { widths: _w, defaultWidth: _d, format: _f, ...rest } = options;
+  return {
+    ...rest,
+    src,
+    srcset,
+    sizes
+  };
+}
+
 export function Image(props) {
   if (typeof props.alt !== "string") {
     console.warn("[CachouJS Image]: `alt` prop is required for accessibility.");

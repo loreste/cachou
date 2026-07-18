@@ -21,6 +21,7 @@ Open [http://localhost:5173/examples/](http://localhost:5173/examples/).
 | **Node SSR (supported)** | [`examples/node-ssr/`](./node-ssr/) | Concurrent SSR, CSP nonces, `renderApplication` |
 | **Fetch SSR (Workers/Deno)** | [`examples/fetch-ssr/`](./fetch-ssr/) | `createFetchHandler` — candidate adapter |
 | **Static pre-render** | [`examples/static-prerender/`](./static-prerender/) | `prerenderToDir` — build-time HTML |
+| **Content site** | [`examples/content-site/`](./content-site/) | `buildContent` + prerender blog routes |
 | **CRM-like app** | [`crm/`](../crm/) (monorepo proving ground) | Full app patterns — not the npm package |
 
 ## Included demos

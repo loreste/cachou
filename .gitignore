@@ -63,3 +63,4 @@ bin/dist/
 /tmp/
 extensions/browser-devtools/*.zip
 examples/static-prerender/out/
+examples/content-site/out/

@@ -729,9 +729,31 @@ declare module "cachoujs" {
   export function swap(options?: any): any;
   export function transition(options?: any): any;
 
-  // Image (0.4.2)
+  // Image (0.4.2+)
+  export function resolveAspectRatio(
+    aspectRatio: string | number | undefined,
+    width: number | undefined,
+    height: number | undefined
+  ): { width: number | undefined; height: number | undefined };
+  export function buildSrcSet(
+    source: string | ((width: number) => string),
+    widths: number[],
+    options?: { density?: boolean; format?: (url: string, width: number) => string }
+  ): string;
+  export function buildSizes(
+    rules: Array<{ max?: number; size: string } | string>
+  ): string;
+  export function responsiveImageProps(options: {
+    src: string | ((width: number) => string);
+    widths?: number[];
+    sizes?: Array<{ max?: number; size: string } | string> | string;
+    defaultWidth?: number;
+    alt?: string;
+    [key: string]: any;
+  }): Record<string, any>;
   export function Image(props: Record<string, any>): any;
   export function Picture(props: Record<string, any>): any;
+  export function Video(props: Record<string, any>): any;
 
   // App / plugins (0.4.2)
   export interface App {
@@ -749,19 +771,22 @@ declare module "cachoujs" {
   /** @deprecated Use getApp() */
   export function useApp(): App | null;
 
-  // Content collections (0.4.2)
+  // Content collections (0.4.2 / build pipeline 0.6.3)
   export const z: {
     string(): { validate(value: any): { valid: boolean; errors?: string[] } };
     number(): { validate(value: any): { valid: boolean; errors?: string[] } };
     boolean(): { validate(value: any): { valid: boolean; errors?: string[] } };
+    date(): { validate(value: any): { valid: boolean; errors?: string[] } };
     array(item?: any): { validate(value: any): { valid: boolean; errors?: string[] } };
     object(shape?: Record<string, any>): { validate(value: any): { valid: boolean; errors?: string[] } };
     optional(inner: any): { validate(value: any): { valid: boolean; errors?: string[] } };
+    enum(values: readonly any[]): { validate(value: any): { valid: boolean; errors?: string[] } };
     [key: string]: any;
   };
   export function defineCollection(config: {
     name: string;
     schema?: any;
+    directory?: string;
     [key: string]: any;
   }): any;
   export function getCollection(collection: string | any): any[];
@@ -770,4 +795,44 @@ declare module "cachoujs" {
   export function loadContent(collectionConfigs: any[]): Promise<any>;
   export function addEntries(collection: string | any, entries: any[]): void;
   export function clearCollection(collection: string | any): void;
+  export function exportContentManifest(
+    names?: string | string[] | null,
+    options?: { includeBody?: boolean; includeRaw?: boolean; onlyValid?: boolean }
+  ): {
+    version: 1;
+    generatedAt: string;
+    collections: Record<string, any[]>;
+  };
+  export function writeContentManifest(
+    outPath: string,
+    manifest?: any,
+    options?: { pretty?: boolean }
+  ): Promise<{ path: string; bytes: number; entryCount: number }>;
+  export function routesFromCollection(
+    collection: string | { name: string },
+    options?: {
+      prefix?: string;
+      path?: (entry: any) => string;
+      title?: (entry: any) => string | undefined;
+      onlyValid?: boolean;
+      includeIndex?: boolean;
+      indexPath?: string;
+      indexTitle?: string;
+    }
+  ): Array<{ path: string; title?: string; slug?: string; entry?: any }>;
+  export function buildContent(
+    collectionConfigs: any[],
+    options?: {
+      outPath?: string;
+      includeBody?: boolean;
+      includeRaw?: boolean;
+      onlyValid?: boolean;
+      pretty?: boolean;
+      routeCollections?: any[];
+    }
+  ): Promise<{
+    manifest: any;
+    written: { path: string; bytes: number; entryCount: number } | null;
+    routes: any[];
+  }>;
 }

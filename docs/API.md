@@ -1,6 +1,6 @@
 # API Reference
 
-Public APIs exported from **`cachoujs`** (v0.6.2). Types also live in `src/index.d.ts`.
+Public APIs exported from **`cachoujs`** (v0.6.3). Types also live in `src/index.d.ts`.
 
 **Stability:** see [STABILITY.md](./STABILITY.md). Labels below:
 

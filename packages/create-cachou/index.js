@@ -40,10 +40,10 @@ const files = {
           compile: "cachou-compiler -dir src/components -out src/components -runtime cachoujs"
         },
         dependencies: {
-          cachoujs: "^0.6.2"
+          cachoujs: "^0.6.3"
         },
         devDependencies: {
-          "@cachoujs/compiler": "^0.6.2",
+          "@cachoujs/compiler": "^0.6.3",
           vite: "^6.0.0"
         }
       },

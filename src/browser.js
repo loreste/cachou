@@ -174,7 +174,15 @@ export {
   cubicBezier
 } from "./transitions.js";
 export { createToast, Drawer, Popover, Menu, DataTable, InfiniteScroll, Tabs, Accordion, Breadcrumbs, Tooltip, Avatar, Badge } from "./ui.js";
-export { Image, Picture, Video } from "./image.js";
+export {
+  Image,
+  Picture,
+  Video,
+  resolveAspectRatio,
+  buildSrcSet,
+  buildSizes,
+  responsiveImageProps
+} from "./image.js";
 export { launch, getApp, createApp, useApp } from "./plugin.js";
 export {
   debounce,

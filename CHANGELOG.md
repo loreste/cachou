@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.3
+
+Ecosystem patch: content build pipeline, responsive image URL helpers, experimental kit types polish.
+
+### Added
+
+- **Content build** — `exportContentManifest`, `writeContentManifest`, `routesFromCollection`, `buildContent` (`cachoujs/content`)
+- **Image helpers** — `buildSrcSet`, `buildSizes`, `responsiveImageProps`, exported `resolveAspectRatio` (`cachoujs/image`)
+- **Example** — `examples/content-site/` (markdown → manifest + static HTML)
+- **How-to** — [build-content-and-images](./docs/how-to/build-content-and-images.md)
+
+### Types
+
+- Richer `content.d.ts` / `image.d.ts` (props, `z.date` / `z.enum`, build APIs)
+- Main `index.d.ts` re-exports for content build + image helpers
+
+
 ## 0.6.2
 
 Ecosystem patch: static pre-render helpers, Vite plugin types, extension packaging in CI.

@@ -67,6 +67,24 @@ The `Image` component wraps a standard `<img>` in a container `<div class="cacho
 | `onLoad` | — | Callback: `({ target, src }) => void` |
 | `onError` | — | Callback: `({ target, src, error }) => void` |
 
+### Responsive helpers (0.6.3+)
+
+No image binary pipeline in core — format CDN URLs only:
+
+```javascript
+import { buildSrcSet, buildSizes, responsiveImageProps, Image } from "cachoujs/image";
+
+Image(
+  responsiveImageProps({
+    src: "https://cdn.example/photo-{w}.webp",
+    widths: [480, 800, 1200],
+    alt: "Photo",
+    sizes: [{ max: 600, size: "100vw" }, { size: "50vw" }]
+  })
+);
+// buildSrcSet / buildSizes / resolveAspectRatio also exported
+```
+
 ---
 
 ## Placeholders
