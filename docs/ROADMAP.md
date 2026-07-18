@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **1.0.x** (published: **1.0.2**) |
-| **Next publish** | **1.0.3** (patch by default) |
+| **Current line** | **1.0.x** (published: **1.0.3**) |
+| **Next publish** | **1.0.4** (patch by default) |
 | **Next minor** | **1.1.0** for backward-compatible features |
 | **1.0** | **Shipped** — stable core frozen |
 
@@ -188,6 +188,10 @@ Theme: **boring patches**, optional minors.
 ### Shipped in 1.0.2
 
 - [x] SSR quoted-attribute URL/style policy; demo SQL UNION/ORDER BY hardening; `sanitizeHTML` entity/nested-tag fixes *(1.0.2)*
+
+### Shipped in 1.0.3
+
+- [x] `sanitizeHTML` whitespace-in-scheme (Chromium-validated); nested `createForm().reset(nextValues)`; URL control-char emit *(1.0.3)*
 
 ---
 

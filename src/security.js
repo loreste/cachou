@@ -199,6 +199,22 @@ export function sanitizeHTML(input) {
   return sanitizeHTMLString(html);
 }
 
+/**
+ * True when a URL attribute value is a dangerous scheme after browsers compact
+ * control chars / whitespace (Chromium treats `java\tscript:` as `javascript:`).
+ */
+function isDangerousURLValue(value) {
+  const compact = String(value || "")
+    .replace(/[\u0000-\u001F\u007F\s]+/g, "")
+    .toLowerCase();
+  return (
+    compact.startsWith("javascript:") ||
+    compact.startsWith("vbscript:") ||
+    compact.startsWith("data:text/html") ||
+    compact.startsWith("data:image/svg+xml")
+  );
+}
+
 function sanitizeHTMLString(html) {
   // Decode entities first so nested/encoded payloads become visible to strippers.
   let out = decodeHtmlEntities(html);
@@ -214,24 +230,22 @@ function sanitizeHTMLString(html) {
   out = out.replace(DATA_HTML_URL, " ");
   // Drop inline styles — string path cannot reliably parse CSS gadgets.
   out = out.replace(STYLE_ATTR, "");
-  // Compact whitespace inside attribute values to catch java\tscript:
+  // URL attrs: match full quoted values (including whitespace/control chars inside)
+  // so `java\tscript:` / `java&#9;script:` cannot survive into trustedHTML sinks.
   out = out.replace(
-    /\s((?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*)(["']?)([^"'>\s]*)/gi,
-    (full, prefix, quote, value) => {
-      const compact = value.replace(/[\u0000-\u001F\u007F\s]+/g, "").toLowerCase();
-      if (
-        compact.startsWith("javascript:") ||
-        compact.startsWith("vbscript:") ||
-        compact.startsWith("data:text/html") ||
-        compact.startsWith("data:image/svg+xml")
-      ) {
-        return " ";
-      }
+    /\s(?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    (full, doubleQuoted, singleQuoted, unquoted) => {
+      const value = doubleQuoted ?? singleQuoted ?? unquoted ?? "";
+      if (isDangerousURLValue(value)) return " ";
       return full;
     }
   );
+  // Last-resort: strip bare scheme tokens even outside attributes
   out = out.replace(/javascript:/gi, "");
   out = out.replace(/vbscript:/gi, "");
+  // Collapse whitespace-split schemes that remain after partial rewrites
+  out = out.replace(/java[\u0000-\u001F\u007F\s]+script:/gi, "");
+  out = out.replace(/vb[\u0000-\u001F\u007F\s]+script:/gi, "");
   return out;
 }
 
@@ -280,13 +294,7 @@ function sanitizeHTMLWithDOM(html) {
           if (
             ["href", "src", "xlink:href", "action", "formaction", "poster", "data"].includes(name)
           ) {
-            const compact = value.replace(/[\u0000-\u001F\u007F\s]+/g, "").toLowerCase();
-            if (
-              compact.startsWith("javascript:") ||
-              compact.startsWith("vbscript:") ||
-              compact.startsWith("data:text/html") ||
-              compact.startsWith("data:image/svg+xml")
-            ) {
+            if (isDangerousURLValue(value)) {
               child.removeAttribute(attr.name);
             }
           }

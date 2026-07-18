@@ -7,7 +7,7 @@ function normalizeValidator(validator) {
     return async (value, values) => {
       for (const fn of validator) {
         const result = await fn(value, values);
-        if (result) return result;
+        if (typeof result === "string" && result.length > 0) return result;
       }
       return null;
     };
@@ -38,11 +38,13 @@ export function createField(initialValue = "", options = {}) {
     const currentId = ++validationId;
     setValidating(true);
     try {
-      const result = await validator(value(), values);
+      const result = normalizeValidationResult(await validator(value(), values));
       if (currentId === validationId) {
-        setError(result || null);
+        setError(result);
+        return result == null;
       }
-      return !result;
+      // Stale run: do not clobber newer state; report current validity.
+      return error() == null;
     } finally {
       if (currentId === validationId) {
         setValidating(false);
@@ -109,6 +111,40 @@ function setPath(obj, path, value) {
   }
   cur[parts[parts.length - 1]] = value;
   return obj;
+}
+
+/** Read a dotted path (`user.name`, `tags.0`) from a nested values object. */
+function getPath(obj, path) {
+  if (obj == null || path == null || path === "") return undefined;
+  if (Object.prototype.hasOwnProperty.call(obj, path)) return obj[path];
+  const parts = String(path).split(".");
+  let cur = obj;
+  for (const part of parts) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = cur[part];
+  }
+  return cur;
+}
+
+/** Whether a dotted path is present (including a leaf explicitly set to undefined). */
+function pathExists(obj, path) {
+  if (obj == null || path == null || path === "") return false;
+  if (Object.prototype.hasOwnProperty.call(obj, path)) return true;
+  const parts = String(path).split(".");
+  let cur = obj;
+  for (let i = 0; i < parts.length; i++) {
+    if (cur == null || typeof cur !== "object" || !Object.prototype.hasOwnProperty.call(cur, parts[i])) {
+      return false;
+    }
+    cur = cur[parts[i]];
+  }
+  return true;
+}
+
+/** Only non-empty strings count as validation errors (matches FieldValidator types). */
+function normalizeValidationResult(result) {
+  if (typeof result === "string" && result.length > 0) return result;
+  return null;
 }
 
 export function createForm(initialValues = {}, options = {}) {
@@ -182,8 +218,18 @@ export function createForm(initialValues = {}, options = {}) {
   };
 
   const reset = (nextValues = initialValues) => {
+    const source = nextValues == null ? initialValues : nextValues;
     for (const key of Object.keys(fields)) {
-      fields[key].reset(nextValues[key]);
+      // Nested forms store fields as dotted paths (`user.name`). Walk the object tree
+      // instead of `source[key]` (which only works for top-level keys).
+      if (options.nested) {
+        if (pathExists(source, key)) fields[key].reset(getPath(source, key));
+        else fields[key].reset(); // missing path → field's own initial value
+      } else if (Object.prototype.hasOwnProperty.call(source, key)) {
+        fields[key].reset(source[key]);
+      } else {
+        fields[key].reset();
+      }
     }
     setSubmitError(null);
     setSubmitting(false);

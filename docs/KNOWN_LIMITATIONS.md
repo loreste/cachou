@@ -2,13 +2,13 @@
 
 Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTURE.md), the [Developer guide](./GUIDE.md), and the [Roadmap](./ROADMAP.md).
 
-**Current line:** 1.0.x (patch-first; current **1.0.2**). **Stable** core is frozen; **experimental** kits may still change. See [ONE_POINT_OH.md](./ONE_POINT_OH.md).
+**Current line:** 1.0.x (patch-first; current **1.0.3**). **Stable** core is frozen; **experimental** kits may still change. See [ONE_POINT_OH.md](./ONE_POINT_OH.md).
 
 ## Maturity
 
 - Stable core is production-ready with a semver freeze commitment.
 - Ecosystem (UI kits, community examples, Stack Overflow depth) is still small compared with React/Vue/Svelte.
-- Prefer pinning `cachoujs@^1.0.2` in production apps and reading the [changelog](../CHANGELOG.md).
+- Prefer pinning `cachoujs@^1.0.3` in production apps and reading the [changelog](../CHANGELOG.md).
 - TypeScript: core and most subpaths ship `.d.ts`. Runtime remains JS; `.cachou` SFCs are not type-checked by the compiler.
 
 ## Compiler

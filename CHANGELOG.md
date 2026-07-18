@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.3
+
+Follow-up hardening after adversarial re-check of 1.0.2 residual findings.
+
+### Fixed / improved
+
+- **`sanitizeHTML` whitespace-in-scheme XSS** — Chromium treats `java\tscript:` / `java\nscript:` as `javascript:`; the string sanitizer now matches full quoted URL attribute values and strips control/whitespace-split schemes (confirmed non-executable via Playwright)
+- **Nested `createForm().reset(nextValues)`** — walks dotted paths (`user.name`) so `reset({ user: { name: "Bob" } })` applies; omitted paths keep each field’s initial value
+- **URL attribute emit** — control characters (NUL/TAB/LF/…) are stripped from allowed `href`/`src`/`srcset` values after the safety check
+- **`createField.validate`** — only non-empty strings count as errors; stale async runs report current validity instead of a misleading `false`
+
+### Docs / tests
+
+- SECURITY residual notes for scheme-whitespace and nested form reset
+- Unit tests for scheme-whitespace payloads, nested reset, URL control-char emit, validate footguns
+
+
 ## 1.0.2
 
 Security patch: close SSR attribute, demo SQL, and `sanitizeHTML` gaps found in adversarial review.

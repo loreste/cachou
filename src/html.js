@@ -386,7 +386,17 @@ function isURLAttribute(name) {
   return urlAttributes.has(name.toLowerCase());
 }
 
+/**
+ * Strip C0 controls / DEL from URL-like attribute values before emit.
+ * Browsers treat `java\tscript:` as `javascript:`; never leave those chars in href/src.
+ * Regular spaces (U+0020) are preserved for rare path cases.
+ */
+function stripURLControlChars(value) {
+  return String(value ?? "").replace(/[\u0000-\u001F\u007F]+/g, "");
+}
+
 function isSafeURLValue(value) {
+  // Compact ALL whitespace + controls for scheme policy (matches browser URL parsing).
   const raw = String(value || "").trim().replace(/[\u0000-\u001F\u007F\s]+/g, "");
   if (raw === "" || raw.startsWith("#") || raw.startsWith("/") || raw.startsWith("./") || raw.startsWith("../")) {
     return true;
@@ -408,13 +418,21 @@ function isSafeURLValue(value) {
 }
 
 function sanitizeAttributeValue(name, value) {
-  if (name.toLowerCase() === "srcset" && !isSafeSrcsetValue(value)) {
-    warnSecurity("blocked unsafe srcset URL.", { attribute: name, value: String(value) });
-    return null;
+  const attr = name.toLowerCase();
+  if (attr === "srcset") {
+    if (!isSafeSrcsetValue(value)) {
+      warnSecurity("blocked unsafe srcset URL.", { attribute: name, value: String(value) });
+      return null;
+    }
+    // Emit without control chars so a later candidate cannot smuggle schemes via \t/\n.
+    return stripURLControlChars(value);
   }
-  if (isURLAttribute(name) && !isSafeURLValue(value)) {
-    warnSecurity(`blocked unsafe ${name} URL.`, { attribute: name, value: String(value) });
-    return null;
+  if (isURLAttribute(name)) {
+    if (!isSafeURLValue(value)) {
+      warnSecurity(`blocked unsafe ${name} URL.`, { attribute: name, value: String(value) });
+      return null;
+    }
+    return stripURLControlChars(value);
   }
   return value;
 }

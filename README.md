@@ -1,6 +1,6 @@
 # CachouJS
 
-**v1.0.2** · stable core (experimental kits still opt-in)
+**v1.0.3** · stable core (experimental kits still opt-in)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · [Docs](./docs/README.md) · [Get started](./docs/GETTING_STARTED.md) · [Changelog](./CHANGELOG.md)
 
@@ -132,7 +132,7 @@ npm run check   # full local CI-ish pipeline
 
 ## Status
 
-- **1.0.2** on npm. Stable core is frozen; patch releases are the default.
+- **1.0.3** on npm. Stable core is frozen; patch releases are the default.
 - Tested: unit suite, browser tests, benchmarks under `npm run check`.
 - Not a meta-framework: no hosted deploy adapters; small ecosystem. Optional Marketplace/Web Store listings not required for 1.0.
 - Demo server APIs are for local demos only (`CACHOU_DEMO`); do not expose them publicly.

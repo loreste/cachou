@@ -80,6 +80,27 @@ describe("sanitizeHTML", () => {
     assert.doesNotMatch(out, /javascript/i);
     assert.match(out, /ok/);
   });
+
+  it("blocks whitespace-split javascript schemes (tab/LF/CR/entity)", () => {
+    // Chromium treats java\tscript: as javascript: — sanitizeHTML must not leave these.
+    const payloads = [
+      `<a href="java\tscript:alert(1)">x</a>`,
+      `<a href="java\nscript:alert(1)">x</a>`,
+      `<a href="java\rscript:alert(1)">x</a>`,
+      `<a href="java&#9;script:alert(1)">x</a>`,
+      `<a href="java&Tab;script:alert(1)">x</a>`,
+      `<a href='java\tscript:alert(1)'>x</a>`
+    ];
+    for (const input of payloads) {
+      const out = sanitizeHTML(input);
+      const compact = out.replace(/[\u0000-\u001F\u007F\s]+/g, "").toLowerCase();
+      assert.equal(
+        compact.includes("javascript:"),
+        false,
+        `payload survived: ${JSON.stringify(input)} => ${JSON.stringify(out)}`
+      );
+    }
+  });
 });
 
 describe("sanitizeAuthToken", () => {

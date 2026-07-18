@@ -492,6 +492,79 @@ describe("nested createForm", () => {
     form.field("address.city").setValue("Lyon");
     assert.equal(form.values().address.city, "Lyon");
   });
+
+  it("reset(nextValues) applies nested paths", () => {
+    const form = createForm(
+      { user: { name: "Ada", age: 30 }, title: "x" },
+      { nested: true }
+    );
+    form.field("user.name").setValue("Grace");
+    form.field("user.age").setValue(99);
+    form.field("title").setValue("y");
+    form.reset({ user: { name: "Bob", age: 1 }, title: "z" });
+    assert.equal(form.field("user.name").value(), "Bob");
+    assert.equal(form.field("user.age").value(), 1);
+    assert.equal(form.field("title").value(), "z");
+    assert.deepEqual(form.values(), { user: { name: "Bob", age: 1 }, title: "z" });
+  });
+
+  it("reset() without args restores nested initials", () => {
+    const form = createForm({ user: { name: "Ada" } }, { nested: true });
+    form.field("user.name").setValue("Grace");
+    form.reset();
+    assert.equal(form.field("user.name").value(), "Ada");
+  });
+
+  it("reset(nextValues) keeps field initial when nested path is omitted", () => {
+    const form = createForm(
+      { user: { name: "Ada", age: 30 } },
+      { nested: true }
+    );
+    form.field("user.name").setValue("Grace");
+    form.field("user.age").setValue(99);
+    form.reset({ user: { name: "Bob" } }); // age omitted
+    assert.equal(form.field("user.name").value(), "Bob");
+    assert.equal(form.field("user.age").value(), 30);
+  });
+});
+
+describe("createField validation", () => {
+  it("only treats non-empty strings as errors", async () => {
+    const { createField } = await import("../../src/forms.js");
+    for (const ret of [null, undefined, "", 0, false]) {
+      const field = createField("x", { validate: () => ret });
+      assert.equal(await field.validate(), true);
+      assert.equal(field.error(), null);
+    }
+    const bad = createField("x", { validate: () => "nope" });
+    assert.equal(await bad.validate(), false);
+    assert.equal(bad.error(), "nope");
+  });
+
+  it("stale async validate does not report false when state is valid", async () => {
+    const { createField } = await import("../../src/forms.js");
+    let resolveSlow;
+    const slow = new Promise(r => {
+      resolveSlow = r;
+    });
+    const field = createField("", {
+      validate: async v => {
+        if (v === "slow") {
+          await slow;
+          return "slow-err";
+        }
+        return undefined;
+      }
+    });
+    field.setValue("slow");
+    const p1 = field.validate();
+    field.setValue("ok");
+    const p2 = field.validate();
+    assert.equal(await p2, true);
+    resolveSlow();
+    assert.equal(await p1, true); // stale run reports current validity
+    assert.equal(field.error(), null);
+  });
 });
 
 describe("compiler stripTypeScript", () => {

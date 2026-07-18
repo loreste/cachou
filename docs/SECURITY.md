@@ -1,6 +1,6 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.2**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.3**).
 
 ---
 
@@ -9,11 +9,12 @@ CachouJS keeps privileged capabilities outside the browser runtime. This documen
 | Item | Status |
 |------|--------|
 | Template XSS via default bindings | Mitigated (escape + URL/style policy on client **and** SSR, including quoted attrs) |
-| `trustedHTML` misuse | App responsibility — prefer `sanitizeHTML` / DOMPurify |
+| `trustedHTML` misuse | App responsibility — prefer `sanitizeHTML` / DOMPurify for high-risk rich text |
 | Demo endpoints in production | Mitigated when `CACHOU_DEMO` unset / production start |
 | Demo SQL (`/api/db-query`) | Allowlisted `SELECT` only; no `UNION` / expressions in `ORDER BY` (hardened in 1.0.2) |
 | Auth kit | **Experimental** client helpers only — not a full IdP |
-| `sanitizeHTML` | Defense-in-depth (entity decode + nested tag strip), **not** a full HTML sanitizer |
+| `sanitizeHTML` | Defense-in-depth: entity decode, nested tags, **whitespace-split schemes** (`java\tscript:`) stripped (1.0.3); still **not** a full HTML sanitizer |
+| URL attrs emit | Control chars stripped after allowlist check (1.0.3) |
 | Supply chain / npm | Pin versions; review changelogs |
 
 Automated gates: unit security tests (including SSR attribute + SQL adversarial cases), `npm run check` (includes browser suite), publish-prep secret scan.
@@ -53,7 +54,8 @@ Attackers who can open a browser page can already run arbitrary JS in that origi
 | HTML sinks | `innerHTML`, `outerHTML`, and `srcdoc` require `trustedHTML()` |
 | Event handlers | Non-function handlers ignored; string `on*` attribute bindings blocked |
 | `trustedHTML` | Explicit raw HTML only |
-| `sanitizeHTML` | Entity-aware strip of script/iframe/on*/javascript:/style/srcdoc (defense-in-depth; not a full sanitizer) |
+| `sanitizeHTML` | Entity-aware strip of script/iframe/on*/javascript: (incl. `java\tscript:`), style/srcdoc (defense-in-depth; not a full sanitizer) |
+| URL emit | Allowed URL attrs drop C0 controls so checks and output stay aligned |
 | CSP helpers | `createCSPNonce`, `buildSecurityHeaders`, `applySecurityHeaders` |
 | Auth tokens | `sanitizeAuthToken`; `createAuth({ persist: "session" })` |
 | Dehydrate | Optional CSP `nonce` on the state `<script>` tag |

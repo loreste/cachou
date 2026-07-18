@@ -149,4 +149,17 @@ describe("SSR quoted attribute security policy", () => {
     const out = renderToString(App);
     assert.match(out, /href="https:\/\/example\.com\/path"/);
   });
+
+  it("strips control characters from emitted safe URLs", async () => {
+    const { html, renderToString, configureSecurityPolicy } = await import("../../src/html.js");
+    configureSecurityPolicy({
+      allowedURLProtocols: ["http:", "https:"]
+    });
+    function App() {
+      return () => html`<a href="${"https://example.com/\u0000admin"}">x</a>`;
+    }
+    const out = renderToString(App);
+    assert.equal(out.includes("\u0000"), false);
+    assert.match(out, /href="https:\/\/example\.com\/admin"/);
+  });
 });
