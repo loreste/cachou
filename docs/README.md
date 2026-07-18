@@ -1,6 +1,6 @@
 # CachouJS Documentation
 
-**Version:** 0.6.4 (experimental 0.x)  
+**Version:** 0.6.5 (experimental 0.x)  
 **Package:** `cachoujs`
 
 Fine-grained reactive JavaScript UI library. Components set up once; signals update exact DOM bindings (no virtual DOM). Optional `.cachou` SFC compiler (JS by default; native Go binary optional). Privileged server features in this monorepo are demo-only and gated by `CACHOU_DEMO`.
@@ -110,4 +110,4 @@ Node-only helpers stay out of the browser graph.
 
 ## Versioning
 
-CachouJS is **0.x**. Published line is **0.6.x**; releases use **small patch increments** (current: **0.6.4**, next: **0.6.5**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.
+CachouJS is **0.x**. Published line is **0.6.x**; releases use **small patch increments** (current: **0.6.5**, next: **0.6.6**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.

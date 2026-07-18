@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.6.x** (published: **0.6.4**) |
-| **Next publish** | **0.6.3** (patch by default) |
+| **Current line** | **0.6.x** (published: **0.6.5**) |
+| **Next publish** | **0.6.6** (patch by default) |
 | **Next minor** | **0.7.0** only if a new theme is needed |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
@@ -144,7 +144,7 @@ Theme: **trust and deploy.**
 
 Theme: **make it easier to live with**, still without becoming a platform.
 
-### Shipped in 0.6.0–0.6.4
+### Shipped in 0.6.0–0.6.5
 
 - [x] Stronger public TypeScript surface + package `exports` types + core generics *(0.6.0)*
 - [x] TypeScript how-to + subpath `.d.ts` for forms/router/flow/html/reactivity *(0.6.0)*
@@ -155,21 +155,20 @@ Theme: **make it easier to live with**, still without becoming a platform.
 - [x] Static pre-render (`cachoujs/static`) + Vite plugin types + extension packaging in CI *(0.6.2)*
 - [x] Content build pipeline (`buildContent` / manifest / routes) + image srcset helpers + types polish *(0.6.3)*
 - [x] Consumer surface tests + create templates (`spa` / `ssr` / `static`) + DEPRECATIONS / 1.0 checklist progress *(0.6.4)*
+- [x] CI extension artifacts + security residual tests + framework how-to rename + `npm run check` green *(0.6.5)*
 
 ### Planned
 
 | Theme | Intent |
 |-------|--------|
-| **Types** | Residual polish on experimental kits as needed |
-| **Editor** | Marketplace publish when publisher account + CI packaging are ready (VSIX built in CI) |
-| **DevTools** | Chrome Web Store listing when quality holds (zip built in CI) |
-| **Content / images** | External optimizer plugins only if demand is real (core stays CDN-hint based) |
-| **Deploy adapters** | Keep Workers/Deno/static thin; expand only with tests |
-| **1.0 prep** | Finish remaining freeze criteria; bake time on stable labels |
+| **Editor** | Marketplace publish when publisher account is ready (VSIX built + uploaded in CI) |
+| **DevTools** | Chrome Web Store listing when quality holds (zip built + uploaded in CI) |
+| **Content / images** | External optimizer plugins only if demand is real |
+| **1.0 prep** | Bake time on stable labels; security residual reviews as needed |
 
 Each item ships only when tests and docs ship with it.
 
-**Status (0.6.4):** Consumer install paths + scaffold templates + deprecation list. Continue **0.6.x** patches.
+**Status (0.6.5):** 0.6 ecosystem theme largely complete; remaining items are optional store publishes + bake time.
 
 ---
 
@@ -182,7 +181,7 @@ Each item ships only when tests and docs ship with it.
 - [x] Core reactivity, templates, router, resources, SSR, and forms documented as **stable** *(labels + STABILITY.md)*
 - [x] No silent breaking changes planned for those surfaces without a major bump *(policy + DEPRECATIONS.md)*
 - [x] Experimental modules clearly namespaced or documented as such *(EXPERIMENTAL.md + subpaths)*
-- [ ] `npm run check` green; known security issues addressed *(ongoing)*
+- [x] `npm run check` green; known security issues addressed *(0.6.5: check green on clean CI path; residual risk table in SECURITY.md)*
 - [x] Install + SSR + SPA paths work from published packages alone *(create templates spa/ssr/static + consumer-surface tests; 0.6.4)*
 - [x] Changelog discipline and version policy still hold
 
@@ -253,4 +252,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.6.4** (2026-07).
+Last updated for **0.6.5** (2026-07).

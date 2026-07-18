@@ -185,5 +185,5 @@ Use dotted paths for nested objects/arrays when `nested: true`.
 ## Next
 
 - [Use resources](./use-resources.md) after submit  
-- [Use 0.4 framework APIs](./use-0.4-framework-apis.md) for `createMutation`  
+- [Use framework APIs](./use-framework-apis.md) for `createMutation`  
 - [Configure security policy](./configure-security-policy.md)  

@@ -43,7 +43,7 @@ npm run dev
 ```text
 my-app/
 ├── index.html
-├── package.json          # cachoujs@^0.6.4 + vite
+├── package.json          # cachoujs@^0.6.5 + vite
 ├── vite.config.js        # cachoujs/vite plugin → browser runtime
 ├── .gitignore
 ├── README.md
@@ -72,7 +72,7 @@ my-app/
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-npm install cachoujs@^0.6.4
+npm install cachoujs@^0.6.5
 npm install -D vite @cachoujs/compiler
 ```
 
@@ -145,5 +145,5 @@ mount(App, document.getElementById("app"));
 ## Next
 
 - [Get Started](../GETTING_STARTED.md)
-- [0.4 framework APIs](./use-0.4-framework-apis.md)
+- [framework APIs](./use-framework-apis.md)
 - [File-based routing](./use-file-based-routing.md)

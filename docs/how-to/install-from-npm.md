@@ -144,7 +144,7 @@ function App() {
 mount(App, document.getElementById("app"));
 ```
 
-More examples: [Get Started](../GETTING_STARTED.md) · [0.4 APIs](./use-0.4-framework-apis.md).
+More examples: [Get Started](../GETTING_STARTED.md) · [Framework APIs](./use-framework-apis.md).
 
 ## Compiler (optional)
 

@@ -187,7 +187,7 @@ function Page() {
 hydrateIslands(document, { counter: Counter });
 ```
 
-See [use 0.4 framework APIs](./use-0.4-framework-apis.md).
+See [use framework APIs](./use-framework-apis.md).
 
 ## Escaping
 

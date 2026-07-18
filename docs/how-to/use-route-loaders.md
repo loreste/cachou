@@ -87,7 +87,7 @@ html`
 `;
 ```
 
-Mutations / optimistic cache: [0.4 framework APIs](./use-0.4-framework-apis.md).
+Mutations / optimistic cache: [framework APIs](./use-framework-apis.md).
 
 ## Tips
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CachouJS DevTools",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "Inspect CachouJS reactive graphs and framework events on any page that exposes window.__CACHOU_RUNTIME__.",
   "permissions": [
     "activeTab",

@@ -31,9 +31,10 @@ These stay available but may change in **patch** releases before 1.0. Pin tightl
 |-----------|--------|
 | Core reactivity, templates, router, resources, SSR, forms labeled **stable** | Done (see `src/stability.js`) |
 | Experimental modules clearly documented | Done ([EXPERIMENTAL.md](./EXPERIMENTAL.md)) |
-| Install + SPA + SSR from published packages alone | In progress (scaffold templates + consumer-surface tests) |
+| Install + SPA + SSR from published packages alone | Done (0.6.4 templates + consumer-surface tests) |
 | Changelog + version policy | Done |
-| No known critical security issues | Ongoing |
+| `npm run check` green; security residual risk documented | Done (0.6.5) |
 | Deprecated APIs listed with replacements | **This file** |
+| **Bake time** on stable labels before calling 1.0 | Open (no date — wait for real app usage) |
 
 Related: [Roadmap 1.0](./ROADMAP.md#10--freeze) · [Publishing](./PUBLISHING.md)

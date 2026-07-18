@@ -2,7 +2,7 @@
 
 Use **`For`** (0.4, recommended) or **`mapArray`** for dynamic lists. Always pass a **stable key** when items have IDs so DOM nodes move instead of thrash. Use **`Index`** when identity is by position (fixed slots).
 
-Related: [Templates](./use-templates-and-directives.md), [Resources](./use-resources.md), [0.4 APIs](./use-0.4-framework-apis.md), [API](../API.md#lists).
+Related: [Templates](./use-templates-and-directives.md), [Resources](./use-resources.md), [Framework APIs](./use-framework-apis.md), [API](../API.md#lists).
 
 ---
 
@@ -183,5 +183,5 @@ html`
 ## Next
 
 - [Use resources](./use-resources.md)
-- [Use 0.4 framework APIs](./use-0.4-framework-apis.md)
+- [Use framework APIs](./use-framework-apis.md)
 - [Prevent leaks and races](./prevent-leaks-and-races.md)

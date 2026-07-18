@@ -9,7 +9,7 @@
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const CACHOU_VERSION = "0.6.4";
+const CACHOU_VERSION = "0.6.5";
 const TEMPLATES = new Set(["spa", "ssr", "static"]);
 
 function printHelp() {

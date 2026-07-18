@@ -2,7 +2,7 @@
 
 Use **signals** for discrete values, **memos** for derived data, **stores** for nested objects, and **batch** to coalesce updates. In **0.4**, use **`untrack`** and **owner** APIs when building libraries or avoiding accidental subscriptions.
 
-Related: [Create a component](./create-a-component.md), [Resources](./use-resources.md), [0.4 APIs](./use-0.4-framework-apis.md), [API: Reactivity](../API.md#reactivity).
+Related: [Create a component](./create-a-component.md), [Resources](./use-resources.md), [Framework APIs](./use-framework-apis.md), [API: Reactivity](../API.md#reactivity).
 
 ---
 

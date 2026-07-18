@@ -6,7 +6,7 @@
 |--|--|
 | **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
 | **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
-| **Version** | **0.6.4** (experimental 0.x, patch-first) |
+| **Version** | **0.6.5** (experimental 0.x, patch-first) |
 | **License / maturity** | 0.x — pin versions; read the [changelog](../CHANGELOG.md) |
 
 This guide takes you from zero to a running app, then the concepts and patterns you’ll use every day. Task recipes live in the [how-to guides](./how-to/README.md).
@@ -35,7 +35,7 @@ CachouJS is on the [npm registry](https://www.npmjs.com/package/cachoujs). You d
 
 ```bash
 npm view cachoujs version
-# → 0.6.4 (or newer)
+# → 0.6.5 (or newer)
 
 npm install cachoujs
 ```
@@ -66,7 +66,7 @@ Open the URL Vite prints (usually **http://localhost:5173**).
 You get:
 
 - File routes under `src/routes/` (`/`, `/about`, `/users/:id` with `load`)
-- `cachoujs@^0.6.4` + Vite 6
+- `cachoujs@^0.6.5` + Vite 6
 - Base CSS, `.gitignore`, optional `.cachou` folder under `src/components/`
 - DevTools bridge in development (`Ctrl+Shift+D`)
 
@@ -277,7 +277,7 @@ html`
 | Observability (0.4.6) | `configureLogger` / `createLogger`, W3C tracing, `onFrameworkEvent` |
 | Bundling (0.4.6) | `cachoujs/browser` browser-safe entry; Vite plugin aliases it by default |
 
-Recipes: [Use 0.4 framework APIs](./how-to/use-0.4-framework-apis.md) · [SSR](./how-to/ssr-and-hydration.md) · [Debug](./how-to/enable-debug-diagnostics.md).
+Recipes: [Use framework APIs](./how-to/use-framework-apis.md) · [SSR](./how-to/ssr-and-hydration.md) · [Debug](./how-to/enable-debug-diagnostics.md).
 
 ---
 
@@ -807,7 +807,7 @@ npm run preview
 | Goal | Doc |
 |------|-----|
 | Task recipes | [How-to guides](./how-to/README.md) |
-| 0.4 API recipes | [Use 0.4 framework APIs](./how-to/use-0.4-framework-apis.md) |
+| Framework API recipes | [Use framework APIs](./how-to/use-framework-apis.md) |
 | Full mental model | [Developer guide](./GUIDE.md) |
 | API lookup | [API reference](./API.md) |
 | Templates & directives | [Templates](./TEMPLATES.md) |
@@ -823,14 +823,14 @@ npm run preview
 4. [Keyed lists](./how-to/render-keyed-lists.md) (`For` / `mapArray`)  
 5. [Resources](./how-to/use-resources.md)  
 6. [Routing](./how-to/routing-and-lazy-pages.md) + [file routes](./how-to/use-file-based-routing.md)  
-7. [0.4 APIs](./how-to/use-0.4-framework-apis.md) · [SSR](./how-to/ssr-and-hydration.md) · [Deploy](./how-to/build-and-deploy.md)
+7. [Framework APIs](./how-to/use-framework-apis.md) · [SSR](./how-to/ssr-and-hydration.md) · [Deploy](./how-to/build-and-deploy.md)
 
 ---
 
 ## Packages at a glance
 
 ```bash
-npm install cachoujs                 # runtime + vite plugin  (0.6.4)
+npm install cachoujs                 # runtime + vite plugin  (0.6.5)
 npm install -D @cachoujs/compiler    # optional SFC compiler
 npx @cachoujs/create my-app          # scaffold
 ```

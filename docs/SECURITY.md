@@ -1,6 +1,21 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.6.4**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.6.x** (current: **0.6.5**).
+
+---
+
+## Residual risk (honest)
+
+| Item | Status |
+|------|--------|
+| Template XSS via default bindings | Mitigated (escape + URL/style policy) |
+| `trustedHTML` misuse | App responsibility — prefer `sanitizeHTML` / DOMPurify |
+| Demo endpoints in production | Mitigated when `CACHOU_DEMO` unset / production start |
+| Auth kit | **Experimental** client helpers only — not a full IdP |
+| `sanitizeHTML` | Defense-in-depth, **not** a full HTML sanitizer |
+| Supply chain / npm | Pin versions; review changelogs |
+
+Automated gates: unit security tests, `npm run check` (includes browser suite), publish-prep secret scan.
 
 ---
 

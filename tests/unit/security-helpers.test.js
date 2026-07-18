@@ -39,6 +39,21 @@ describe("sanitizeHTML", () => {
     assert.equal(sanitizeHTML(null), "");
     assert.equal(sanitizeHTML(undefined), "");
   });
+
+  it("strips data:text/html and vbscript URLs", () => {
+    const out = sanitizeHTML(
+      `<a href="data:text/html,<script>1</script>">x</a><a href="vbscript:msgbox(1)">y</a>`
+    );
+    assert.doesNotMatch(out, /data:\s*text\/html/i);
+    assert.doesNotMatch(out, /vbscript:/i);
+  });
+
+  it("strips form and base tags", () => {
+    const out = sanitizeHTML(`<base href="https://evil"><form action="/x"><input></form>ok`);
+    assert.doesNotMatch(out, /<form/i);
+    assert.doesNotMatch(out, /<base/i);
+    assert.match(out, /ok/);
+  });
 });
 
 describe("sanitizeAuthToken", () => {
@@ -115,5 +130,29 @@ describe("createAuth token hardening", () => {
     const auth = createAuth({ persist: "session" });
     assert.equal(typeof auth.token, "function");
     assert.equal(auth.token(), null);
+  });
+});
+
+describe("SSR dehydrate nonce + security headers", () => {
+  it("renderApplication state script carries nonce when provided", async () => {
+    const {
+      html,
+      signal,
+      renderApplication
+    } = await import("../../src/index.js");
+    function App() {
+      const [n] = signal(1);
+      return () => html`<p>${() => n()}</p>`;
+    }
+    const { state } = await renderApplication(App, { path: "/", nonce: "testnonce99" });
+    assert.match(state, /nonce="testnonce99"/);
+    assert.match(state, /__CACHOU_STATE__/);
+  });
+
+  it("buildSecurityHeaders omits unsafe-inline scripts by default", () => {
+    const h = buildSecurityHeaders({ nonce: "n2" });
+    const csp = h["Content-Security-Policy"] || "";
+    assert.match(csp, /nonce-n2/);
+    assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/);
   });
 });

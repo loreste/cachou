@@ -2,7 +2,7 @@
 
 CachouJS includes a small reactive router with layouts, lazy pages, loaders, **history modes**, and **0.4** control flow (`redirect` / `notFound`, actions, params helpers).
 
-Full concepts: [Developer guide § Routing](../GUIDE.md#8-routing). Recipes: [Route loaders](./use-route-loaders.md) · [File-based routing](./use-file-based-routing.md) · [0.4 APIs](./use-0.4-framework-apis.md).
+Full concepts: [Developer guide § Routing](../GUIDE.md#8-routing). Recipes: [Route loaders](./use-route-loaders.md) · [File-based routing](./use-file-based-routing.md) · [Framework APIs](./use-framework-apis.md).
 
 ## Define routes
 

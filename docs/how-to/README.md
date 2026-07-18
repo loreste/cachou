@@ -1,13 +1,13 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.4**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.5**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
 
 | Start here | |
 |------------|--|
 | New to Cachou? | **[Get Started](../GETTING_STARTED.md)** |
 | Concepts | [Developer guide](../GUIDE.md) |
 | Signatures | [API reference](../API.md) |
-| 0.4 feature recipes | **[Use 0.4 framework APIs](./use-0.4-framework-apis.md)** |
+| Framework feature recipes | **[Use framework APIs](./use-framework-apis.md)** |
 | Docs home | [docs/README.md](../README.md) |
 
 ---
@@ -47,7 +47,7 @@ Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.4**). Each guide a
 | [Use routing and lazy pages](./routing-and-lazy-pages.md) | Routes, layouts, guards, history modes, lazy |
 | [Use route loaders](./use-route-loaders.md) | `load`, `redirect` / `notFound`, `useRouteData` |
 | [Use file-based routing](./use-file-based-routing.md) | `fileRoutes` / `src/routes/` conventions |
-| [Use 0.4 framework APIs](./use-0.4-framework-apis.md) | Mutations, actions, params, islands, composition |
+| [Use framework APIs](./use-framework-apis.md) | Mutations, actions, params, islands, composition |
 
 ## SSR, security, compiler
 
@@ -91,7 +91,7 @@ Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.4**). Each guide a
 2. [Create a component](./create-a-component.md) + [Manage state](./manage-state.md)  
 3. [Templates](./use-templates-and-directives.md) + [Keyed lists](./render-keyed-lists.md)  
 4. [Resources](./use-resources.md) + [Routing](./routing-and-lazy-pages.md) + [File routes](./use-file-based-routing.md)  
-5. [0.4 APIs](./use-0.4-framework-apis.md) (mutations, params, composition)  
+5. [Framework APIs](./use-framework-apis.md) (mutations, params, composition)  
 6. [Security](./configure-security-policy.md) + [SSR](./ssr-and-hydration.md) + [Deploy](./build-and-deploy.md)  
 7. Optional: [`.cachou` files](./work-with-cachou-files.md), [CRM + PostgreSQL](./build-a-crm-with-cachou-and-postgres.md)
 

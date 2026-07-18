@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.6.5
+
+Ecosystem patch: 1.0 freeze criteria closed out, CI extension artifacts, security residual tests, how-to hygiene.
+
+### Added
+
+- **CI artifacts** — VS Code VSIX + browser DevTools zip uploaded from Linux verify job
+- **Security residual tests** — extra `sanitizeHTML` cases; dehydrate nonce on `renderApplication`; CSP no `unsafe-inline` scripts
+- **How-to** — [use-framework-apis.md](./docs/how-to/use-framework-apis.md) (replaces 0.4-named guide; stub remains)
+
+### Docs
+
+- SECURITY residual risk table; 1.0 checklist marks `npm run check` complete
+- ROADMAP: 0.6 theme largely complete; bake time before 1.0
+
+
 ## 0.6.4
 
 Ecosystem patch: 1.0 readiness — consumer surface tests, multi-template scaffold, deprecations list.

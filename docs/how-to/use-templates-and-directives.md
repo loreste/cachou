@@ -202,4 +202,4 @@ See [Work with `.cachou` files](./work-with-cachou-files.md).
 
 - [Render keyed lists](./render-keyed-lists.md)
 - [Create a component](./create-a-component.md)
-- [Use 0.4 framework APIs](./use-0.4-framework-apis.md)
+- [Use framework APIs](./use-framework-apis.md)

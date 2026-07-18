@@ -55,6 +55,16 @@ jobs:
       - name: Package browser DevTools zip
         run: npm run ext:devtools
 
+      - name: Upload extension packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: cachou-extensions
+          path: |
+            vscode-cachou/*.vsix
+            extensions/browser-devtools/*.zip
+          if-no-files-found: warn
+          retention-days: 14
+
   # Chromium on Linux is the required quality gate (verify-linux).
   # Safari is optional signal only and must never block merges.
   verify-macos:
