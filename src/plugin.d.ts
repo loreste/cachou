@@ -16,6 +16,6 @@ declare module "cachoujs/plugin" {
   export function launch(rootComponent: any, rootProps?: object): App;
   export function createApp(rootComponent: any, rootProps?: object): App;
   export function getApp(): App | null;
-  /** @deprecated Use getApp() */
+  /** @deprecated Use getApp() — removal reserved for a future major. */
   export function useApp(): App | null;
 }

@@ -35,7 +35,7 @@ declare module "cachoujs/router" {
     }) => boolean | void | Promise<boolean | void>
   ): () => void;
   export function guard(handler: MiddlewareHandler): () => void;
-  /** @deprecated Use `guard()`. */
+  /** @deprecated Use `guard()` — removal reserved for a future major. */
   export function addMiddleware(handler: MiddlewareHandler): () => void;
   export function go(delta: number): boolean;
   export function back(): boolean;

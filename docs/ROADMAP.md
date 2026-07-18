@@ -4,7 +4,7 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **1.0.x** (published: **1.0.0**) |
+| **Current line** | **1.0.x** (published: **1.0.1**) |
 | **Next publish** | **1.0.1** (patch by default) |
 | **Next minor** | **1.1.0** for backward-compatible features |
 | **1.0** | **Shipped** — stable core frozen |
@@ -157,18 +157,33 @@ Theme: **make it easier to live with**, still without becoming a platform.
 - [x] Consumer surface tests + create templates (`spa` / `ssr` / `static`) + DEPRECATIONS / 1.0 checklist progress *(0.6.4)*
 - [x] CI extension artifacts + security residual tests + framework how-to rename + `npm run check` green *(0.6.5)*
 
-### Planned
+### Planned (optional, out-of-band)
 
 | Theme | Intent |
 |-------|--------|
 | **Editor** | Marketplace publish when publisher account is ready (VSIX built + uploaded in CI) |
 | **DevTools** | Chrome Web Store listing when quality holds (zip built + uploaded in CI) |
 | **Content / images** | External optimizer plugins only if demand is real |
-| **1.0 prep** | Bake time on stable labels; security residual reviews as needed |
 
 Each item ships only when tests and docs ship with it.
 
-**Status (1.0.0):** 0.6 ecosystem theme complete; stable core frozen. Optional store publishes remain out-of-band.
+**Status (1.0+):** 0.6 ecosystem theme complete; stable core frozen. Optional store publishes remain out-of-band.
+
+---
+
+## 1.x — Maintenance (post-freeze)
+
+Theme: **boring patches**, optional minors.
+
+| Track | Intent |
+|-------|--------|
+| **1.0.x** | Bug fixes, docs, CI, security residual — no stable API breaks |
+| **1.1+** | Backward-compatible features only when tests + docs ship with them |
+| **2.0** | Only if a stable API must break |
+
+### Shipped in 1.0.1
+
+- [x] Once-only deprecation warnings; npm package metadata; 1.x roadmap *(1.0.1)*
 
 ---
 
@@ -252,4 +267,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **1.0.0** (2026-07).
+Last updated for **1.0.1** (2026-07).

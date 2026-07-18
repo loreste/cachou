@@ -427,7 +427,7 @@ declare module "cachoujs" {
     signal?: AbortSignal
   ) => any | Promise<any>;
   export function guard(handler: MiddlewareHandler): () => void;
-  /** @deprecated Use `guard()` instead. */
+  /** @deprecated Use `guard()` instead — removal reserved for a future major. */
   export function addMiddleware(
     handler: MiddlewareHandler
   ): () => void;
@@ -768,7 +768,7 @@ declare module "cachoujs" {
   export function launch(rootComponent: any, rootProps?: object): App;
   export function createApp(rootComponent: any, rootProps?: object): App;
   export function getApp(): App | null;
-  /** @deprecated Use getApp() */
+  /** @deprecated Use getApp() — removal reserved for a future major. */
   export function useApp(): App | null;
 
   // Content collections (0.4.2 / build pipeline 0.6.3)

@@ -11,7 +11,7 @@ Removal is reserved for a **future major** (not 1.0.0 — upgrade from 0.6 stays
 
 ## Not deprecated — but experimental
 
-These stay available but may change in **patch** releases before 1.0. Pin tightly:
+These stay available but may change in **patch** releases under 1.x. Pin tightly:
 
 - Subpath kits: `cachoujs/ui`, `auth`, `i18n`, `dnd`, `seo`, `upload`, `feedback`, …
 - `dbSignal`, `webSocketSignal` (demo-oriented)

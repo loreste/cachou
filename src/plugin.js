@@ -22,9 +22,13 @@ export function getApp() {
   return useContext(AppContext);
 }
 
-/** @deprecated Use `getApp()` instead — will be removed in 1.0. */
+/** @deprecated Use `getApp()` instead — removal reserved for a future major. */
+let warnedUseApp = false;
 export function useApp() {
-  if (typeof console !== "undefined") console.warn("[cachou] useApp() is deprecated. Use getApp() instead.");
+  if (!warnedUseApp && typeof console !== "undefined" && typeof console.warn === "function") {
+    warnedUseApp = true;
+    console.warn("[cachou] useApp() is deprecated. Use getApp() instead.");
+  }
   return getApp();
 }
 
@@ -260,8 +264,12 @@ export function launch(rootComponent, rootProps = {}) {
   return app;
 }
 
-/** @deprecated Use `launch()` instead — will be removed in 1.0. */
+/** @deprecated Use `launch()` instead — removal reserved for a future major. */
+let warnedCreateApp = false;
 export function createApp(rootComponent, rootProps = {}) {
-  if (typeof console !== "undefined") console.warn("[cachou] createApp() is deprecated. Use launch() instead.");
+  if (!warnedCreateApp && typeof console !== "undefined" && typeof console.warn === "function") {
+    warnedCreateApp = true;
+    console.warn("[cachou] createApp() is deprecated. Use launch() instead.");
+  }
   return launch(rootComponent, rootProps);
 }

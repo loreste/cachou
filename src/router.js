@@ -86,9 +86,13 @@ export function guard(guardFn) {
   };
 }
 
-/** @deprecated Use `guard()` instead — will be removed in 1.0. */
+/** @deprecated Use `guard()` instead — removal reserved for a future major. */
+let warnedAddMiddleware = false;
 export function addMiddleware(guardFn) {
-  if (typeof console !== "undefined") console.warn("[cachou] addMiddleware() is deprecated. Use guard() instead.");
+  if (!warnedAddMiddleware && typeof console !== "undefined" && typeof console.warn === "function") {
+    warnedAddMiddleware = true;
+    console.warn("[cachou] addMiddleware() is deprecated. Use guard() instead.");
+  }
   return guard(guardFn);
 }
 

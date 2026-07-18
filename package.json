@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Fine-grained reactive JavaScript UI library (1.0 stable core)",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -246,6 +246,10 @@
     "type": "git",
     "url": "git+https://github.com/loreste/cachou.git"
   },
+  "homepage": "https://github.com/loreste/cachou#readme",
+  "bugs": {
+    "url": "https://github.com/loreste/cachou/issues"
+  },
   "license": "MIT",
   "keywords": [
     "reactive",
@@ -253,6 +257,9 @@
     "framework",
     "javascript",
     "ui",
-    "ssr"
+    "ssr",
+    "cachou",
+    "fine-grained",
+    "no-vdom"
   ]
 }

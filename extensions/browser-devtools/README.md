@@ -1,6 +1,6 @@
 # CachouJS Browser DevTools (Chrome / Edge / Chromium)
 
-**Version:** 0.6.1 · Manifest V3
+**Version:** 1.0.1 · Manifest V3
 
 Toggles the in-page `mountDevtools()` panel on pages that expose the runtime.
 

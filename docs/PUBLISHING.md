@@ -6,9 +6,9 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 
 | Package | Path | Current |
 |---------|------|---------|
-| `cachoujs` | repo root | 1.0.0 |
-| `@cachoujs/compiler` | `packages/compiler` | 1.0.0 |
-| `@cachoujs/create` | `packages/create-cachou` | 1.0.0 |
+| `cachoujs` | repo root | 1.0.1 |
+| `@cachoujs/compiler` | `packages/compiler` | 1.0.1 |
+| `@cachoujs/create` | `packages/create-cachou` | 1.0.1 |
 
 You must own the npm name / `@cachoujs` org (this project uses org **cachoujs**, owner **loreste**).
 
@@ -39,8 +39,8 @@ From **0.4.0** onward, releases use **small increments** only.
 
 | Rule | Detail |
 |------|--------|
-| Current published | **1.0.0** |
-| Next release | **1.0.1** |
+| Current published | **1.0.1** |
+| Next release | **1.0.2** |
 | Default bump | **patch** (`1.0.x` → `1.0.x+1`) for fixes, docs, CI, small APIs |
 | Minor bump | Backward-compatible features (`1.x.0`) |
 | Major bump | Break **stable** APIs only (`2.0.0`) |
@@ -65,7 +65,7 @@ No version bump or publish without a matching changelog section. GitHub release 
 
 ### 2. Bump version
 
-npm **forbids** republishing the same version. Always bump (next: **1.0.1**):
+npm **forbids** republishing the same version. Always bump (next: **1.0.2**):
 
 - Root: `package.json` → `cachoujs`  
 - `packages/compiler/package.json`  
@@ -120,8 +120,8 @@ Pages:
 ### 6. Git tag + GitHub release
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.1
+git push origin v1.0.1
 # gh release create with notes from CHANGELOG.md for this version
 ```
 

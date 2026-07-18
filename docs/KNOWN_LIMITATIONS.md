@@ -2,13 +2,13 @@
 
 Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTURE.md), the [Developer guide](./GUIDE.md), and the [Roadmap](./ROADMAP.md).
 
-**Current line:** 1.0.x (patch-first; current **1.0.0**). **Stable** core is frozen; **experimental** kits may still change. See [ONE_POINT_OH.md](./ONE_POINT_OH.md).
+**Current line:** 1.0.x (patch-first; current **1.0.1**). **Stable** core is frozen; **experimental** kits may still change. See [ONE_POINT_OH.md](./ONE_POINT_OH.md).
 
 ## Maturity
 
 - Stable core is production-ready with a semver freeze commitment.
 - Ecosystem (UI kits, community examples, Stack Overflow depth) is still small compared with React/Vue/Svelte.
-- Prefer pinning `cachoujs@^1.0.0` in production apps and reading the [changelog](../CHANGELOG.md).
+- Prefer pinning `cachoujs@^1.0.1` in production apps and reading the [changelog](../CHANGELOG.md).
 - TypeScript: core and most subpaths ship `.d.ts`. Runtime remains JS; `.cachou` SFCs are not type-checked by the compiler.
 
 ## Compiler
@@ -31,7 +31,7 @@ Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTUR
 - Per-request isolation, `renderToStringAsync`, **`renderToStream`**, **`Island` / `hydrateIslands`**, request context (`getRequestEvent`), concurrent **`createSSRContext`**, and **`preload`** are shipped.
 - Implicit `dehydrate()` / `getSSRHead()` fail closed under ambiguous concurrent renders — pass an explicit context in concurrent servers.
 - Streaming SSR (`renderToStream`) emits a fast head shell, then body after resources settle (two-pass). Nested boundary interleaving beyond that shell model is still limited.
-- Control-flow helpers (`Show` / `For` / `Switch`) are unwrapped correctly on SSR and as mount roots (1.0.0+).
+- Control-flow helpers (`Show` / `For` / `Switch`) are unwrapped correctly on SSR and as mount roots (1.0.1+).
 - Deployment conventions are intentionally minimal — see [DEPLOY.md](./DEPLOY.md). **Node SSR** is the primary supported recipe; **Fetch adapters** (`cachoujs/ssr-adapters`) and **static pre-render** (`cachoujs/static`) are candidate surfaces.
 
 ## Bundling

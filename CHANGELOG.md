@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.1
+
+First patch on the 1.0 line: quieter deprecations and packaging hygiene.
+
+### Fixed / improved
+
+- **Deprecation warnings** — `addMiddleware`, `useApp`, and `createApp` warn **once** per process (not on every call)
+- Deprecation comments clarify removal is a **future major**, not 1.0.0
+
+### Docs / packaging
+
+- npm `homepage`, `bugs`, and expanded keywords on `cachoujs`
+- Roadmap **1.x maintenance** section; extension README version strings
+- Unit tests for once-only deprecation warnings
+
+
 ## 1.0.0
 
 **API freeze for the stable core.** Experimental and candidate surfaces keep their prior churn rules.

@@ -40,13 +40,13 @@ code --extensionDevelopmentPath="$(pwd)/vscode-cachou" "$(pwd)"
 ```bash
 cd vscode-cachou
 npx @vscode/vsce package --no-dependencies
-code --install-extension cachou-0.6.0.vsix
+code --install-extension cachou-1.0.1.vsix
 ```
 
 Dev symlink:
 
 ```bash
-ln -sf "$(pwd)/vscode-cachou" ~/.vscode/extensions/cachoujs.cachou-0.6.0
+ln -sf "$(pwd)/vscode-cachou" ~/.vscode/extensions/cachoujs.cachou-1.0.1
 # Reload Window
 ```
 
