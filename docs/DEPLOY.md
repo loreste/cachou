@@ -9,6 +9,7 @@ Full checklist companion: [Security](./SECURITY.md) · [Environment](./ENVIRONME
 | Recipe | When | Status |
 |--------|------|--------|
 | [Static SPA](#option-1--static-spa-recommended-for-most-apps) | No server render | **Supported** |
+| [Static pre-render](#option-5--static-pre-render-build-time-html) | HTML files at build time | **Candidate** (`cachoujs/static`) |
 | [Node SSR](#option-2--node-ssr-supported) | Concurrent-safe HTML from Node | **Supported** |
 | [Fetch SSR (Workers/Deno/Bun)](#option-4--fetch-ssr-workers--deno--bun) | Fetch `Request` → `Response` | **Candidate** (`cachoujs/ssr-adapters`) |
 
@@ -113,6 +114,27 @@ export default {
 ```
 
 Node remains the **primary** supported SSR recipe; use this when your host is Workers/Deno/Bun.
+
+---
+
+## Option 5 — Static pre-render (build-time HTML)
+
+Generate `index.html` files for known routes with `prerenderToDir` / `prerenderRoutes`.
+Full walkthrough: [Deploy static pre-render](./how-to/deploy-static-prerender.md) · `npm run ssr:static`.
+
+```javascript
+import { prerenderToDir } from "cachoujs/static";
+
+await prerenderToDir(App, {
+  routes: ["/", "/about"],
+  outDir: "dist",
+  title: ({ path }) => `App ${path}`,
+  scripts: '<script type="module" src="/assets/client.js"></script>',
+  nonce: false
+});
+```
+
+Pair with a client bundle from `cachoujs/browser` when you need hydration.
 
 ---
 

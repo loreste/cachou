@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -50,6 +50,10 @@
     "./ssr-adapters": {
       "types": "./src/ssr-adapters.d.ts",
       "import": "./src/ssr-adapters.js"
+    },
+    "./static": {
+      "types": "./src/static.d.ts",
+      "import": "./src/static.js"
     },
     "./file-routes": {
       "types": "./src/file-routes.d.ts",
@@ -131,7 +135,10 @@
       "types": "./src/upload.d.ts",
       "import": "./src/upload.js"
     },
-    "./vite": "./plugin/vite.js",
+    "./vite": {
+      "types": "./plugin/vite.d.ts",
+      "import": "./plugin/vite.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {
@@ -189,6 +196,7 @@
     "ssr:starter": "node examples/ssr-starter/server.mjs",
     "ssr:node": "node examples/node-ssr/server.mjs",
     "ssr:fetch": "node examples/fetch-ssr/server.mjs",
+    "ssr:static": "node examples/static-prerender/prerender.mjs",
     "ext:package": "npm --prefix vscode-cachou run package",
     "ext:devtools": "node scripts/package-devtools-extension.mjs",
     "ext:readme": "node -e \"console.log('See vscode-cachou/README.md')\"",

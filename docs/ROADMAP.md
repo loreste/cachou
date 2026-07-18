@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.6.x** (published: **0.6.1**) |
-| **Next publish** | **0.6.2** (patch by default) |
+| **Current line** | **0.6.x** (published: **0.6.2**) |
+| **Next publish** | **0.6.3** (patch by default) |
 | **Next minor** | **0.7.0** only if a new theme is needed |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
@@ -144,7 +144,7 @@ Theme: **trust and deploy.**
 
 Theme: **make it easier to live with**, still without becoming a platform.
 
-### Shipped in 0.6.0–0.6.1
+### Shipped in 0.6.0–0.6.2
 
 - [x] Stronger public TypeScript surface + package `exports` types + core generics *(0.6.0)*
 - [x] TypeScript how-to + subpath `.d.ts` for forms/router/flow/html/reactivity *(0.6.0)*
@@ -152,21 +152,22 @@ Theme: **make it easier to live with**, still without becoming a platform.
 - [x] Residual subpath types (`files`, `devtools`) + `ssr-adapters` *(0.6.1)*
 - [x] Fetch SSR adapters for Workers / Deno / Bun (`createFetchHandler`) with tests *(0.6.1)*
 - [x] Browser DevTools zip packaging (`npm run ext:devtools`) + how-to *(0.6.1)*
+- [x] Static pre-render (`cachoujs/static`) + Vite plugin types + extension packaging in CI *(0.6.2)*
 
 ### Planned
 
 | Theme | Intent |
 |-------|--------|
 | **Types** | Further inference polish on experimental kits |
-| **Editor** | Marketplace publish when publisher account + CI packaging are ready |
-| **DevTools** | Chrome Web Store listing when quality holds |
+| **Editor** | Marketplace publish when publisher account + CI packaging are ready (VSIX built in CI) |
+| **DevTools** | Chrome Web Store listing when quality holds (zip built in CI) |
 | **Content / images** | Optional build-time content/image pipeline if demand is real |
-| **Deploy adapters** | Static pre-render helper if demand is real; keep Workers/Deno thin |
-| **Examples** | Keep SPA / Node SSR / Fetch SSR / CRM-like as the sharp set |
+| **Deploy adapters** | Keep Workers/Deno/static thin; expand only with tests |
+| **Examples** | SPA / Node SSR / Fetch SSR / static pre-render / CRM-like |
 
 Each item ships only when tests and docs ship with it.
 
-**Status (0.6.1):** Types residuals + Fetch adapters + DevTools packaging shipped. Continue **0.6.x** patches.
+**Status (0.6.2):** Static pre-render + packaging CI shipped. Continue **0.6.x** patches.
 
 ---
 
@@ -250,4 +251,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.6.1** (2026-07).
+Last updated for **0.6.2** (2026-07).

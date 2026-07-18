@@ -1,6 +1,6 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.6.1**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v0.4.x** (current: **0.6.2**).
 
 ---
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.2
+
+Ecosystem patch: static pre-render helpers, Vite plugin types, extension packaging in CI.
+
+### Added
+
+- **`cachoujs/static`** — `prerenderRoutes`, `writePrerendered`, `prerenderToDir`, `routeToFilePath` for build-time HTML
+- **Example** — `examples/static-prerender/` · `npm run ssr:static`
+- **How-to** — [deploy-static-prerender](./docs/how-to/deploy-static-prerender.md)
+- **`cachoujs/vite` types** — `plugin/vite.d.ts`
+- **CI** — package VS Code VSIX + browser DevTools zip on Linux verify job
+
+### Docs
+
+- DEPLOY Option 5 (static pre-render); examples index updated
+
+
 ## 0.6.1
 
 Ecosystem patch: residual types, Fetch SSR adapters (Workers/Deno/Bun), DevTools packaging.

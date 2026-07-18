@@ -147,9 +147,11 @@ export const CANDIDATE_EXPORTS = Object.freeze([
   "addMiddleware",
   "persist",
   "virtualList",
-  // Fetch adapters are subpath-only (`cachoujs/ssr-adapters`); listed for docs parity
+  // Subpath-only adapters (docs parity for getExportStability)
   "createFetchHandler",
   "handleFetchRequest",
+  "prerenderRoutes",
+  "prerenderToDir",
   "createLogger",
   "configureLogger",
   "getLoggerConfig",

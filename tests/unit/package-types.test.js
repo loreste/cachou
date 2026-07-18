@@ -51,7 +51,8 @@ test("core deep-import modules ship dedicated .d.ts", () => {
     "image",
     "files",
     "devtools",
-    "ssr-adapters"
+    "ssr-adapters",
+    "static"
   ]) {
     assert.ok(
       existsSync(resolve(root, `src/${name}.d.ts`)),
@@ -76,4 +77,10 @@ test("index.d.ts exports core generic helpers", () => {
   ]) {
     assert.ok(dts.includes(token), `index.d.ts should include ${token}`);
   }
+});
+
+test("vite plugin export declares types", () => {
+  const exp = pkg.exports["./vite"];
+  assert.ok(exp && exp.types === "./plugin/vite.d.ts");
+  assert.ok(existsSync(resolve(root, "plugin/vite.d.ts")));
 });

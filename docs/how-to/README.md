@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.1**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.2**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
 
 | Start here | |
 |------------|--|
@@ -57,6 +57,7 @@ Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.1**). Each guide a
 | [Deploy Node SSR](./deploy-node-ssr.md) | **Supported** concurrent Node recipe (`renderApplication`) |
 | [Deploy Fetch SSR](./deploy-fetch-ssr.md) | Workers / Deno / Bun via `cachoujs/ssr-adapters` |
 | [Deploy a static SPA](./deploy-static-spa.md) | Hash/browser history, host rewrites, static hosts |
+| [Deploy static pre-render](./deploy-static-prerender.md) | Build-time HTML for known routes (`cachoujs/static`) |
 | [Stream SSR and islands](./stream-ssr-and-islands.md) | Progressive `renderToStream`, Island hydrate modes |
 | [Use browser DevTools extension](./use-browser-devtools.md) | Chromium extension zip / load unpacked |
 | [Bridge OpenTelemetry](./bridge-opentelemetry.md) | Sample OTel exporter bridge for logger/tracing |

@@ -69,7 +69,9 @@ npx @vscode/vsce publish --no-dependencies
 
 4. Optional CI: GitHub Action with `VSCE_PAT` secret on tag `vscode-v*`.
 
-Until then, VSIX from this repo is the supported install path.
+Linux CI already runs `npm run ext:package` (VSIX dry build, no publish) so packaging stays green.
+
+Until Marketplace publish, VSIX from this repo (or CI artifacts) is the supported install path.
 
 ---
 

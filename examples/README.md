@@ -20,6 +20,7 @@ Open [http://localhost:5173/examples/](http://localhost:5173/examples/).
 | **Static SPA** | Vite `npm run build` + [deploy-static-spa](../docs/how-to/deploy-static-spa.md) | CDN / static host, no Node SSR |
 | **Node SSR (supported)** | [`examples/node-ssr/`](./node-ssr/) | Concurrent SSR, CSP nonces, `renderApplication` |
 | **Fetch SSR (Workers/Deno)** | [`examples/fetch-ssr/`](./fetch-ssr/) | `createFetchHandler` — candidate adapter |
+| **Static pre-render** | [`examples/static-prerender/`](./static-prerender/) | `prerenderToDir` — build-time HTML |
 | **CRM-like app** | [`crm/`](../crm/) (monorepo proving ground) | Full app patterns — not the npm package |
 
 ## Included demos
