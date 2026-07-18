@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.0.0
+
+**API freeze for the stable core.** Experimental and candidate surfaces keep their prior churn rules.
+
+### Commitment
+
+- **Stable** exports will not break without a **major** (2.0+)
+- **Candidate** may refine in minors; **experimental** may refine in patches — pin tightly
+- Deprecated aliases (`addMiddleware`, `useApp`, `createApp`) remain in **1.x** with warnings
+- Full write-up: [docs/ONE_POINT_OH.md](./docs/ONE_POINT_OH.md)
+
+### Added
+
+- **`npm run freeze:check`** — verifies freeze docs, stability labels, package exports, scaffold templates
+- **publish:prep** runs `freeze:check` automatically on 1.x releases
+
+### Docs
+
+- ONE_POINT_OH.md, STABILITY/DEPRECATIONS updated for 1.0 policy
+- README / roadmap: production 1.0 line; 0.6 ecosystem theme complete
+
+### Upgrade from 0.6.x
+
+```bash
+npm install cachoujs@^1.0.0
+```
+
+No required code changes for typical SPA/SSR apps. Prefer `cachoujs/browser` on the client and `guard()` / `launch()` / `getApp()` over deprecated aliases.
+
+
 ## 0.6.5
 
 Ecosystem patch: 1.0 freeze criteria closed out, CI extension artifacts, security residual tests, how-to hygiene.

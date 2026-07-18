@@ -4,10 +4,10 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.6.x** (published: **0.6.5**) |
-| **Next publish** | **0.6.6** (patch by default) |
-| **Next minor** | **0.7.0** only if a new theme is needed |
-| **1.0** | API freeze after bake time — not scheduled by date |
+| **Current line** | **1.0.x** (published: **1.0.0**) |
+| **Next publish** | **1.0.1** (patch by default) |
+| **Next minor** | **1.1.0** for backward-compatible features |
+| **1.0** | **Shipped** — stable core frozen |
 
 Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS.md) · [Publishing](./PUBLISHING.md) · [Architecture](./ARCHITECTURE.md)
 
@@ -16,7 +16,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 ## Principles
 
 1. **Library first.** Cachou is a reactive UI runtime + compiler, not a hosted platform or commerce stack.
-2. **Patch-first releases.** Prefer many small `0.4.x` ships over large jumps. Same version on `cachoujs`, `@cachoujs/compiler`, `@cachoujs/create`.
+2. **Patch-first releases.** Prefer many small patch ships over large jumps. Same version on `cachoujs`, `@cachoujs/compiler`, `@cachoujs/create`.
 3. **Core before surface area.** Harden reactivity, DOM, router, SSR, and the compiler before growing more app kits.
 4. **Primitives over products.** Auth, i18n, UI, SEO helpers stay small and optional. Apps own backends and design systems.
 5. **Honest status.** Demo server, CRM, and DB adapters in this repo are proving grounds — not the published product surface.
@@ -24,7 +24,7 @@ Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS
 
 ---
 
-## Where we are (0.5.1)
+## Where we are (1.0.0)
 
 ### Mature enough to build on
 
@@ -168,13 +168,13 @@ Theme: **make it easier to live with**, still without becoming a platform.
 
 Each item ships only when tests and docs ship with it.
 
-**Status (0.6.5):** 0.6 ecosystem theme largely complete; remaining items are optional store publishes + bake time.
+**Status (1.0.0):** 0.6 ecosystem theme complete; stable core frozen. Optional store publishes remain out-of-band.
 
 ---
 
-## 1.0 — Freeze
+## 1.0 — Freeze (**shipped 1.0.0**)
 
-1.0 means **API commitment**, not “feature complete forever”.
+1.0 means **API commitment**, not “feature complete forever”. See [ONE_POINT_OH.md](./ONE_POINT_OH.md).
 
 ### Entry criteria (all required)
 
@@ -239,8 +239,8 @@ Do not skip versions for marketing. Prefer boring releases.
 | **0.3.x** | Experimental core: signals, basic router load, SSR isolation |
 | **0.4.x** | Library surface: composition, data, SSR path, styles, plugins, content, browser entry, observability |
 | **0.5.x** | Production library line: stability labels, deploy recipes, deeper SSR/streaming, compiler DX |
-| **0.6.x** | Ergonomics and optional ecosystem packages (**current**) |
-| **1.0** | Stable core API commitment |
+| **0.6.x** | Ergonomics and optional ecosystem packages |
+| **1.0.x** | Stable core API freeze (**current**) |
 
 ---
 
@@ -252,4 +252,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.6.5** (2026-07).
+Last updated for **1.0.0** (2026-07).

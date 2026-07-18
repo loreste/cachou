@@ -1,12 +1,12 @@
 /**
- * Public API stability labels for CachouJS 0.5+.
+ * Public API stability labels for CachouJS 1.0+.
  *
- * - stable: core contract; prefer no breaking changes without a major bump (after 1.0 freeze)
+ * - stable: frozen at 1.0; no breaking changes without a major bump (2.0+)
  * - candidate: shipped and documented; may refine in minors with changelog
  * - experimental: usable primitives; API may change in patches — pin versions
  *
  * This module is documentation-as-data for tooling and humans. Runtime behavior
- * does not gate exports.
+ * does not gate exports. See docs/ONE_POINT_OH.md.
  */
 
 /** @typedef {"stable" | "candidate" | "experimental" | "unlisted"} StabilityLabel */

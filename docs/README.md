@@ -1,6 +1,6 @@
 # CachouJS Documentation
 
-**Version:** 0.6.5 (experimental 0.x)  
+**Version:** 1.0.0 (stable core)  
 **Package:** `cachoujs`
 
 Fine-grained reactive JavaScript UI library. Components set up once; signals update exact DOM bindings (no virtual DOM). Optional `.cachou` SFC compiler (JS by default; native Go binary optional). Privileged server features in this monorepo are demo-only and gated by `CACHOU_DEMO`.
@@ -36,9 +36,10 @@ Fine-grained reactive JavaScript UI library. Components set up once; signals upd
 - [Compiler](./COMPILER.md) — `.cachou` SFC format, CLI flags, Vite plugin, scoping rules
 - [Architecture](./ARCHITECTURE.md) — ownership, cleanup, SSR isolation, package layers
 - [Roadmap](./ROADMAP.md) — current state, 0.6 ecosystem line / 1.0
+- [1.0 commitment](./ONE_POINT_OH.md) — what is frozen at 1.0
 - [Stability](./STABILITY.md) — stable / candidate / experimental export labels
 - [Experimental surface](./EXPERIMENTAL.md) — subpath kits that may change
-- [Deprecations](./DEPRECATIONS.md) — APIs removed at 1.0
+- [Deprecations](./DEPRECATIONS.md) — aliases kept in 1.x
 - [TypeScript](./how-to/use-typescript.md) — `.d.ts` surface and subpath types
 - [Environment variables](./ENVIRONMENT.md) — all supported env vars
 
@@ -110,4 +111,4 @@ Node-only helpers stay out of the browser graph.
 
 ## Versioning
 
-CachouJS is **0.x**. Published line is **0.6.x**; releases use **small patch increments** (current: **0.6.5**, next: **0.6.6**). APIs may still change before 1.0. Pin dependencies in production apps and read the [changelog](../CHANGELOG.md) before upgrading.
+CachouJS **1.0** freezes the **stable** core. Published line is **1.0.x** (current: **1.0.0**, next: **1.0.1**). Experimental kits may still change — pin tightly. Read the [changelog](../CHANGELOG.md) and [ONE_POINT_OH.md](./ONE_POINT_OH.md).

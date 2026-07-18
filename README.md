@@ -1,12 +1,12 @@
 # CachouJS
 
-**v0.6.5** · experimental (0.x)
+**v1.0.0** · stable core (experimental kits still opt-in)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · [Docs](./docs/README.md) · [Get started](./docs/GETTING_STARTED.md) · [Changelog](./CHANGELOG.md)
 
 Fine-grained reactive UI library for JavaScript. Components set up once; signals update specific DOM bindings. No virtual DOM.
 
-Optional pieces: `.cachou` SFC compiler, Vite plugin, router, SSR helpers, styles/transitions, and a set of app primitives. This is **0.x** — APIs can still change. Pin versions in production.
+Optional pieces: `.cachou` SFC compiler, Vite plugin, router, SSR helpers, styles/transitions, and a set of app primitives. The **stable core** is frozen at 1.0. Experimental kits may still change — pin tightly. See [docs/ONE_POINT_OH.md](./docs/ONE_POINT_OH.md).
 
 ## Install
 
@@ -132,9 +132,9 @@ npm run check   # full local CI-ish pipeline
 
 ## Status
 
-- **0.6.5** on npm. Patch releases are the default.
+- **1.0.0** on npm. Stable core is frozen; patch releases are the default.
 - Tested: unit suite, browser tests, benchmarks under `npm run check`.
-- Not a meta-framework: no hosted deploy adapters, no Marketplace extensions yet, small ecosystem.
+- Not a meta-framework: no hosted deploy adapters; small ecosystem. Optional Marketplace/Web Store listings not required for 1.0.
 - Demo server APIs are for local demos only (`CACHOU_DEMO`); do not expose them publicly.
 
 ## License

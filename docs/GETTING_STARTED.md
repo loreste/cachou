@@ -6,8 +6,8 @@
 |--|--|
 | **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
 | **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
-| **Version** | **0.6.5** (experimental 0.x, patch-first) |
-| **License / maturity** | 0.x — pin versions; read the [changelog](../CHANGELOG.md) |
+| **Version** | **1.0.0** (stable core; patch-first) |
+| **License / maturity** | Stable core frozen — see [ONE_POINT_OH.md](./ONE_POINT_OH.md); pin experimental kits |
 
 This guide takes you from zero to a running app, then the concepts and patterns you’ll use every day. Task recipes live in the [how-to guides](./how-to/README.md).
 
@@ -35,7 +35,7 @@ CachouJS is on the [npm registry](https://www.npmjs.com/package/cachoujs). You d
 
 ```bash
 npm view cachoujs version
-# → 0.6.5 (or newer)
+# → 1.0.0 (or newer)
 
 npm install cachoujs
 ```
@@ -66,7 +66,7 @@ Open the URL Vite prints (usually **http://localhost:5173**).
 You get:
 
 - File routes under `src/routes/` (`/`, `/about`, `/users/:id` with `load`)
-- `cachoujs@^0.6.5` + Vite 6
+- `cachoujs@^1.0.0` + Vite 6
 - Base CSS, `.gitignore`, optional `.cachou` folder under `src/components/`
 - DevTools bridge in development (`Ctrl+Shift+D`)
 
@@ -830,7 +830,7 @@ npm run preview
 ## Packages at a glance
 
 ```bash
-npm install cachoujs                 # runtime + vite plugin  (0.6.5)
+npm install cachoujs                 # runtime + vite plugin  (1.0.0)
 npm install -D @cachoujs/compiler    # optional SFC compiler
 npx @cachoujs/create my-app          # scaffold
 ```

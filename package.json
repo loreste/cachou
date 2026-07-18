@@ -1,7 +1,7 @@
 {
   "name": "cachoujs",
-  "version": "0.6.5",
-  "description": "Ultra-fast fine-grained reactive JavaScript framework",
+  "version": "1.0.0",
+  "description": "Fine-grained reactive JavaScript UI library (1.0 stable core)",
   "main": "src/index.js",
   "module": "src/index.js",
   "types": "src/index.d.ts",
@@ -192,6 +192,7 @@
     "bench:ssr": "node scripts/run-ssr-benchmarks.mjs",
     "pack:dry": "npm pack --dry-run",
     "publish:prep": "node scripts/publish-prep.mjs",
+    "freeze:check": "node scripts/freeze-check.mjs",
     "create": "node create-cachou/index.js",
     "ssr:starter": "node examples/ssr-starter/server.mjs",
     "ssr:node": "node examples/node-ssr/server.mjs",

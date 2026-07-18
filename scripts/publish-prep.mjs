@@ -29,8 +29,12 @@ const compilerPkg = JSON.parse(readFileSync(join(root, "packages/compiler/packag
 const createPkg = JSON.parse(readFileSync(join(root, "packages/create-cachou/package.json"), "utf8"));
 console.log(`Preparing ${pkg.name}@${pkg.version}`);
 
-if (!String(pkg.version).startsWith("0.")) {
-  console.warn("Warning: expected 0.x until 1.0 API freeze.");
+const major = Number(String(pkg.version).split(".")[0]);
+if (Number.isFinite(major) && major >= 1) {
+  console.log("1.x+ release — running freeze:check");
+  run("node", ["scripts/freeze-check.mjs"]);
+} else {
+  console.log("0.x prerelease line");
 }
 
 if (pkg.version !== compilerPkg.version || pkg.version !== createPkg.version) {

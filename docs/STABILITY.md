@@ -1,15 +1,16 @@
-# API Stability (0.5+)
+# API Stability (1.0+)
 
 CachouJS labels public exports so apps know what to pin against.
+Full freeze commitment: [ONE_POINT_OH.md](./ONE_POINT_OH.md).
 
 | Label | Meaning |
 |-------|---------|
-| **stable** | Core production contract. Breaking changes require a major version after 1.0; until then, avoid silent breaks and document any exception in the changelog. |
+| **stable** | **Frozen at 1.0.** Breaking changes require a **major** version (2.0+). |
 | **candidate** | Shipped and documented. May refine in **minor** releases with a clear changelog. |
 | **experimental** | Usable primitives (UI kit, auth, i18n, content, …). May change in **patch** releases — pin versions tightly. |
 | **unlisted** | Not classified (internal, accidental, or brand-new). Treat as experimental. |
 
-This is **not** a 1.0 freeze. It is an honest boundary so core trust is not diluted by app kits.
+Stable core is an honest boundary so app kits do not dilute production trust.
 
 ## Introspection
 
