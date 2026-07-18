@@ -44,11 +44,12 @@ npm run dev
 my-app/
 ├── index.html
 ├── package.json          # cachoujs@^0.6.4 + vite
-├── vite.config.js        # cachoujs/vite plugin
+├── vite.config.js        # cachoujs/vite plugin → browser runtime
 ├── .gitignore
 ├── README.md
+├── server.mjs            # only with --template ssr
 └── src/
-    ├── main.js           # shell + Router + fileRoutes
+    ├── main.js           # shell + Router + fileRoutes (cachoujs/browser)
     ├── styles.css        # base light/dark styles
     ├── routes/
     │   ├── index.js      # /
@@ -63,6 +64,8 @@ my-app/
 | `npm run build` | Production client build |
 | `npm run preview` | Preview build |
 | `npm run compile` | Compile `.cachou` under `src/components` |
+| `npm run ssr` | Node SSR (ssr template) |
+| `npm run prerender` | Static HTML shells (static template) |
 
 ## Manual setup (no scaffold)
 
