@@ -11,12 +11,21 @@ Create a standalone Vite app that imports `cachoujs` with file-based routes and 
 
 ```bash
 npx @cachoujs/create my-app
+npx @cachoujs/create my-app --template spa       # default: browser history
+npx @cachoujs/create my-static --template static # hash history + optional prerender
+npx @cachoujs/create my-ssr --template ssr       # SPA client + Node SSR (`npm run ssr`)
 cd my-app
 npm install
 npm run dev
 ```
 
 Open the URL Vite prints (usually `http://localhost:5173`).
+
+| Template | Client | Extra |
+|----------|--------|--------|
+| **spa** | `cachoujs/browser`, browser history | File routes |
+| **static** | hash history | `_redirects`, `npm run prerender` |
+| **ssr** | browser client | `server.mjs` + `npm run ssr` |
 
 ## From this monorepo
 
@@ -34,7 +43,7 @@ npm run dev
 ```text
 my-app/
 ├── index.html
-├── package.json          # cachoujs@^0.6.3 + vite
+├── package.json          # cachoujs@^0.6.4 + vite
 ├── vite.config.js        # cachoujs/vite plugin
 ├── .gitignore
 ├── README.md
@@ -60,7 +69,7 @@ my-app/
 ```bash
 mkdir my-app && cd my-app
 npm init -y
-npm install cachoujs@^0.6.3
+npm install cachoujs@^0.6.4
 npm install -D vite @cachoujs/compiler
 ```
 

@@ -1,20 +1,31 @@
 # @cachoujs/create
 
-Scaffold a Vite + **CachouJS 0.4** app with file-based routes.
+Scaffold a Vite + **CachouJS** app with file-based routes.
 
 ## Create a project
 
 ```bash
 npx @cachoujs/create my-app
+npx @cachoujs/create my-app --template spa      # default: browser history SPA
+npx @cachoujs/create my-app --template static   # hash history + optional prerender
+npx @cachoujs/create my-app --template ssr      # SPA client + Node SSR entry
 cd my-app
 npm install
 npm run dev
 ```
 
+## Templates
+
+| Template | Client | Extra |
+|----------|--------|--------|
+| **spa** (default) | `cachoujs/browser`, browser history | File routes |
+| **static** | hash history | `public/_redirects`, `npm run prerender` |
+| **ssr** | browser client | `server.mjs` + `npm run ssr` (`renderApplication`) |
+
 ## What you get
 
-- `cachoujs@^0.6.3` + Vite 6
-- App shell with `Router` + `fileRoutes`
+- Current `cachoujs` line + Vite 6
+- App shell with `Router` + `fileRoutes` via **`cachoujs/browser`**
 - Routes: `/`, `/about`, `/users/:id` (with `load`)
 - Base CSS (light/dark), `.gitignore`
 - Optional `.cachou` compile script + Vite plugin

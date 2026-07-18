@@ -6,9 +6,9 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 
 | Package | Path | Current |
 |---------|------|---------|
-| `cachoujs` | repo root | 0.6.3 |
-| `@cachoujs/compiler` | `packages/compiler` | 0.6.3 |
-| `@cachoujs/create` | `packages/create-cachou` | 0.6.3 |
+| `cachoujs` | repo root | 0.6.4 |
+| `@cachoujs/compiler` | `packages/compiler` | 0.6.4 |
+| `@cachoujs/create` | `packages/create-cachou` | 0.6.4 |
 
 You must own the npm name / `@cachoujs` org (this project uses org **cachoujs**, owner **loreste**).
 
@@ -39,15 +39,15 @@ From **0.4.0** onward, releases use **small increments** only.
 
 | Rule | Detail |
 |------|--------|
-| Current published | **0.6.3** |
-| Next release | **0.6.4** |
+| Current published | **0.6.4** |
+| Next release | **0.6.5** |
 | Default bump | **patch** (`0.4.x` → `0.4.x+1`) for fixes, docs, CI, small APIs |
 | Minor bump | Rare: only when a coherent feature set lands (`0.4` → `0.5`) |
 | Major bump | Reserved for **1.0** API freeze (later) |
 | Scope | Bump **all three** packages together: `cachoujs`, `@cachoujs/compiler`, `@cachoujs/create` |
 | Tags | `v0.4.4`, `v0.4.5`, … match the npm version |
 
-Do **not** jump versions (e.g. 0.4.0 → 0.6.3) for routine work. Prefer many small patch releases over large batches.
+Do **not** jump versions (e.g. 0.4.0 → 0.6.4) for routine work. Prefer many small patch releases over large batches.
 
 ---
 
@@ -55,7 +55,7 @@ Do **not** jump versions (e.g. 0.4.0 → 0.6.3) for routine work. Prefer many sm
 
 ### 1. Changelog (**required — never skip**)
 
-Update root [CHANGELOG.md](../CHANGELOG.md) **first**, under a new version heading (e.g. `## 0.6.3`):
+Update root [CHANGELOG.md](../CHANGELOG.md) **first**, under a new version heading (e.g. `## 0.6.4`):
 
 - Short release summary line
 - Bullet sections as needed: **Added**, **Fixed / improved**, **Docs / tests**
@@ -65,7 +65,7 @@ No version bump or publish without a matching changelog section. GitHub release 
 
 ### 2. Bump version
 
-npm **forbids** republishing the same version. Always bump (next: **0.6.4**):
+npm **forbids** republishing the same version. Always bump (next: **0.6.5**):
 
 - Root: `package.json` → `cachoujs`  
 - `packages/compiler/package.json`  
@@ -120,8 +120,8 @@ Pages:
 ### 6. Git tag + GitHub release
 
 ```bash
-git tag v0.6.3
-git push origin v0.6.3
+git tag v0.6.4
+git push origin v0.6.4
 # gh release create with notes from CHANGELOG.md for this version
 ```
 

@@ -55,8 +55,18 @@ import { signal, html, mount } from "cachoujs/browser"; // stable core, browser-
 import { createAuth } from "cachoujs/auth";             // experimental subpath
 ```
 
+## Candidate deploy surfaces (0.6+)
+
+| Module | Role |
+|--------|------|
+| `cachoujs/ssr-adapters` | Fetch `Request` → `Response` (Workers / Deno / Bun) |
+| `cachoujs/static` | Build-time pre-render (`prerenderRoutes` / `prerenderToDir`) |
+
+Prefer **Node `renderApplication`** for primary SSR; use the above when the host matches.
+
 ## Policy
 
 1. New **stable** APIs need tests + docs in the same PR.
 2. Experimental modules should not be required to build a basic SPA/SSR app.
 3. Demo server / CRM remain **repo-only** and are never part of the stability table.
+4. Removals of deprecated APIs are listed in [DEPRECATIONS.md](./DEPRECATIONS.md) and only land at **1.0**.

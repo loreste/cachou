@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.4
+
+Ecosystem patch: 1.0 readiness — consumer surface tests, multi-template scaffold, deprecations list.
+
+### Added
+
+- **`@cachoujs/create` templates** — `--template spa` (default), `static` (hash + prerender), `ssr` (Node `server.mjs`)
+- Scaffold defaults to **`cachoujs/browser`** for client entries
+- **Consumer surface tests** — required package exports resolve; browser/main/SSR/static/vite smoke
+- **[DEPRECATIONS.md](./docs/DEPRECATIONS.md)** — `addMiddleware` → `guard`, `useApp` → `getApp`, etc.
+- 1.0 freeze checklist progress in ROADMAP / DEPRECATIONS
+
+### Docs
+
+- Create README + scaffold how-to cover templates
+- STABILITY notes candidate deploy surfaces
+
+
 ## 0.6.3
 
 Ecosystem patch: content build pipeline, responsive image URL helpers, experimental kit types polish.

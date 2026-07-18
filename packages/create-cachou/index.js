@@ -1,14 +1,68 @@
 #!/usr/bin/env node
 /**
  * Scaffold: Vite + CachouJS (+ file routes).
- * Usage: npx @cachoujs/create my-app
- *        node packages/create-cachou/index.js my-app
+ *
+ *   npx @cachoujs/create my-app
+ *   npx @cachoujs/create my-app --template spa|ssr|static
+ *   node packages/create-cachou/index.js my-app --template ssr
  */
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const rawName = process.argv[2] || "cachou-app";
-// Accept a simple folder name (preferred) or an absolute/relative path.
+const CACHOU_VERSION = "0.6.4";
+const TEMPLATES = new Set(["spa", "ssr", "static"]);
+
+function printHelp() {
+  console.log(`Usage: create-cachou <name> [options]
+
+Options:
+  --template <spa|ssr|static>   App shape (default: spa)
+  -t <spa|ssr|static>           Alias for --template
+  --help, -h                    Show this help
+
+Templates:
+  spa      Client SPA + file routes (browser history) — default
+  static   Client SPA with hash history (zero-rewrite static hosts)
+  ssr      SPA client + Node SSR entry (renderApplication recipe)
+`);
+}
+
+function parseArgs(argv) {
+  const args = [...argv];
+  let name = null;
+  let template = "spa";
+  while (args.length) {
+    const a = args.shift();
+    if (a === "--help" || a === "-h") {
+      printHelp();
+      process.exit(0);
+    }
+    if (a === "--template" || a === "-t") {
+      template = (args.shift() || "").toLowerCase();
+      continue;
+    }
+    if (a.startsWith("--template=")) {
+      template = a.slice("--template=".length).toLowerCase();
+      continue;
+    }
+    if (!a.startsWith("-") && !name) {
+      name = a;
+      continue;
+    }
+    console.error(`Unknown argument: ${a}`);
+    printHelp();
+    process.exit(1);
+  }
+  return { name: name || "cachou-app", template };
+}
+
+const { name: rawName, template } = parseArgs(process.argv.slice(2));
+
+if (!TEMPLATES.has(template)) {
+  console.error(`Invalid template "${template}". Use: spa | ssr | static`);
+  process.exit(1);
+}
+
 const target = resolve(process.cwd(), rawName);
 const name = target.split(/[/\\]/).filter(Boolean).pop() || "cachou-app";
 
@@ -22,8 +76,22 @@ if (existsSync(target)) {
   process.exit(1);
 }
 
-mkdirSync(join(target, "src", "routes"), { recursive: true });
-mkdirSync(join(target, "src", "components"), { recursive: true });
+const historyMode = template === "static" ? "hash" : "browser";
+
+const packageScripts = {
+  dev: "vite",
+  build: "vite build",
+  preview: "vite preview",
+  compile: "cachou-compiler -dir src/components -out src/components -runtime cachoujs"
+};
+if (template === "ssr") {
+  packageScripts["ssr"] = "node server.mjs";
+  packageScripts["dev:ssr"] = "node server.mjs";
+}
+if (template === "static") {
+  packageScripts["prerender"] =
+    "node --experimental-vm-modules ./scripts/prerender.mjs";
+}
 
 const files = {
   "package.json":
@@ -33,17 +101,12 @@ const files = {
         private: true,
         version: "0.0.1",
         type: "module",
-        scripts: {
-          dev: "vite",
-          build: "vite build",
-          preview: "vite preview",
-          compile: "cachou-compiler -dir src/components -out src/components -runtime cachoujs"
-        },
+        scripts: packageScripts,
         dependencies: {
-          cachoujs: "^0.6.3"
+          cachoujs: `^${CACHOU_VERSION}`
         },
         devDependencies: {
-          "@cachoujs/compiler": "^0.6.3",
+          "@cachoujs/compiler": `^${CACHOU_VERSION}`,
           vite: "^6.0.0"
         }
       },
@@ -54,7 +117,7 @@ const files = {
 import { cachou } from "cachoujs/vite";
 
 export default defineConfig({
-  plugins: [cachou({ dirs: ["src/components"], runtime: "cachoujs" })]
+  plugins: [cachou({ dirs: ["src/components"], runtime: "cachoujs/browser" })]
 });
 `,
   "index.html": `<!DOCTYPE html>
@@ -101,91 +164,48 @@ dist
   }
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-.shell {
-  max-width: 42rem;
-  margin: 0 auto;
-  padding: 1.5rem;
-}
-
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.shell { max-width: 42rem; margin: 0 auto; padding: 1.5rem; }
 .nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1rem;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
+  display: flex; flex-wrap: wrap; gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem; padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
 }
-
 .card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.25rem;
 }
-
-.card h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.5rem;
-}
-
-.card p {
-  margin: 0.5rem 0;
-  color: var(--muted);
-}
-
+.card h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+.card p { margin: 0.5rem 0; color: var(--muted); }
 button {
-  appearance: none;
-  border: 0;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--accent-fg);
-  font: inherit;
-  padding: 0.5rem 0.9rem;
-  cursor: pointer;
+  appearance: none; border: 0; border-radius: 8px;
+  background: var(--accent); color: var(--accent-fg);
+  font: inherit; padding: 0.5rem 0.9rem; cursor: pointer;
 }
-
-button:hover {
-  filter: brightness(1.05);
-}
-
+button:hover { filter: brightness(1.05); }
 pre {
-  overflow: auto;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.75rem;
-  font-size: 0.875rem;
+  overflow: auto; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.75rem; font-size: 0.875rem;
 }
 `,
-  "src/main.js": `import * as Cachou from "cachoujs";
+  "src/main.js": `import * as Cachou from "cachoujs/browser";
 import {
   html,
   mount,
   Router,
   Link,
   fileRoutes,
+  configureRouter,
+  applyProductionSecurityDefaults,
   installDevtoolsHotkey
-} from "cachoujs";
+} from "cachoujs/browser";
 import "./styles.css";
+
+applyProductionSecurityDefaults();
+configureRouter({ history: "${historyMode}" });
 
 // Expose runtime for the Cachou browser DevTools extension (dev only).
 if (import.meta.env.DEV) {
@@ -210,14 +230,14 @@ function App() {
 
 mount(App, document.getElementById("app"));
 `,
-  "src/routes/index.js": `import { signal, html } from "cachoujs";
+  "src/routes/index.js": `import { signal, html } from "cachoujs/browser";
 
 export default function Home() {
   const [count, setCount] = signal(0);
   return html\`
     <main class="card">
       <h1>Hello CachouJS</h1>
-      <p>Fine-grained reactivity + file-based routes. Edit <code>src/routes/</code> to add pages.</p>
+      <p>Template: <strong>${template}</strong>. Fine-grained reactivity + file-based routes.</p>
       <p style="margin-top:1rem">
         <button type="button" onclick=\${() => setCount(c => c + 1)}>
           Count: \${() => count()}
@@ -227,19 +247,19 @@ export default function Home() {
   \`;
 }
 `,
-  "src/routes/about.js": `import { html } from "cachoujs";
+  "src/routes/about.js": `import { html } from "cachoujs/browser";
 
 export default function About() {
   return html\`
     <main class="card">
       <h1>About</h1>
-      <p>This page is a file-based route: <code>src/routes/about.js</code>.</p>
+      <p>File-based route: <code>src/routes/about.js</code>.</p>
       <p>Optional <code>.cachou</code> components go in <code>src/components/</code>.</p>
     </main>
   \`;
 }
 `,
-  "src/routes/users/[id].js": `import { html, Show } from "cachoujs";
+  "src/routes/users/[id].js": `import { html, Show } from "cachoujs/browser";
 
 export async function load({ params, signal }) {
   await new Promise(r => setTimeout(r, 80));
@@ -263,41 +283,162 @@ export default function UserPage(_params, state) {
     </main>
   \`;
 }
-`,
-  "README.md": `# ${name}
+`
+};
 
-Vite + **CachouJS 0.4** scaffold with file-based routes.
+// Template-specific extras
+if (template === "ssr") {
+  files["server.mjs"] = `/**
+ * Node SSR entry (supported recipe).
+ *   npm run ssr
+ */
+import http from "node:http";
+import { createRequire } from "node:module";
+import {
+  signal,
+  html,
+  Show,
+  renderApplication,
+  htmlDocument,
+  createCSPNonce,
+  buildSecurityHeaders,
+  applySecurityHeaders,
+  applyProductionSecurityDefaults,
+  installSSRAsyncHooks
+} from "cachoujs";
+
+applyProductionSecurityDefaults();
+try {
+  installSSRAsyncHooks(createRequire(import.meta.url)("node:async_hooks"));
+} catch {
+  // sequential handlers still work with explicit contexts
+}
+
+function App() {
+  const [n] = signal(1);
+  return Show({
+    when: () => true,
+    children: () => html\`
+      <main class="card" style="font-family:system-ui;padding:2rem;max-width:40rem;margin:auto">
+        <h1>${name} (SSR)</h1>
+        <p>Rendered with <code>renderApplication</code>. Count: \${() => n()}</p>
+        <p><a href="/">Client app</a> after you build assets separately.</p>
+      </main>
+    \`
+  });
+}
+
+const PORT = Number(process.env.PORT || 8788);
+const server = http.createServer(async (req, res) => {
+  const nonce = createCSPNonce();
+  try {
+    const { html: body, head, state } = await renderApplication(App, {
+      path: req.url,
+      request: req,
+      nonce
+    });
+    applySecurityHeaders(res, buildSecurityHeaders({ nonce, allowInlineStyles: false }));
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(
+      htmlDocument({
+        html: body,
+        head,
+        state,
+        title: "${name}",
+        styles: \`<style nonce="\${nonce}">body{margin:0;background:#f6f7f9}</style>\`
+      })
+    );
+  } catch (err) {
+    console.error(err);
+    res.statusCode = 500;
+    res.end("Internal Server Error");
+  }
+});
+server.listen(PORT, () => {
+  console.log(\`SSR listening on http://127.0.0.1:\${PORT}\`);
+});
+`;
+}
+
+if (template === "static") {
+  files["public/_redirects"] = `/*    /index.html   200
+`;
+  files["scripts/prerender.mjs"] = `/**
+ * Optional build-time HTML for known routes (requires Node + full cachoujs).
+ * Run after \`vite build\` if you want static shells in dist/.
+ *
+ *   npm run build && npm run prerender
+ */
+import { prerenderToDir } from "cachoujs/static";
+import { html, signal } from "cachoujs";
+
+function Shell() {
+  const [n] = signal(1);
+  return () => html\`
+    <main style="font-family:system-ui;padding:2rem">
+      <h1>${name}</h1>
+      <p>Static shell. Client hydrates/mounts from the Vite bundle.</p>
+      <p>n=\${() => n()}</p>
+    </main>
+  \`;
+}
+
+await prerenderToDir(Shell, {
+  routes: ["/", "/about"],
+  outDir: "dist",
+  title: ({ path }) => \`${name} \${path}\`,
+  scripts: '<script type="module" src="/src/main.js"></script>',
+  nonce: false
+});
+console.log("Prerendered / and /about into dist/");
+`;
+}
+
+const templateBlurb =
+  template === "ssr"
+    ? "SPA client + **Node SSR** (`npm run ssr`)"
+    : template === "static"
+      ? "Static-friendly SPA (**hash** history) + optional prerender script"
+      : "Client **SPA** + file routes (browser history)";
+
+files["README.md"] = `# ${name}
+
+Vite + **CachouJS ${CACHOU_VERSION}** scaffold — template **\`${template}\`**.
+
+${templateBlurb}
 
 \`\`\`bash
 npm install
 npm run dev
-\`\`\`
+${template === "ssr" ? "npm run ssr      # Node SSR recipe\n" : ""}${template === "static" ? "npm run build && npm run prerender   # optional static shells\n" : ""}\`\`\`
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| \`src/main.js\` | App shell, router, DevTools bridge |
-| \`src/routes/\` | File-based pages (\`/\`, \`/about\`, \`/users/:id\`) |
+| \`src/main.js\` | App shell (\`cachoujs/browser\`), router, DevTools bridge |
+| \`src/routes/\` | File-based pages |
 | \`src/components/\` | Optional \`.cachou\` SFCs |
-| \`src/styles.css\` | Base styles |
+${template === "ssr" ? "| `server.mjs` | Node SSR with `renderApplication` |\n" : ""}${template === "static" ? "| `scripts/prerender.mjs` | Optional `cachoujs/static` pre-render |\n| `public/_redirects` | SPA fallback for Netlify/CF Pages |\n" : ""}
 
-## Scripts
+## History mode
 
-| Command | What it does |
-|---------|----------------|
-| \`npm run dev\` | Vite dev server |
-| \`npm run build\` | Production build |
-| \`npm run preview\` | Preview build |
-| \`npm run compile\` | Compile \`.cachou\` components |
+Configured as **\`${historyMode}\`** via \`configureRouter\`.
 
-## Next steps
+## Docs
 
 - [Get Started](https://github.com/loreste/cachou/blob/main/docs/GETTING_STARTED.md)
-- [0.4 framework APIs](https://github.com/loreste/cachou/blob/main/docs/how-to/use-0.4-framework-apis.md)
-- DevTools: \`Ctrl+Shift+D\` in dev, or load the monorepo browser extension
-`
-};
+- [Deploy](https://github.com/loreste/cachou/blob/main/docs/DEPLOY.md)
+- [Stability](https://github.com/loreste/cachou/blob/main/docs/STABILITY.md)
+`;
+
+mkdirSync(join(target, "src", "routes", "users"), { recursive: true });
+mkdirSync(join(target, "src", "components"), { recursive: true });
+if (template === "static") {
+  mkdirSync(join(target, "public"), { recursive: true });
+  mkdirSync(join(target, "scripts"), { recursive: true });
+}
 
 for (const [file, content] of Object.entries(files)) {
   const full = join(target, file);
@@ -305,10 +446,10 @@ for (const [file, content] of Object.entries(files)) {
   writeFileSync(full, content);
 }
 
-console.log(`Created ${name}/
+console.log(`Created ${name}/ (template: ${template})
 
 Next:
   cd ${name}
   npm install
-  npm run dev
+  npm run dev${template === "ssr" ? "\n  npm run ssr" : ""}
 `);
