@@ -16,13 +16,9 @@ export function createCSPNonce() {
     c.getRandomValues(bytes);
     return bytesToBase64Url(bytes);
   }
-  // Last resort (not cryptographically strong) — still CSP-safe charset
-  let out = "";
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-  for (let i = 0; i < 22; i++) {
-    out += alphabet[(Math.random() * 64) | 0];
-  }
-  return out;
+  // A predictable fallback would defeat the purpose of a CSP nonce. Fail
+  // closed so callers do not accidentally deploy a guessable policy.
+  throw new Error("Secure randomness is required to create a CSP nonce");
 }
 
 function bytesToBase64Url(bytes) {
@@ -132,13 +128,13 @@ export function applySecurityHeaders(res, headers) {
 }
 
 const DANGEROUS_TAGS =
-  /<\/?(?:script|iframe|object|embed|link|meta|base|form|svg|math|template|style|frame|frameset|applet|foreignobject)(?:\s[^>]*)?>/gi;
-const EVENT_HANDLER_ATTR = /\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+  /<\/?(?:script|iframe|object|embed|link|meta|base|form|svg|math|template|style|frame|frameset|applet|foreignobject)(?:[\s/][^>]*)?>/gi;
+const EVENT_HANDLER_ATTR = /[\s/]on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const JS_URL_ATTR =
   /\s(?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(['"]?)\s*(?:javascript|vbscript):[^'"\s>]*/gi;
 const DATA_HTML_URL =
   /\s(?:href|src|srcdoc)\s*=\s*(['"]?)\s*data:\s*(?:text\/html|image\/svg\+xml)[^'"\s>]*/gi;
-const STYLE_ATTR = /\s+style\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const STYLE_ATTR = /[\s/]style\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 
 /**
  * Decode common HTML entities used in XSS bypasses (hex/decimal numeric + a few named).
@@ -233,7 +229,7 @@ function sanitizeHTMLString(html) {
   // URL attrs: match full quoted values (including whitespace/control chars inside)
   // so `java\tscript:` / `java&#9;script:` cannot survive into trustedHTML sinks.
   out = out.replace(
-    /\s(?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    /[\s/](?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
     (full, doubleQuoted, singleQuoted, unquoted) => {
       const value = doubleQuoted ?? singleQuoted ?? unquoted ?? "";
       if (isDangerousURLValue(value)) return " ";

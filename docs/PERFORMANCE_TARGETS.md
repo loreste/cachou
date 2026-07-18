@@ -43,6 +43,11 @@ isolation with warmup and repeated median samples.
 
 ### Latest reference medians (local, 2026-07-17)
 
+These are local regression baselines for the listed machine and workload, not
+cross-machine throughput guarantees or independent framework rankings. See
+[Benchmark Results](./BENCHMARK_RESULTS.md) for the comparison metadata and
+interpretation requirements.
+
 | Scenario | Median | Notes |
 |----------|--------|--------|
 | Static `renderToString` ×1000 | ~1.7ms | High ops/s string path |
@@ -101,6 +106,8 @@ been collected across representative machines.
 - All non-lifecycle adapters clear their target during the sample so the DOM baseline does not omit cleanup work.
 - Run production builds when comparing final numbers.
 - Record browser, machine, Node version, framework versions, and bundle mode.
+- Treat project-run measurements as evidence for regression tracking, not as
+  universal performance claims or independent validation.
 - `CACHOU_COMPARE_REPORT_PATH` records that comparison metadata with the
   measurements, including the sample and cleanup contract.
 - Treat the imperative DOM adapter as a lower bound, not a target framework.

@@ -62,6 +62,16 @@ describe("sanitizeHTML", () => {
     assert.doesNotMatch(out, /<\/script/i);
   });
 
+  it("strips slash-delimited dangerous tags and event attributes", () => {
+    const out = sanitizeHTML(
+      `<script/onload=alert(1)>bad</script><img/onerror=alert(2)>x<div/onmouseover=alert(3)>y`
+    );
+    assert.doesNotMatch(out, /<\/?script/i);
+    assert.doesNotMatch(out, /on(?:load|error|mouseover)/i);
+    assert.match(out, /x/);
+    assert.match(out, /y/);
+  });
+
   it("neutralizes HTML-entity encoded javascript URLs", () => {
     const out = sanitizeHTML(`<a href="&#106;avascript:alert(1)">x</a>`);
     assert.doesNotMatch(out, /javascript:/i);
@@ -128,6 +138,17 @@ describe("CSP helpers", () => {
     assert.equal(typeof n, "string");
     assert.ok(n.length >= 16);
     assert.match(n, /^[A-Za-z0-9_-]+$/);
+  });
+
+  it("does not fall back to predictable randomness for CSP nonces", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+    if (!descriptor?.configurable) return;
+    try {
+      Object.defineProperty(globalThis, "crypto", { configurable: true, value: undefined });
+      assert.throws(() => createCSPNonce(), /Secure randomness is required/);
+    } finally {
+      Object.defineProperty(globalThis, "crypto", descriptor);
+    }
   });
 
   it("buildContentSecurityPolicy includes nonce and forbids object", () => {

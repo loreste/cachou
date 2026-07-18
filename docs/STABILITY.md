@@ -10,7 +10,9 @@ Full freeze commitment: [ONE_POINT_OH.md](./ONE_POINT_OH.md).
 | **experimental** | Usable primitives (UI kit, auth, i18n, content, …). May change in **patch** releases — pin versions tightly. |
 | **unlisted** | Not classified (internal, accidental, or brand-new). Treat as experimental. |
 
-Stable core is an honest boundary so app kits do not dilute production trust.
+Stable core is an honest API boundary so app kits do not dilute the compatibility
+contract. It does not by itself establish broad production adoption, security
+review, or cross-browser maturity.
 
 ## Introspection
 

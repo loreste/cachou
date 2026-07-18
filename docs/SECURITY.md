@@ -1,6 +1,35 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.3**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.4**).
+
+The controls below are security features and policy helpers, not a security certification or substitute for an application security review. Applications remain responsible for backend authorization, deployment-level CSP, secure session handling, dependency review, and independent testing appropriate to their risk. Do not describe CachouJS itself as universally “secure.”
+
+---
+
+## Scope and non-goals
+
+This document covers runtime escaping and policy helpers, SSR state/header
+integration, and the gated demo server included in this repository. It does
+not provide:
+
+- a full HTML/rich-text sanitizer;
+- an identity provider, session service, or authorization model;
+- CSRF protection for an application’s real APIs;
+- dependency, infrastructure, browser-extension, or deployment security; or
+- a guarantee that an application is safe because these helpers are enabled.
+
+`sanitizeHTML` is intentionally conservative and parser-limited. Treat it as
+defense in depth. For high-risk untrusted rich text, use a maintained sanitizer
+such as DOMPurify, validate the resulting policy for the target browser set,
+and keep `trustedHTML` behind a narrow application-owned boundary.
+
+`createCSPNonce()` uses Web Crypto and fails if secure randomness is unavailable;
+callers must not replace that failure with a predictable nonce.
+
+The security surface is still receiving maintenance: the 1.0.2–1.0.4
+releases included fixes to demo SQL, sanitizer, URL handling, and CSP nonces.
+Pin the version you evaluate, read the changelog, and do not infer independent
+audit coverage from the included tests.
 
 ---
 
@@ -13,11 +42,12 @@ CachouJS keeps privileged capabilities outside the browser runtime. This documen
 | Demo endpoints in production | Mitigated when `CACHOU_DEMO` unset / production start |
 | Demo SQL (`/api/db-query`) | Allowlisted `SELECT` only; no `UNION` / expressions in `ORDER BY` (hardened in 1.0.2) |
 | Auth kit | **Experimental** client helpers only — not a full IdP |
-| `sanitizeHTML` | Defense-in-depth: entity decode, nested tags, **whitespace-split schemes** (`java\tscript:`) stripped (1.0.3); still **not** a full HTML sanitizer |
+| `sanitizeHTML` | Defense-in-depth: entity decode, nested tags, whitespace-split schemes (1.0.3), slash-delimited attrs (1.0.4); still **not** a full HTML sanitizer |
 | URL attrs emit | Control chars stripped after allowlist check (1.0.3) |
+| CSP nonces | Fail closed without Web Crypto (1.0.4); no weak Math.random fallback |
 | Supply chain / npm | Pin versions; review changelogs |
 
-Automated gates: unit security tests (including SSR attribute + SQL adversarial cases), `npm run check` (includes browser suite), publish-prep secret scan.
+Automated gates: unit security tests (including SSR attribute + SQL adversarial cases), `npm run check` (includes the configured browser suite), and the publish-prep secret scan. These gates reduce regression risk; they do not replace penetration testing or an independent audit.
 
 ---
 
@@ -165,8 +195,9 @@ Repo-only proving ground (not published on npm). Hardening includes:
 - [ ] Secure cookie flags  
 - [ ] CSRF strategy for cookie sessions  
 - [ ] Input validation on server  
-- [ ] Dependency updates / audit  
-- [ ] No secrets in client bundles  
+- [ ] Dependency updates / audit
+- [ ] Independent security review or penetration test appropriate to the application’s risk
+- [ ] No secrets in client bundles
 - [ ] Logging for `security-block` / auth failures  
 - [ ] Pass `{ nonce }` to `dehydrate(context, { nonce })` when using CSP nonces  
 - [ ] Use `buildSecurityHeaders({ nonce })` on Node SSR responses  

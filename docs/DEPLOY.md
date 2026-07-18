@@ -195,7 +195,7 @@ npm run crm:build
 - [ ] No raw SQL endpoints exposed to browsers
 - [ ] Secrets only in environment / secret manager
 - [ ] `applyProductionSecurityDefaults()` (or equivalent policy) at client bootstrap
-- [ ] Dependency pins and changelog review (0.x)
+- [ ] Dependency pins and changelog review (1.0.x)
 
 ---
 

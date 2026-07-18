@@ -1,12 +1,12 @@
 # CachouJS
 
-**v1.0.3** · stable core (experimental kits still opt-in)
+**v1.0.4** · stable core (experimental kits still opt-in)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · [Docs](./docs/README.md) · [Get started](./docs/GETTING_STARTED.md) · [Changelog](./CHANGELOG.md)
 
 Fine-grained reactive UI library for JavaScript. Components set up once; signals update specific DOM bindings. No virtual DOM.
 
-Optional pieces: `.cachou` SFC compiler, Vite plugin, router, SSR helpers, styles/transitions, and a set of app primitives. The **stable core** is frozen at 1.0. Experimental kits may still change — pin tightly. See [docs/ONE_POINT_OH.md](./docs/ONE_POINT_OH.md).
+Optional pieces: `.cachou` SFC compiler, Vite plugin, router, SSR helpers, styles/transitions, and a set of app primitives. The **stable core** has an API compatibility commitment at 1.0. Experimental kits may still change — pin tightly. See [docs/ONE_POINT_OH.md](./docs/ONE_POINT_OH.md).
 
 ## Install
 
@@ -53,7 +53,7 @@ More: [docs/GETTING_STARTED.md](./docs/GETTING_STARTED.md).
 | Router | routes, layouts, `Link`, guards, loaders, lazy, file routes, history modes, `go`/`back`/`forward` |
 | SSR | `renderToString` / `renderToStringAsync` / `renderToStream`, dehydrate, islands, per-request context |
 | Forms | `createField`, `createForm` |
-| Security basics | URL/style policy, `trustedHTML`, production defaults |
+| Security basics | URL/style policy, `trustedHTML`, production defaults; application review still required |
 | Browser entry | `cachoujs/browser` — avoids pulling Node-oriented modules into client bundles |
 
 ### Tooling (usable today)
@@ -132,8 +132,10 @@ npm run check   # full local CI-ish pipeline
 
 ## Status
 
-- **1.0.3** on npm. Stable core is frozen; patch releases are the default.
-- Tested: unit suite, browser tests, benchmarks under `npm run check`.
+- **1.0.4** on npm. The stable core is API-frozen; patch releases are the default. This is an API compatibility commitment, not evidence of broad production adoption.
+- The project has a substantial implementation and test suite, but production readiness is not established. Long-running production usage, independent security review, broad device coverage, and ecosystem maturity remain unproven.
+- Performance figures in [Benchmark Results](./docs/BENCHMARK_RESULTS.md) are project-run local regression measurements tied to a specific browser, machine, version, and workload; they are not universal framework comparisons.
+- Before treating a release as fully validated, confirm that the required Linux/Chromium GitHub Actions workflow completed successfully for the exact release commit.
 - Not a meta-framework: no hosted deploy adapters; small ecosystem. Optional Marketplace/Web Store listings not required for 1.0.
 - Demo server APIs are for local demos only (`CACHOU_DEMO`); do not expose them publicly.
 

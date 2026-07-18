@@ -1,6 +1,6 @@
 # Benchmark Results
 
-Run competitive benchmarks with:
+Run the project’s local comparison benchmarks with:
 
 ```bash
 npm run bench:compare
@@ -16,7 +16,9 @@ Current adapters:
 - Solid
 - Svelte
 
-The competitive runner records multiple samples per adapter/scenario and reports median, p95, min/max, mean, and standard deviation. It builds a production bundle by default; set `CACHOU_COMPARE_SAMPLES=30` for publishable local runs. Development-server comparisons require the explicit `CACHOU_COMPARE_MODE=dev` opt-in and are diagnostic only.
+The comparison runner records multiple samples per adapter/scenario and reports median, p95, min/max, mean, and standard deviation. It builds a production bundle by default; set `CACHOU_COMPARE_SAMPLES=30` for publishable local runs. Development-server comparisons require the explicit `CACHOU_COMPARE_MODE=dev` opt-in and are diagnostic only.
+
+These are project-run regression measurements, not independent validation or universal framework performance claims. Results depend on the browser, hardware, runtime, framework versions, bundle mode, sample count, and workload construction. Keep every published comparison attached to that metadata and avoid generalizing a rank from one local run.
 
 Set `CACHOU_COMPARE_REPORT_PATH=/tmp/cachou-compare-report.json` to persist a
 reproducible report. Reports include the sample and cleanup contract, browser
@@ -24,7 +26,7 @@ details, host/runtime details, installed framework versions, and tooling
 versions alongside the measurements. The historical summary keeps the same
 metadata so runs from different environments are not compared anonymously.
 
-Latest production Chromium run (`CACHOU_COMPARE_SAMPLES=10`, 2026-07-17, local macOS / Playwright Chromium):
+Latest project-run production Chromium sample (`CACHOU_COMPARE_SAMPLES=10`, 2026-07-17, local macOS / Playwright Chromium):
 
 ```text
 Competitive benchmarks (playwright-chromium, production): 49/49 completed
@@ -67,7 +69,7 @@ Interpretation:
 
 - Initial render measures creation and attachment only. Its disposer runs after the sample; the separate mount/unmount scenario measures teardown in the timed interval.
 - The DOM adapter clears its target for non-lifecycle scenarios, so it pays the same cleanup cost as the framework adapters.
-- CachouJS currently leads **text fanout** and **dashboard refresh**, and is close to the framework leaders on initial rows, keyed reverse, attributes, forms, and lifecycle. The DOM floor remains faster on most creation-heavy scenarios, as expected for an imperative lower bound.
+- In this specific production Chromium run, CachouJS ranked first on **text fanout** and **dashboard refresh**, and was close to the framework leaders on initial rows, keyed reverse, attributes, forms, and lifecycle. The DOM floor remains faster on most creation-heavy scenarios, as expected for an imperative lower bound. This is a local result, not a universal claim that CachouJS is faster than other frameworks.
 - Direct DOM signal subscribers use a dense no-copy notification lane with churn-safe compaction; batched notifications retain the latest value for property and attribute bindings, and DOM event handlers coalesce synchronous writes into one commit.
 - Signal-backed `class:` bindings use a dedicated dense update lane when all subscribers are class bindings; mixed subscriber graphs retain the generic mutation-safe dispatch path.
 - Template shape classification is cached separately from document-owned template clones, and class directives subscribe directly without an update wrapper.
@@ -88,11 +90,11 @@ The dashboard workload is the first application-shaped comparison: all
 adapters mount 200 nested metric cards, commit 50 visible refreshes, assert the
 last committed value, and dispose the tree inside the measured operation. In
 the latest production Chromium run (10 samples) CachouJS measured **1.10ms** median on
-dashboard refresh, ahead of the DOM floor at 1.20ms and Solid at 1.40ms. In the
+dashboard refresh, compared with the DOM floor at 1.20ms and Solid at 1.40ms. In the
 Safari smoke run, CachouJS measured 1.00ms, matching the DOM floor and Solid;
 Safari's millisecond timer resolution makes close ranks noisy.
 
-Last refreshed: **2026-07-17** (v0.5.0 line).
+Last refreshed: **2026-07-17** (v1.0.4 line).
 
 Compiler static DOM microbenchmark (Chromium, 7 samples, 10,000 renders):
 

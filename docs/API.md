@@ -1,12 +1,12 @@
 # API Reference
 
-Public APIs exported from **`cachoujs`** (v1.0.1). Types also live in `src/index.d.ts`.
+Public APIs exported from **`cachoujs`** (v1.0.4). Types also live in `src/index.d.ts`.
 
 **Stability:** see [STABILITY.md](./STABILITY.md). Labels below:
 
 | Badge | Meaning |
 |-------|---------|
-| **stable** | Core production contract |
+| **stable** | API compatibility contract for the frozen core; not a security or production-maturity certification |
 | **candidate** | Shipped; may refine in minors |
 | **experimental** | Primitives; pin versions |
 

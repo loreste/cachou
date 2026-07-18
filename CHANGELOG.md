@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.4
+
+Honest maturity wording plus small security hardening for sanitizer and CSP nonces.
+
+### Fixed / improved
+
+- **`sanitizeHTML` slash-delimited attrs** — dangerous tags and `on*` / URL / style attributes matched after `/` as well as whitespace (`<script/onload=…>`, `<img/onerror=…>`)
+- **`createCSPNonce`** — fails closed when Web Crypto is unavailable (no `Math.random` fallback)
+
+### Docs
+
+- Clearer API-stability vs production-maturity language (README, STABILITY, KNOWN_LIMITATIONS, SECURITY scope/non-goals)
+- Benchmarks framed as project-run regression measurements, not universal rankings
+- Publish checklist notes release-specific Linux/Chromium CI evidence
+- Version strings updated across getting-started / API / how-to docs
+
+
 ## 1.0.3
 
 Follow-up hardening after adversarial re-check of 1.0.2 residual findings.

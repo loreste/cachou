@@ -2,14 +2,23 @@
 
 Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTURE.md), the [Developer guide](./GUIDE.md), and the [Roadmap](./ROADMAP.md).
 
-**Current line:** 1.0.x (patch-first; current **1.0.3**). **Stable** core is frozen; **experimental** kits may still change. See [ONE_POINT_OH.md](./ONE_POINT_OH.md).
+**Current line:** 1.0.x (patch-first; current **1.0.4**). **Stable** core is frozen; **experimental** kits may still change. See [ONE_POINT_OH.md](./ONE_POINT_OH.md).
 
 ## Maturity
 
-- Stable core is production-ready with a semver freeze commitment.
+- Stable core is API-stable and may be evaluated in controlled settings; the semver freeze is an API compatibility commitment, not proof of production readiness.
+- Production confidence is still limited by the young 1.0.x release line, limited independent review, lack of demonstrated long-running adoption, and incomplete cross-browser/device coverage.
 - Ecosystem (UI kits, community examples, Stack Overflow depth) is still small compared with React/Vue/Svelte.
-- Prefer pinning `cachoujs@^1.0.3` in production apps and reading the [changelog](../CHANGELOG.md).
+- Prefer pinning `cachoujs@^1.0.4` in production apps and reading the [changelog](../CHANGELOG.md).
 - TypeScript: core and most subpaths ship `.d.ts`. Runtime remains JS; `.cachou` SFCs are not type-checked by the compiler.
+
+## Security boundaries
+
+- `sanitizeHTML` is a defense-in-depth helper, not a complete HTML parser or a guarantee that arbitrary rich text is safe. For high-risk user content, use a well-reviewed sanitizer such as DOMPurify and keep a restrictive CSP.
+- `trustedHTML` is an explicit escape hatch. It does not make its input safe and should only wrap content the application has already validated or sanitized.
+- URL and inline-style policies are runtime guards. They do not replace response headers, CSP deployment, backend validation, authentication, authorization, CSRF protection, or secure cookie configuration.
+- The experimental auth helpers manage client state and token transport; they are not an identity provider, session service, or authorization layer. The default local-storage mode is not appropriate for every threat model.
+- The repository demo HTTP/WS server and database/filesystem helpers are proving grounds. Their gates and allowlists should not be treated as production authorization or tenancy controls.
 
 ## Compiler
 
@@ -45,7 +54,7 @@ Honest gaps relative to mature ecosystems. See also [Architecture](./ARCHITECTUR
 - Structured **logger** and optional W3C **tracing** (off by default); no bundled OTel exporter.
 - Optional browser extension under `extensions/browser-devtools/` (not on the Chrome Web Store yet).
 - VS Code extension under `vscode-cachou/` for `.cachou` editing (not Marketplace-published yet).
-- Browser tests default to Playwright Chromium; Safari automation is optional and flaky on CI.
+- Browser tests default to Playwright Chromium; Safari automation is optional and flaky on CI. A local or release claim should identify which browser suite actually ran.
 
 ## Server / demo (this monorepo)
 
