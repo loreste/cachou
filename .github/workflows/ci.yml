@@ -3,6 +3,9 @@ name: CachouJS CI
 on:
   push:
   pull_request:
+  # Manual re-run of the exact branch tip without a new commit (same SHA when
+  # branch has not moved). Useful when a push run gets stuck in the queue.
+  workflow_dispatch:
 
 jobs:
   verify-linux:
