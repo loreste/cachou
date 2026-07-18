@@ -106,6 +106,7 @@ export const STABLE_EXPORTS = Object.freeze([
   "getRequestEvent",
   "setRequestEvent",
   "renderApplication",
+  "htmlDocument",
   // Forms
   "createField",
   "createForm",
@@ -146,6 +147,9 @@ export const CANDIDATE_EXPORTS = Object.freeze([
   "addMiddleware",
   "persist",
   "virtualList",
+  // Fetch adapters are subpath-only (`cachoujs/ssr-adapters`); listed for docs parity
+  "createFetchHandler",
+  "handleFetchRequest",
   "createLogger",
   "configureLogger",
   "getLoggerConfig",

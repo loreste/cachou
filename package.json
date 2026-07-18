@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -35,12 +35,22 @@
       "types": "./src/a11y.d.ts",
       "import": "./src/a11y.js"
     },
-    "./files": "./src/files.js",
+    "./files": {
+      "types": "./src/files.d.ts",
+      "import": "./src/files.js"
+    },
     "./flow": {
       "types": "./src/flow.d.ts",
       "import": "./src/flow.js"
     },
-    "./devtools": "./src/devtools.js",
+    "./devtools": {
+      "types": "./src/devtools.d.ts",
+      "import": "./src/devtools.js"
+    },
+    "./ssr-adapters": {
+      "types": "./src/ssr-adapters.d.ts",
+      "import": "./src/ssr-adapters.js"
+    },
     "./file-routes": {
       "types": "./src/file-routes.d.ts",
       "import": "./src/file-routes.js"
@@ -178,7 +188,9 @@
     "create": "node create-cachou/index.js",
     "ssr:starter": "node examples/ssr-starter/server.mjs",
     "ssr:node": "node examples/node-ssr/server.mjs",
+    "ssr:fetch": "node examples/fetch-ssr/server.mjs",
     "ext:package": "npm --prefix vscode-cachou run package",
+    "ext:devtools": "node scripts/package-devtools-extension.mjs",
     "ext:readme": "node -e \"console.log('See vscode-cachou/README.md')\"",
     "packages:pack": "npm pack -w @cachoujs/compiler --pack-destination ./tmp && npm pack -w @cachoujs/create --pack-destination ./tmp && npm pack --pack-destination ./tmp",
     "crm:dev": "npm --prefix crm run dev",

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CachouJS DevTools",
-  "version": "0.4.6",
+  "version": "0.6.1",
   "description": "Inspect CachouJS reactive graphs and framework events on any page that exposes window.__CACHOU_RUNTIME__.",
   "permissions": [
     "activeTab",
@@ -33,8 +33,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "page-bridge.js",
-        "panel-inject.js"
+        "page-bridge.js"
       ],
       "matches": [
         "<all_urls>"

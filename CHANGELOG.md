@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.1
+
+Ecosystem patch: residual types, Fetch SSR adapters (Workers/Deno/Bun), DevTools packaging.
+
+### Added
+
+- **`cachoujs/ssr-adapters`** — `createFetchHandler` / `handleFetchRequest` / `toReadableStream` for Fetch API runtimes
+- **Example** — `examples/fetch-ssr/` + `npm run ssr:fetch` local smoke bridge
+- **How-tos** — [deploy-fetch-ssr](./docs/how-to/deploy-fetch-ssr.md), [use-browser-devtools](./docs/how-to/use-browser-devtools.md)
+- **Types** — `cachoujs/files`, `cachoujs/devtools` (and package `exports` types)
+- **`npm run ext:devtools`** — zip Chromium extension for load-unpacked distribution
+
+### Fixed
+
+- Browser DevTools manifest removed stale `panel-inject.js` web-accessible resource; version **0.6.1**
+
+
 ## 0.6.0
 
 Starts the **0.6 ecosystem & ergonomics** line: stronger public TypeScript surface for core and subpath imports.

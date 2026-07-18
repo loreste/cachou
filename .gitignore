@@ -61,3 +61,4 @@ bin/dist/
 
 # Generated compiler check output
 /tmp/
+extensions/browser-devtools/*.zip

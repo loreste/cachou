@@ -48,7 +48,10 @@ test("core deep-import modules ship dedicated .d.ts", () => {
     "file-routes",
     "plugin",
     "content",
-    "image"
+    "image",
+    "files",
+    "devtools",
+    "ssr-adapters"
   ]) {
     assert.ok(
       existsSync(resolve(root, `src/${name}.d.ts`)),

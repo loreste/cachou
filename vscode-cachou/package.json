@@ -2,7 +2,7 @@
   "name": "cachou",
   "displayName": "CachouJS",
   "description": "Language support, snippets, compile, and diagnostics for CachouJS (.cachou SFCs)",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "cachoujs",
   "license": "MIT",
   "engines": {

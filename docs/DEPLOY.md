@@ -4,12 +4,13 @@ CachouJS is a **browser runtime first**. Deploy only the pieces you need.
 
 Full checklist companion: [Security](./SECURITY.md) · [Environment](./ENVIRONMENT.md) · [Stability](./STABILITY.md)
 
-**Supported recipes (0.5+):**
+**Recipes (0.5+ / 0.6+):**
 
-| Recipe | When |
-|--------|------|
-| [Static SPA](#option-1--static-spa-recommended-for-most-apps) | No server render |
-| [Node SSR](#option-2--node-ssr-supported) | Concurrent-safe HTML from Node |
+| Recipe | When | Status |
+|--------|------|--------|
+| [Static SPA](#option-1--static-spa-recommended-for-most-apps) | No server render | **Supported** |
+| [Node SSR](#option-2--node-ssr-supported) | Concurrent-safe HTML from Node | **Supported** |
+| [Fetch SSR (Workers/Deno/Bun)](#option-4--fetch-ssr-workers--deno--bun) | Fetch `Request` → `Response` | **Candidate** (`cachoujs/ssr-adapters`) |
 
 Repo demo `server.js` is **not** the supported product path — it is a proving ground.
 
@@ -89,6 +90,29 @@ res.end(htmlDocument({ html, head, state, title: "App" }));
 - Implicit `dehydrate()` / `getSSRHead()` fail closed under concurrent ambiguity — always pass context (or use `renderApplication`).
 - Client bundles: **`cachoujs/browser`**.
 - See [SSR & hydration](./how-to/ssr-and-hydration.md).
+
+---
+
+## Option 4 — Fetch SSR (Workers / Deno / Bun)
+
+Candidate adapter for runtimes that speak the Fetch API. Full walkthrough:
+[Deploy Fetch SSR](./how-to/deploy-fetch-ssr.md) · smoke: `examples/fetch-ssr/` · `npm run ssr:fetch`.
+
+```javascript
+import { createFetchHandler } from "cachoujs/ssr-adapters";
+import { html } from "cachoujs";
+
+function App() {
+  return () => html`<h1>Hello</h1>`;
+}
+
+export default {
+  fetch: createFetchHandler(App, { title: "App" })
+};
+// Deno: Deno.serve(createFetchHandler(App, { title: "App" }));
+```
+
+Node remains the **primary** supported SSR recipe; use this when your host is Workers/Deno/Bun.
 
 ---
 

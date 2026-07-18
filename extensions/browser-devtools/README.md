@@ -1,6 +1,10 @@
 # CachouJS Browser DevTools (Chrome / Edge / Chromium)
 
-Manifest V3 extension that toggles the in-page `mountDevtools()` panel on pages that expose the runtime.
+**Version:** 0.6.1 · Manifest V3
+
+Toggles the in-page `mountDevtools()` panel on pages that expose the runtime.
+
+How-to: [docs/how-to/use-browser-devtools.md](../../docs/how-to/use-browser-devtools.md)
 
 ## Load unpacked
 
@@ -8,7 +12,13 @@ Manifest V3 extension that toggles the in-page `mountDevtools()` panel on pages 
 2. Enable **Developer mode**.
 3. **Load unpacked** → select this folder: `extensions/browser-devtools`.
 
-Icons are optional; if missing, Chrome still loads the extension.
+## Package zip
+
+From the monorepo root:
+
+```bash
+npm run ext:devtools
+```
 
 ## App setup (required)
 
