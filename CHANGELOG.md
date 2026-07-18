@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0
+
+Starts the **0.6 ecosystem & ergonomics** line: stronger public TypeScript surface for core and subpath imports.
+
+### Added
+
+- **Core type aliases** — `Accessor`, `MaybeAccessor`, `CachouChild`, `Component`, `MiddlewareHandler` / `MiddlewareNext`
+- **Generic control flow** — `Show` / `For` / `Index` / `Match` infer item and branch types
+- **Subpath `.d.ts`** — `forms`, `flow`, `router`, `reactivity`, `html`, `a11y`, `file-routes`, `plugin`, `content`, `image`
+- **Package `exports` types** — every subpath that ships a declaration file now exposes a `types` condition (auth, ui, styles, …)
+- **How-to:** [use-typescript.md](./docs/how-to/use-typescript.md)
+- VS Code extension version aligned to **0.6.0**; Marketplace publish path documented
+
+### Fixed
+
+- **`KeepAlive` types** — match runtime props (`max`, `include` / `exclude`, activate hooks)
+- **Styles types on main entry** — `cssVar` / `theme` / `globalCSS` / `keyframes` align with `cachoujs/styles`
+- **`guard` / `addMiddleware`** — shared `MiddlewareHandler` signature
+
+### Docs
+
+- Examples index promotes SPA + Node SSR as primary recipes
+- Roadmap: 0.6 theme open; types deliverable marked shipped
+
+
 ## 0.5.1
 
 Completes the **0.5 production library** deliverables: progressive streaming, island hydration, compiler diagnostic codes, experimental boundaries, SPA static export notes, and OTel sample docs.

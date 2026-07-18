@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Ultra-fast fine-grained reactive JavaScript framework",
   "main": "src/index.js",
   "module": "src/index.js",
@@ -15,15 +15,36 @@
       "types": "./src/index.d.ts",
       "import": "./src/browser.js"
     },
-    "./html": "./src/html.js",
-    "./reactivity": "./src/reactivity.js",
-    "./router": "./src/router.js",
-    "./forms": "./src/forms.js",
-    "./a11y": "./src/a11y.js",
+    "./html": {
+      "types": "./src/html.d.ts",
+      "import": "./src/html.js"
+    },
+    "./reactivity": {
+      "types": "./src/reactivity.d.ts",
+      "import": "./src/reactivity.js"
+    },
+    "./router": {
+      "types": "./src/router.d.ts",
+      "import": "./src/router.js"
+    },
+    "./forms": {
+      "types": "./src/forms.d.ts",
+      "import": "./src/forms.js"
+    },
+    "./a11y": {
+      "types": "./src/a11y.d.ts",
+      "import": "./src/a11y.js"
+    },
     "./files": "./src/files.js",
-    "./flow": "./src/flow.js",
+    "./flow": {
+      "types": "./src/flow.d.ts",
+      "import": "./src/flow.js"
+    },
     "./devtools": "./src/devtools.js",
-    "./file-routes": "./src/file-routes.js",
+    "./file-routes": {
+      "types": "./src/file-routes.d.ts",
+      "import": "./src/file-routes.js"
+    },
     "./styles": {
       "types": "./src/styles.d.ts",
       "import": "./src/styles.js"
@@ -32,23 +53,62 @@
       "types": "./src/transitions.d.ts",
       "import": "./src/transitions.js"
     },
-    "./image": "./src/image.js",
-    "./content": "./src/content.js",
-    "./plugin": "./src/plugin.js",
-    "./media": "./src/media.js",
-    "./ui": "./src/ui.js",
+    "./image": {
+      "types": "./src/image.d.ts",
+      "import": "./src/image.js"
+    },
+    "./content": {
+      "types": "./src/content.d.ts",
+      "import": "./src/content.js"
+    },
+    "./plugin": {
+      "types": "./src/plugin.d.ts",
+      "import": "./src/plugin.js"
+    },
+    "./media": {
+      "types": "./src/media.d.ts",
+      "import": "./src/media.js"
+    },
+    "./ui": {
+      "types": "./src/ui.d.ts",
+      "import": "./src/ui.js"
+    },
     "./utils": {
       "types": "./src/utils.d.ts",
       "import": "./src/utils.js"
     },
-    "./keys": "./src/keys.js",
-    "./i18n": "./src/i18n.js",
-    "./machine": "./src/machine.js",
-    "./test-utils": "./src/test-utils.js",
-    "./dnd": "./src/dnd.js",
-    "./seo": "./src/seo.js",
-    "./auth": "./src/auth.js",
-    "./feedback": "./src/feedback.js",
+    "./keys": {
+      "types": "./src/keys.d.ts",
+      "import": "./src/keys.js"
+    },
+    "./i18n": {
+      "types": "./src/i18n.d.ts",
+      "import": "./src/i18n.js"
+    },
+    "./machine": {
+      "types": "./src/machine.d.ts",
+      "import": "./src/machine.js"
+    },
+    "./test-utils": {
+      "types": "./src/test-utils.d.ts",
+      "import": "./src/test-utils.js"
+    },
+    "./dnd": {
+      "types": "./src/dnd.d.ts",
+      "import": "./src/dnd.js"
+    },
+    "./seo": {
+      "types": "./src/seo.d.ts",
+      "import": "./src/seo.js"
+    },
+    "./auth": {
+      "types": "./src/auth.d.ts",
+      "import": "./src/auth.js"
+    },
+    "./feedback": {
+      "types": "./src/feedback.d.ts",
+      "import": "./src/feedback.js"
+    },
     "./validate": {
       "types": "./src/validate.d.ts",
       "import": "./src/validate.js"

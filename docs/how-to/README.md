@@ -1,6 +1,6 @@
 # How-To Guides
 
-Task-oriented recipes for CachouJS **v0.4.x** (current: **0.5.1**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
+Task-oriented recipes for CachouJS **v0.6.x** (current: **0.6.0**). Each guide assumes a basic install (`npm install cachoujs` / `npm run dev`).
 
 | Start here | |
 |------------|--|
@@ -20,6 +20,7 @@ Task-oriented recipes for CachouJS **v0.4.x** (current: **0.5.1**). Each guide a
 | [Scaffold a new app](./scaffold-a-new-app.md) | Vite + file routes + 0.4.x deps |
 | [Set up local development](./setup-local-development.md) | Clone the monorepo, demo/examples, compiler |
 | [Use the VS Code extension](./use-vscode-extension.md) | Syntax, compile, diagnostics in VS Code / Cursor |
+| [Use TypeScript](./use-typescript.md) | `.d.ts` surface, generics, subpath types (0.6+) |
 | [Run quality checks](./run-quality-checks.md) | Unit/browser tests, benches, `npm run check` |
 | [Build and deploy](./build-and-deploy.md) | Production assets, static host vs Node SSR |
 | [Build a CRM with Cachou and PostgreSQL](./build-a-crm-with-cachou-and-postgres.md) | In-repo CRM proving ground |

@@ -13,7 +13,15 @@ npm run dev
 
 Open [http://localhost:5173/examples/](http://localhost:5173/examples/).
 
-## Included
+## Primary recipes (start here)
+
+| Recipe | Path | When |
+|--------|------|------|
+| **Static SPA** | Vite `npm run build` + [deploy-static-spa](../docs/how-to/deploy-static-spa.md) | CDN / static host, no Node SSR |
+| **Node SSR (supported)** | [`examples/node-ssr/`](./node-ssr/) | Concurrent SSR, CSP nonces, `renderApplication` |
+| **CRM-like app** | [`crm/`](../crm/) (monorepo proving ground) | Full app patterns — not the npm package |
+
+## Included demos
 
 | Example | Path | Concepts |
 |---------|------|----------|
@@ -22,7 +30,6 @@ Open [http://localhost:5173/examples/](http://localhost:5173/examples/).
 | Forms | `/examples/forms` | `createForm` validation + submit |
 | Nested router | `/examples/router` | `Layout`, `Outlet`, `Route`, `Link` |
 | Security | `/examples/security` | URL sanitization, `onFrameworkEvent` |
-| **Node SSR (supported)** | `examples/node-ssr/` | `renderApplication`, CSP nonces, concurrent-safe SSR |
 | SSR starter | `examples/ssr-starter/` | Minimal Node SSR shell |
 
 ## Docs

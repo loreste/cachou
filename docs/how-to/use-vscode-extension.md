@@ -40,15 +40,36 @@ code --extensionDevelopmentPath="$(pwd)/vscode-cachou" "$(pwd)"
 ```bash
 cd vscode-cachou
 npx @vscode/vsce package --no-dependencies
-code --install-extension cachou-0.2.0.vsix
+code --install-extension cachou-0.6.0.vsix
 ```
 
 Dev symlink:
 
 ```bash
-ln -sf "$(pwd)/vscode-cachou" ~/.vscode/extensions/cachoujs.cachou-0.2.0
+ln -sf "$(pwd)/vscode-cachou" ~/.vscode/extensions/cachoujs.cachou-0.6.0
 # Reload Window
 ```
+
+---
+
+## Marketplace publish path (maintainers)
+
+Not published to the VS Marketplace yet. When ready:
+
+1. Create a [Visual Studio Marketplace publisher](https://marketplace.visualstudio.com/manage) (e.g. `cachoujs`).
+2. Set `"publisher"` in `vscode-cachou/package.json` (already `cachoujs`).
+3. Package and publish (token stays local — never commit):
+
+```bash
+cd vscode-cachou
+npx @vscode/vsce login cachoujs
+npx @vscode/vsce package --no-dependencies
+npx @vscode/vsce publish --no-dependencies
+```
+
+4. Optional CI: GitHub Action with `VSCE_PAT` secret on tag `vscode-v*`.
+
+Until then, VSIX from this repo is the supported install path.
 
 ---
 

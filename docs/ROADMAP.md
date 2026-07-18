@@ -4,9 +4,9 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **0.5.x** (published: **0.5.1**) |
-| **Next publish** | **0.5.2** (patch by default) |
-| **Next minor** | **0.6.0** when ecosystem theme lands |
+| **Current line** | **0.6.x** (published: **0.6.0**) |
+| **Next publish** | **0.6.1** (patch by default) |
+| **Next minor** | **0.7.0** only if a new theme is needed |
 | **1.0** | API freeze after bake time — not scheduled by date |
 
 Related: [Changelog](../CHANGELOG.md) · [Known limitations](./KNOWN_LIMITATIONS.md) · [Publishing](./PUBLISHING.md) · [Architecture](./ARCHITECTURE.md)
@@ -136,7 +136,7 @@ Theme: **trust and deploy.**
 
 **0.5 is not:** “ecommerce shell”, “full TS parser”, or “hosted Cachou cloud”.
 
-**Status (0.5.1):** Production-library theme deliverables complete. Further **0.5.x** patches for regressions; next **theme** is **0.6**.
+**Status (0.5.1):** Production-library theme deliverables complete. Further **0.5.x** patches for regressions only.
 
 ---
 
@@ -144,16 +144,26 @@ Theme: **trust and deploy.**
 
 Theme: **make it easier to live with**, still without becoming a platform.
 
+### Shipped in 0.6.0
+
+- [x] Stronger public TypeScript surface + package `exports` types + core generics *(0.6.0)*
+- [x] TypeScript how-to + subpath `.d.ts` for forms/router/flow/html/reactivity *(0.6.0)*
+- [x] VS Code extension version aligned; Marketplace publish path documented *(0.6.0)*
+
+### Planned
+
 | Theme | Intent |
 |-------|--------|
-| **Types** | Stronger public TypeScript surface; better inference for common APIs (still JS runtime) |
-| **Editor** | VS Code extension publish path (Marketplace) if quality holds |
+| **Types** | Further inference polish; residual untyped subpaths (`files`, `devtools`) |
+| **Editor** | Marketplace publish when publisher account + CI packaging are ready |
 | **DevTools** | Shipable browser extension or solid in-page tooling; fewer “repo only” paths |
 | **Content / images** | Optional build-time content/image pipeline if demand is real |
 | **Deploy adapters** | Small, optional packages (Workers / Deno / static) only if maintained with tests |
 | **Examples** | Fewer half-demos; 2–3 sharp examples (SPA, Node SSR, CRM-like app) |
 
 Each item ships only when tests and docs ship with it.
+
+**Status (0.6.0):** Types theme first slice shipped. Continue patches on **0.6.x**.
 
 ---
 
@@ -222,9 +232,9 @@ Do not skip versions for marketing. Prefer boring releases.
 | Line | What it was for |
 |------|------------------|
 | **0.3.x** | Experimental core: signals, basic router load, SSR isolation |
-| **0.4.x** | Library surface: composition, data, SSR path, styles, plugins, content, browser entry, observability (**current**) |
+| **0.4.x** | Library surface: composition, data, SSR path, styles, plugins, content, browser entry, observability |
 | **0.5.x** | Production library line: stability labels, deploy recipes, deeper SSR/streaming, compiler DX |
-| **0.6.x** | Ergonomics and optional ecosystem packages |
+| **0.6.x** | Ergonomics and optional ecosystem packages (**current**) |
 | **1.0** | Stable core API commitment |
 
 ---
@@ -237,4 +247,4 @@ Do not skip versions for marketing. Prefer boring releases.
 4. When unsure, prefer fixing a race or a doc over adding a new export.
 5. **Always add a changelog** under the target version in [CHANGELOG.md](../CHANGELOG.md) for every shipped change set (required before publish).
 
-Last updated for **0.5.1** (2026-07).
+Last updated for **0.6.0** (2026-07).

@@ -1,22 +1,36 @@
 declare module "cachoujs" {
-  export type SignalGetter<T> = () => T;
+  /** Reactive read: signal getter or plain value. */
+  export type Accessor<T> = () => T;
+  export type MaybeAccessor<T> = T | Accessor<T>;
+  export type SignalGetter<T> = Accessor<T>;
   export type SignalSetter<T> = (value: T | ((prev: T) => T)) => void;
   export type Signal<T> = [SignalGetter<T>, SignalSetter<T>];
+  /** DOM / view nodes returned by components and control flow. */
+  export type CachouChild =
+    | Node
+    | string
+    | number
+    | boolean
+    | null
+    | undefined
+    | CachouChild[]
+    | Accessor<CachouChild>;
+  export type Component<P = Record<string, never>> = (props: P) => CachouChild;
   export interface EqualityOptions<T> {
     equals?: false | ((a: T, b: T) => boolean);
   }
 
   export function signal<T>(initialValue: T, options?: EqualityOptions<T> & { name?: string }): Signal<T>;
-  export function effect(fn: () => void): () => void;
+  export function effect(fn: () => void | (() => void)): () => void;
   export function createRoot<T>(fn: (dispose: () => void) => T): T;
   export function memo<T>(fn: () => T, options?: EqualityOptions<T>): SignalGetter<T>;
   export function store<T extends object>(initialValue: T): T;
   export function batch(fn: () => void): void;
   export function onCleanup(fn: () => void): void;
-  export function onMount(fn: () => void): void;
+  export function onMount(fn: () => void | (() => void)): void;
   export function untrack<T>(fn: () => T): T;
-  export function getOwner(): any;
-  export function runWithOwner<T>(owner: any, fn: () => T): T;
+  export function getOwner(): unknown;
+  export function runWithOwner<T>(owner: unknown, fn: () => T): T;
   export function onFrameworkEvent(listener: (event: { type: string; time: number; [key: string]: any }) => void): () => void;
   export function emitFrameworkEvent(event: { type: string; [key: string]: any }): void;
   export type CachouLogLevel = "silent" | "error" | "warn" | "info" | "debug" | "trace";
@@ -304,34 +318,52 @@ declare module "cachoujs" {
   export function getRouteData(): any;
   export function useRouteData<T = any>(): RouteLoadState<T>;
 
-  export function Show(props: {
-    when: any;
-    children?: any;
-    fallback?: any;
-  }): () => any;
-  export function Switch(props: { children?: any; fallback?: any }): () => any;
-  export function Match(props: { when: any; children?: any }): () => any;
-  export function For(props: {
-    each: any[] | (() => any[]);
-    children: (item: any, index: number) => any;
-    by?: (item: any, index: number) => unknown;
-    fallback?: any;
+  export function Show<T>(props: {
+    when: MaybeAccessor<T | false | null | undefined>;
+    children?: CachouChild | ((value: NonNullable<T>) => CachouChild);
+    fallback?: MaybeAccessor<CachouChild>;
+  }): Accessor<CachouChild>;
+  export function Switch(props: {
+    children?: CachouChild | CachouChild[];
+    fallback?: MaybeAccessor<CachouChild>;
+  }): Accessor<CachouChild>;
+  export function Match<T>(props: {
+    when: MaybeAccessor<T | false | null | undefined>;
+    children?: CachouChild | ((value: NonNullable<T>) => CachouChild);
+  }): Accessor<null>;
+  export function For<T>(props: {
+    each: MaybeAccessor<readonly T[] | T[] | null | undefined>;
+    children: (item: T, index: number) => CachouChild;
+    by?: (item: T, index: number) => unknown;
+    fallback?: MaybeAccessor<CachouChild>;
     uniqueKeys?: boolean;
-  }): () => any;
-  export function Index(props: {
-    each: any[] | (() => any[]);
-    children: (item: () => any, index: number) => any;
-    fallback?: any;
-  }): () => any;
+  }): Accessor<CachouChild>;
+  export function Index<T>(props: {
+    each: MaybeAccessor<readonly T[] | T[] | null | undefined>;
+    children: (item: Accessor<T | undefined>, index: number) => CachouChild;
+    fallback?: MaybeAccessor<CachouChild>;
+  }): Accessor<CachouChild>;
   export function KeepAlive(props: {
-    id: string | (() => string);
     max?: number;
-    children?: any;
-  }): () => any;
-  export function splitProps(props: object, ...keyGroups: string[][]): object[];
-  export function mergeProps(...sources: Array<object | null | undefined>): any;
-  export function Dynamic(props: { component: any; children?: any; [key: string]: any }): () => any;
-  export function directive(name: string, handler: (el: Element, accessor: () => any) => void | (() => void)): () => void;
+    include?: string[];
+    exclude?: string[];
+    onActivate?: (key: string) => void;
+    onDeactivate?: (key: string) => void;
+    children?: MaybeAccessor<CachouChild>;
+  }): HTMLElement | Accessor<CachouChild>;
+  export function splitProps<T extends object, K extends readonly (keyof T)[]>(
+    props: T,
+    ...keyGroups: K[]
+  ): [...{ [I in keyof K]: Pick<T, Extract<K[I][number], keyof T>> }, Omit<T, K[number][number]>];
+  export function mergeProps<T extends object>(...sources: Array<Partial<T> | null | undefined>): T;
+  export function Dynamic<P extends Record<string, any> = Record<string, any>>(props: {
+    component: Component<P> | string | Accessor<Component<P> | string>;
+    children?: CachouChild;
+  } & P): Accessor<CachouChild>;
+  export function directive(
+    name: string,
+    handler: (el: Element, accessor: Accessor<any>) => void | (() => void)
+  ): () => void;
   export function createMutation<TInput = any, TResult = any>(
     mutationFn: (input: TInput, ctx: { signal?: AbortSignal }) => Promise<TResult>,
     options?: {
@@ -387,16 +419,17 @@ declare module "cachoujs" {
     history?: "browser" | "hash" | "memory";
     initialPath?: string;
   }): { history: string };
-  export function guard(
-    handler: (
-      to: string,
-      from: string,
-      next: (result?: false | string) => void,
-      signal?: AbortSignal
-    ) => any | Promise<any>
-  ): () => void;
+  export type MiddlewareNext = (result?: false | string) => void | Promise<void>;
+  export type MiddlewareHandler = (
+    to: string,
+    from: string,
+    next: MiddlewareNext,
+    signal?: AbortSignal
+  ) => any | Promise<any>;
+  export function guard(handler: MiddlewareHandler): () => void;
+  /** @deprecated Use `guard()` instead. */
   export function addMiddleware(
-    handler: (ctx: any) => any | Promise<any>
+    handler: MiddlewareHandler
   ): () => void;
   export function getHistoryMode(): string;
   export function go(delta: number): boolean;
@@ -658,13 +691,26 @@ declare module "cachoujs" {
     onSelect?: (entry: FileEntry) => void;
   }): HTMLElement;
 
-  // Styles (0.4.2)
+  // Styles (0.4.2) — match `cachoujs/styles` signatures
   export function css(strings: TemplateStringsArray, ...values: any[]): string;
-  export function cssVar(initial?: string | number): [() => string, (v: string | number) => void, string];
-  export function theme(tokens: Record<string, string | number | (() => string | number)>): string;
-  export function globalCSS(strings: TemplateStringsArray, ...values: any[]): void;
-  export function cx(...args: any[]): string;
-  export function keyframes(strings: TemplateStringsArray, ...values: any[]): string;
+  export function cssVar(
+    name: string,
+    signalGetter: Accessor<string | number | null | undefined>,
+    el?: HTMLElement
+  ): () => void;
+  export function theme(tokens: Record<string, string | number>): {
+    vars: Record<string, string>;
+    className: string;
+    apply(el: HTMLElement): void;
+  };
+  export function globalCSS(cssText: string): void;
+  export function cx(
+    ...args: Array<string | false | null | undefined | Record<string, boolean> | Array<any>>
+  ): string;
+  export function keyframes(
+    name: string,
+    frames: Record<string, string | Record<string, string>>
+  ): string;
 
   // Transitions (0.4.2)
   export function linear(t: number): number;

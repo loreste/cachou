@@ -35,17 +35,21 @@ code --extensionDevelopmentPath=/absolute/path/to/cachou/vscode-cachou
 ```bash
 cd vscode-cachou
 npx @vscode/vsce package --no-dependencies
-code --install-extension cachou-0.2.0.vsix
+code --install-extension cachou-0.6.0.vsix
 ```
 
 ### Option C — Symlink into extensions dir (dev)
 
 ```bash
 ln -s /absolute/path/to/cachou/vscode-cachou \
-  ~/.vscode/extensions/cachoujs.cachou-0.2.0
+  ~/.vscode/extensions/cachoujs.cachou-0.6.0
 # or for Cursor:
-# ~/.cursor/extensions/cachoujs.cachou-0.2.0
+# ~/.cursor/extensions/cachoujs.cachou-0.6.0
 ```
+
+### Marketplace
+
+Not on the VS Marketplace yet. Maintainers: see [use-vscode-extension.md](../docs/how-to/use-vscode-extension.md#marketplace-publish-path-maintainers).
 
 Reload the window after linking.
 
