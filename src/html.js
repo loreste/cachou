@@ -480,9 +480,24 @@ function normalizePropertyName(name) {
   return name;
 }
 
+/**
+ * Detect an attribute binding at the end of an SSR template segment.
+ * Handles both unquoted `attr=${v}` and quoted `attr="${v}"` / `attr='${v}'`.
+ * Quoted forms previously skipped URL/style policy (only HTML-escaped as text).
+ * @returns {{ name: string, quote: '"' | "'" | null } | null}
+ */
+function getSSRAttributeBinding(source) {
+  const match = String(source || "").match(/(?:^|[\s<./])([^\s"'=<>/]+)\s*=\s*(["'])?$/);
+  if (!match) return null;
+  return {
+    name: match[1].replace(/^\./, "").toLowerCase(),
+    quote: match[2] || null
+  };
+}
+
+/** @deprecated internal alias — prefer getSSRAttributeBinding */
 function getSSRAttributeName(source) {
-  const match = source.match(/(?:^|[\s<])([^\s"'=<>/]+)\s*=\s*$/);
-  return match ? match[1].replace(/^\./, "").toLowerCase() : "";
+  return getSSRAttributeBinding(source)?.name || "";
 }
 
 /**
@@ -1062,9 +1077,11 @@ export function html(strings) {
         } else if (typeof val === "function") {
           val = val();
         }
-        const isAttrValue = str.trim().endsWith("=");
-        if (isAttrValue) {
-          const attrName = getSSRAttributeName(str);
+        // Match attr=, attr=", and attr=' so quoted SSR bindings get the same
+        // URL/style/HTML-sink policy as the client DOM path.
+        const attrBinding = getSSRAttributeBinding(str);
+        if (attrBinding) {
+          const attrName = attrBinding.name;
           if (isRawHTMLSink(attrName)) {
             val = sanitizeRawHTMLSink(attrName, val);
           } else if (isURLAttribute(attrName)) {
@@ -1072,7 +1089,9 @@ export function html(strings) {
           } else if (attrName === "style") {
             val = sanitizeStyleValue(val);
           }
-          val = '"' + stringifySSRValue(val, true) + '"';
+          const escaped = stringifySSRValue(val, true);
+          // Quoted templates already opened the quote in the static segment.
+          val = attrBinding.quote ? escaped : `"${escaped}"`;
         } else {
           val = stringifySSRValue(val, false);
         }

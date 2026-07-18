@@ -135,9 +135,42 @@ const DANGEROUS_TAGS =
   /<\/?(?:script|iframe|object|embed|link|meta|base|form|svg|math|template|style|frame|frameset|applet|foreignobject)(?:\s[^>]*)?>/gi;
 const EVENT_HANDLER_ATTR = /\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const JS_URL_ATTR =
-  /\s(?:href|src|xlink:href|action|formaction|poster|data)\s*=\s*(['"]?)\s*javascript:[^'"\s>]*/gi;
+  /\s(?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(['"]?)\s*(?:javascript|vbscript):[^'"\s>]*/gi;
 const DATA_HTML_URL =
-  /\s(?:href|src)\s*=\s*(['"]?)\s*data:\s*(?:text\/html|image\/svg\+xml)[^'"\s>]*/gi;
+  /\s(?:href|src|srcdoc)\s*=\s*(['"]?)\s*data:\s*(?:text\/html|image\/svg\+xml)[^'"\s>]*/gi;
+const STYLE_ATTR = /\s+style\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+
+/**
+ * Decode common HTML entities used in XSS bypasses (hex/decimal numeric + a few named).
+ * Applied before string-path sanitization so `onerror&#61;` and `&#106;avascript:` are visible.
+ */
+function decodeHtmlEntities(html) {
+  return String(html)
+    .replace(/&#x([0-9a-fA-F]{1,6});?/g, (_, hex) => {
+      const code = parseInt(hex, 16);
+      if (!Number.isFinite(code) || code < 1 || code > 0x10ffff) return "";
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return "";
+      }
+    })
+    .replace(/&#([0-9]{1,7});?/g, (_, dec) => {
+      const code = parseInt(dec, 10);
+      if (!Number.isFinite(code) || code < 1 || code > 0x10ffff) return "";
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return "";
+      }
+    })
+    .replace(/&tab;/gi, "\t")
+    .replace(/&newline;/gi, "\n")
+    .replace(/&colon;/gi, ":")
+    .replace(/&equals;/gi, "=")
+    .replace(/&lpar;/gi, "(")
+    .replace(/&rpar;/gi, ")");
+}
 
 /**
  * Basic HTML sanitizer for untrusted fragments.
@@ -167,12 +200,36 @@ export function sanitizeHTML(input) {
 }
 
 function sanitizeHTMLString(html) {
-  let out = html;
+  // Decode entities first so nested/encoded payloads become visible to strippers.
+  let out = decodeHtmlEntities(html);
   out = out.replace(/<!--[\s\S]*?-->/g, "");
-  out = out.replace(DANGEROUS_TAGS, "");
+  // Iteratively strip nested dangerous tags: <scr<script>ipt> → <script> → gone
+  for (let i = 0; i < 8; i++) {
+    const next = out.replace(DANGEROUS_TAGS, "");
+    if (next === out) break;
+    out = next;
+  }
   out = out.replace(EVENT_HANDLER_ATTR, "");
   out = out.replace(JS_URL_ATTR, " ");
   out = out.replace(DATA_HTML_URL, " ");
+  // Drop inline styles — string path cannot reliably parse CSS gadgets.
+  out = out.replace(STYLE_ATTR, "");
+  // Compact whitespace inside attribute values to catch java\tscript:
+  out = out.replace(
+    /\s((?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*)(["']?)([^"'>\s]*)/gi,
+    (full, prefix, quote, value) => {
+      const compact = value.replace(/[\u0000-\u001F\u007F\s]+/g, "").toLowerCase();
+      if (
+        compact.startsWith("javascript:") ||
+        compact.startsWith("vbscript:") ||
+        compact.startsWith("data:text/html") ||
+        compact.startsWith("data:image/svg+xml")
+      ) {
+        return " ";
+      }
+      return full;
+    }
+  );
   out = out.replace(/javascript:/gi, "");
   out = out.replace(/vbscript:/gi, "");
   return out;
@@ -198,8 +255,10 @@ const DANGEROUS_TAG_NAMES = new Set([
 ]);
 
 function sanitizeHTMLWithDOM(html) {
+  // Decode entities so the parser and attribute checks see the real payload.
+  const decoded = decodeHtmlEntities(html);
   const parser = new DOMParser();
-  const doc = parser.parseFromString(`<body>${html}</body>`, "text/html");
+  const doc = parser.parseFromString(`<body>${decoded}</body>`, "text/html");
   const body = doc.body;
   const walk = node => {
     const children = Array.from(node.childNodes);
@@ -214,7 +273,7 @@ function sanitizeHTMLWithDOM(html) {
         for (const attr of attrs) {
           const name = attr.name.toLowerCase();
           const value = attr.value || "";
-          if (name.startsWith("on")) {
+          if (name.startsWith("on") || name === "srcdoc" || name === "style") {
             child.removeAttribute(attr.name);
             continue;
           }

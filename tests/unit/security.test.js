@@ -145,6 +145,48 @@ describe("sanitizeReadOnlySelect — adversarial SQL injection", () => {
       /Only simple SELECT|Multiple statements/
     );
   });
+
+  it("blocks UNION smuggled through ORDER BY", () => {
+    assert.throws(
+      () => sanitizeReadOnlySelect("SELECT * FROM todos ORDER BY id UNION SELECT 1,2,3 FROM todos"),
+      /Only simple SELECT/
+    );
+  });
+
+  it("blocks UNION ALL and second FROM via column-list smuggling", () => {
+    assert.throws(
+      () => sanitizeReadOnlySelect("SELECT * FROM todos ORDER BY id UNION ALL SELECT * FROM todos"),
+      /Only simple SELECT/
+    );
+  });
+
+  it("blocks ORDER BY expressions and boolean smuggling", () => {
+    assert.throws(() => sanitizeReadOnlySelect("SELECT * FROM todos ORDER BY id OR 1"), /Only simple SELECT/);
+    assert.throws(
+      () => sanitizeReadOnlySelect("SELECT * FROM todos ORDER BY CASE WHEN 1 THEN id END"),
+      /Only simple SELECT/
+    );
+    assert.throws(
+      () => sanitizeReadOnlySelect("SELECT * FROM todos ORDER BY id COLLATE NOCASE"),
+      /Only simple SELECT/
+    );
+  });
+
+  it("blocks OFFSET and string literals", () => {
+    assert.throws(
+      () => sanitizeReadOnlySelect("SELECT * FROM todos ORDER BY id ASC OFFSET 0"),
+      /Only simple SELECT/
+    );
+    assert.throws(
+      () => sanitizeReadOnlySelect("SELECT 'x' FROM todos"),
+      /Only simple SELECT/
+    );
+  });
+
+  it("allows multi-column ORDER BY with ASC/DESC", () => {
+    const sql = sanitizeReadOnlySelect("SELECT id, text FROM todos ORDER BY id ASC, text DESC LIMIT 5");
+    assert.equal(sql, "SELECT id, text FROM todos ORDER BY id ASC, text DESC LIMIT 5");
+  });
 });
 
 describe("assertSafeIdentifier — adversarial", () => {

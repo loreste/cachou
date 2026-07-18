@@ -54,6 +54,32 @@ describe("sanitizeHTML", () => {
     assert.doesNotMatch(out, /<base/i);
     assert.match(out, /ok/);
   });
+
+  it("strips nested script tag smuggling", () => {
+    // <scr<script>ipt>… must not leave an executable <script> element
+    const out = sanitizeHTML(`<scr<script>ipt>alert(1)</script>`);
+    assert.doesNotMatch(out, /<script/i);
+    assert.doesNotMatch(out, /<\/script/i);
+  });
+
+  it("neutralizes HTML-entity encoded javascript URLs", () => {
+    const out = sanitizeHTML(`<a href="&#106;avascript:alert(1)">x</a>`);
+    assert.doesNotMatch(out, /javascript:/i);
+    assert.doesNotMatch(out, /alert/);
+  });
+
+  it("neutralizes entity-encoded event handlers", () => {
+    const out = sanitizeHTML(`<img src=x onerror&#61;alert(1)>`);
+    assert.doesNotMatch(out, /onerror/i);
+    assert.doesNotMatch(out, /alert/);
+  });
+
+  it("strips inline style attributes on the string path", () => {
+    const out = sanitizeHTML(`<div style="background:url(javascript:alert(1))">ok</div>`);
+    assert.doesNotMatch(out, /style=/i);
+    assert.doesNotMatch(out, /javascript/i);
+    assert.match(out, /ok/);
+  });
 });
 
 describe("sanitizeAuthToken", () => {

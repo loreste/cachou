@@ -1,6 +1,6 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.1**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.2**).
 
 ---
 
@@ -8,14 +8,15 @@ CachouJS keeps privileged capabilities outside the browser runtime. This documen
 
 | Item | Status |
 |------|--------|
-| Template XSS via default bindings | Mitigated (escape + URL/style policy) |
+| Template XSS via default bindings | Mitigated (escape + URL/style policy on client **and** SSR, including quoted attrs) |
 | `trustedHTML` misuse | App responsibility — prefer `sanitizeHTML` / DOMPurify |
 | Demo endpoints in production | Mitigated when `CACHOU_DEMO` unset / production start |
+| Demo SQL (`/api/db-query`) | Allowlisted `SELECT` only; no `UNION` / expressions in `ORDER BY` (hardened in 1.0.2) |
 | Auth kit | **Experimental** client helpers only — not a full IdP |
-| `sanitizeHTML` | Defense-in-depth, **not** a full HTML sanitizer |
+| `sanitizeHTML` | Defense-in-depth (entity decode + nested tag strip), **not** a full HTML sanitizer |
 | Supply chain / npm | Pin versions; review changelogs |
 
-Automated gates: unit security tests, `npm run check` (includes browser suite), publish-prep secret scan.
+Automated gates: unit security tests (including SSR attribute + SQL adversarial cases), `npm run check` (includes browser suite), publish-prep secret scan.
 
 ---
 
@@ -46,13 +47,13 @@ Attackers who can open a browser page can already run arbitrary JS in that origi
 |---------|----------|
 | Text escaping | Dynamic SSR/client text uses HTML escape |
 | Attribute escaping | Attribute values escaped on SSR |
-| URL attributes | `href`, `src`, `action`, … sanitized against protocol allowlist |
+| URL attributes | `href`, `src`, `action`, … sanitized against protocol allowlist on client **and** SSR (quoted `attr="${…}"` and unquoted `attr=${…}`) |
 | `data:` URLs | MIME prefix allowlist |
-| Inline styles | Blocks `javascript:`, `expression(`, `-moz-binding`, `behavior:`, `@import`, `url(data:…)`; can disable all inline styles |
+| Inline styles | Blocks `javascript:`, `expression(`, `-moz-binding`, `behavior:`, `@import`, `url(data:…)`; can disable all inline styles (SSR + client) |
 | HTML sinks | `innerHTML`, `outerHTML`, and `srcdoc` require `trustedHTML()` |
 | Event handlers | Non-function handlers ignored; string `on*` attribute bindings blocked |
 | `trustedHTML` | Explicit raw HTML only |
-| `sanitizeHTML` | Strips script/iframe/on*/javascript: (defense-in-depth; not a full sanitizer) |
+| `sanitizeHTML` | Entity-aware strip of script/iframe/on*/javascript:/style/srcdoc (defense-in-depth; not a full sanitizer) |
 | CSP helpers | `createCSPNonce`, `buildSecurityHeaders`, `applySecurityHeaders` |
 | Auth tokens | `sanitizeAuthToken`; `createAuth({ persist: "session" })` |
 | Dehydrate | Optional CSP `nonce` on the state `<script>` tag |
@@ -109,17 +110,21 @@ Never enable `CACHOU_DEMO` on a public hostname.
 Allowed shape (simplified):
 
 ```sql
-SELECT … FROM todos [ORDER BY …] [LIMIT n]
+SELECT col [, col …] | * FROM todos [ORDER BY col [ASC|DESC] [, …]] [LIMIT n]
 ```
+
+Columns and `ORDER BY` entries must be bare identifiers (optional `AS` aliases on columns; `ASC`/`DESC` only on order). No expressions, string literals, or functions.
 
 Rejected:
 
 - Multiple statements (`;`)  
 - Writes (`INSERT` / `UPDATE` / `DELETE` / …)  
+- `UNION` / `JOIN` / `WHERE` / `OFFSET` / `COLLATE` / `CASE` / subqueries  
 - Unknown tables  
 - Comments used to smuggle statements  
+- Quoted identifiers or string literals  
 
-Implementation: `server/demo-guard.js` → `sanitizeReadOnlySelect`.
+Implementation: `server/demo-guard.js` → `sanitizeReadOnlySelect` (tightened in **1.0.2**).
 
 ---
 

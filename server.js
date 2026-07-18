@@ -207,8 +207,19 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "PUT") {
       try {
         const raw = await collectBody(req);
-        const { id, completed } = safeJsonParse(raw);
-        const updatedItem = await updateTodo(id, completed);
+        const body = safeJsonParse(raw);
+        const id = Number(body?.id);
+        if (!Number.isInteger(id) || id < 1) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "Invalid id" }));
+          return;
+        }
+        if (typeof body.completed !== "boolean") {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "Invalid completed flag" }));
+          return;
+        }
+        const updatedItem = await updateTodo(id, body.completed);
         res.end(JSON.stringify(updatedItem));
       } catch (e) {
         res.statusCode = e.statusCode || 400;

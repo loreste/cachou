@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **1.0.x** (published: **1.0.1**) |
-| **Next publish** | **1.0.1** (patch by default) |
+| **Current line** | **1.0.x** (published: **1.0.2**) |
+| **Next publish** | **1.0.3** (patch by default) |
 | **Next minor** | **1.1.0** for backward-compatible features |
 | **1.0** | **Shipped** — stable core frozen |
 
@@ -184,6 +184,10 @@ Theme: **boring patches**, optional minors.
 ### Shipped in 1.0.1
 
 - [x] Once-only deprecation warnings; npm package metadata; 1.x roadmap *(1.0.1)*
+
+### Shipped in 1.0.2
+
+- [x] SSR quoted-attribute URL/style policy; demo SQL UNION/ORDER BY hardening; `sanitizeHTML` entity/nested-tag fixes *(1.0.2)*
 
 ---
 

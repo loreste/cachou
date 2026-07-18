@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.2
+
+Security patch: close SSR attribute, demo SQL, and `sanitizeHTML` gaps found in adversarial review.
+
+### Fixed / improved
+
+- **SSR quoted attributes** — `href="${url}"` / `style="${css}"` now apply the same URL and style security policy as unquoted bindings and the client DOM path (previously only HTML-escaped, so `javascript:` could survive SSR)
+- **Demo SQL allowlist** — `sanitizeReadOnlySelect` no longer accepts `UNION` / expression smuggling via loose `ORDER BY` or column lists; only `SELECT cols FROM table [ORDER BY col [ASC|DESC], …] [LIMIT n]`
+- **`sanitizeHTML`** — decodes common HTML entities before stripping; iteratively removes nested dangerous tags; drops `style` / `srcdoc` on both string and DOM paths
+- **Demo todos PUT** — validates integer `id` and boolean `completed` before update
+
+### Docs / tests
+
+- SECURITY residual risk table notes SSR attribute + SQL tightenings
+- Adversarial unit tests for quoted SSR attrs, SQL UNION/ORDER BY, and sanitizer entity/nested-tag cases
+
+
 ## 1.0.1
 
 First patch on the 1.0 line: quieter deprecations and packaging hygiene.

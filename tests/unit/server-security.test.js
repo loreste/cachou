@@ -95,3 +95,58 @@ describe("dehydrate nonce", () => {
     assert.doesNotMatch(html, /nonce="/);
   });
 });
+
+describe("SSR quoted attribute security policy", () => {
+  it("blocks javascript: URLs in quoted href bindings", async () => {
+    const { html, renderToString, configureSecurityPolicy } = await import("../../src/html.js");
+    configureSecurityPolicy({
+      allowInlineStyles: true,
+      allowedURLProtocols: ["http:", "https:", "mailto:", "tel:", "blob:", "data:"]
+    });
+    function App() {
+      return () => html`<a href="${"javascript:alert(1)"}">x</a>`;
+    }
+    const out = renderToString(App);
+    assert.doesNotMatch(out, /javascript:/i);
+    assert.match(out, /<a href="">/);
+  });
+
+  it("blocks javascript: URLs in unquoted href bindings", async () => {
+    const { html, renderToString, configureSecurityPolicy } = await import("../../src/html.js");
+    configureSecurityPolicy({
+      allowInlineStyles: true,
+      allowedURLProtocols: ["http:", "https:", "mailto:", "tel:", "blob:", "data:"]
+    });
+    function App() {
+      return () => html`<a href=${"javascript:alert(1)"}>x</a>`;
+    }
+    const out = renderToString(App);
+    assert.doesNotMatch(out, /javascript:/i);
+  });
+
+  it("blocks unsafe inline styles when production defaults are applied", async () => {
+    const {
+      html,
+      renderToString,
+      applyProductionSecurityDefaults
+    } = await import("../../src/html.js");
+    applyProductionSecurityDefaults();
+    function App() {
+      return () => html`<div style="${"color:red"}">x</div>`;
+    }
+    const out = renderToString(App);
+    assert.doesNotMatch(out, /color:red/);
+  });
+
+  it("still allows safe https href values", async () => {
+    const { html, renderToString, configureSecurityPolicy } = await import("../../src/html.js");
+    configureSecurityPolicy({
+      allowedURLProtocols: ["http:", "https:", "mailto:", "tel:"]
+    });
+    function App() {
+      return () => html`<a href="${"https://example.com/path"}">x</a>`;
+    }
+    const out = renderToString(App);
+    assert.match(out, /href="https:\/\/example\.com\/path"/);
+  });
+});
