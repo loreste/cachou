@@ -81,10 +81,13 @@ npm run publish:prep    # version lock + CHANGELOG section + secret scan + unit 
 ```
 
 Before publishing or calling a release fully validated, confirm that the
-required **Verify (Linux / Chromium)** GitHub Actions workflow completed
-successfully for the exact release commit. Local checks and package dry-runs do
-not substitute for that release-specific CI evidence. Keep the workflow status
-required in branch protection where the repository settings allow it.
+required **Verify (Linux / Chromium)** GitHub Actions job completed
+successfully for the **exact release commit SHA**. That job may appear on the
+`main` push run **or** on the version tag push (`vX.Y.Z`) — both exercise the
+same workflow on the same tree. Local checks and package dry-runs do not
+substitute for that release-specific CI evidence. Keep the Linux/Chromium job
+required in branch protection where the repository settings allow it; macOS
+Safari is optional signal only.
 
 `publish:prep` fails if:
 

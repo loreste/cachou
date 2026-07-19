@@ -3,11 +3,16 @@ name: CachouJS CI
 on:
   push:
   pull_request:
-  # Manual re-run of the exact branch tip without a new commit (same SHA when
-  # branch has not moved). Useful when a push run gets stuck in the queue.
+  # Manual re-run of the branch tip without a new commit (when the tip has not moved).
   workflow_dispatch:
 
+# Prefer finishing one push at a time; cancel superseded runs for the same ref.
+concurrency:
+  group: cachou-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Required quality gate for merges and release tags.
   verify-linux:
     name: Verify (Linux / Chromium)
     runs-on: ubuntu-latest
@@ -17,6 +22,9 @@ jobs:
       CACHOU_DEMO: "1"
       CACHOU_TEST_BROWSER: chromium
       CACHOU_SKIP_COMPILER_BUILD: "0"
+      # Explicit CI benchmark noise budget (also defaulted in run-benchmarks.mjs).
+      CACHOU_BENCH_RATIO: "3"
+      CACHOU_BENCH_SLACK_MS: "40"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,10 +76,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # Chromium on Linux is the required quality gate (verify-linux).
-  # Safari is optional signal only and must never block merges.
+  # Optional signal only. Runs after Linux so the required gate is not waiting
+  # behind a second concurrent macOS runner allocation.
   verify-macos:
     name: Verify (macOS Safari optional)
+    needs: verify-linux
     runs-on: macos-latest
     # Optional signal only. Step-level continue-on-error keeps the job (and
     # commit check) green when Safari automation times out on GHA runners.
