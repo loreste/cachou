@@ -201,6 +201,10 @@ Theme: **boring patches**, optional minors.
 
 - [x] Demo SQL `LIMIT` cap (1000); CI Linux-first + bench noise budget; publish-prep GHA check *(1.0.5)*
 
+### Shipped in 1.0.6
+
+- [x] Actions @v6; SSR nonce Node fallback in scaffold/examples; `npm run publish:check` *(1.0.6)*
+
 ---
 
 ## 1.0 — Freeze (**shipped 1.0.0**)

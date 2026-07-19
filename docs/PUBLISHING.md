@@ -7,8 +7,8 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 | Package | Path | Current |
 |---------|------|---------|
 | `cachoujs` | repo root | 1.0.6 |
-| `@cachoujs/compiler` | `packages/compiler` | 1.0.5 |
-| `@cachoujs/create` | `packages/create-cachou` | 1.0.5 |
+| `@cachoujs/compiler` | `packages/compiler` | 1.0.6 |
+| `@cachoujs/create` | `packages/create-cachou` | 1.0.6 |
 
 You must own the npm name / `@cachoujs` org (this project uses org **cachoujs**, owner **loreste**).
 
@@ -135,7 +135,7 @@ Pages:
 
 ```bash
 git tag v1.0.6
-git push origin v1.0.5
+git push origin v1.0.6
 # gh release create with notes from CHANGELOG.md for this version
 ```
 
