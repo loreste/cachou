@@ -6,6 +6,7 @@
  * Demo APIs are intentionally disabled. Add real auth on your own APIs.
  */
 import http from "node:http";
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
@@ -43,6 +44,14 @@ const {
 
 applyProductionSecurityDefaults();
 
+function serverNonce() {
+  try {
+    return createCSPNonce();
+  } catch {
+    return randomBytes(16).toString("base64url");
+  }
+}
+
 function App() {
   const [count] = signal(1);
   const [msg] = createResource(async () => {
@@ -67,7 +76,7 @@ const PORT = Number(process.env.PORT || process.env.CACHOU_PORT || 8787);
 
 const server = http.createServer(async (req, res) => {
   const context = createSSRContext();
-  const nonce = createCSPNonce();
+  const nonce = serverNonce();
   try {
     const appHtml = await renderToStringAsync(App, {
       path: req.url,

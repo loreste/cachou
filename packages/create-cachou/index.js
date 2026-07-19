@@ -9,7 +9,7 @@
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const CACHOU_VERSION = "1.0.5";
+const CACHOU_VERSION = "1.0.6";
 const TEMPLATES = new Set(["spa", "ssr", "static"]);
 
 function printHelp() {
@@ -293,6 +293,7 @@ if (template === "ssr") {
  *   npm run ssr
  */
 import http from "node:http";
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import {
   signal,
@@ -314,6 +315,15 @@ try {
   // sequential handlers still work with explicit contexts
 }
 
+function serverNonce() {
+  try {
+    return createCSPNonce();
+  } catch {
+    // createCSPNonce fails closed without Web Crypto; Node always has randomBytes.
+    return randomBytes(16).toString("base64url");
+  }
+}
+
 function App() {
   const [n] = signal(1);
   return Show({
@@ -330,7 +340,7 @@ function App() {
 
 const PORT = Number(process.env.PORT || 8788);
 const server = http.createServer(async (req, res) => {
-  const nonce = createCSPNonce();
+  const nonce = serverNonce();
   try {
     const { html: body, head, state } = await renderApplication(App, {
       path: req.url,

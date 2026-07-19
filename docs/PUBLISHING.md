@@ -6,7 +6,7 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 
 | Package | Path | Current |
 |---------|------|---------|
-| `cachoujs` | repo root | 1.0.5 |
+| `cachoujs` | repo root | 1.0.6 |
 | `@cachoujs/compiler` | `packages/compiler` | 1.0.5 |
 | `@cachoujs/create` | `packages/create-cachou` | 1.0.5 |
 
@@ -39,8 +39,8 @@ From **0.4.0** onward, releases use **small increments** only.
 
 | Rule | Detail |
 |------|--------|
-| Current published | **1.0.5** |
-| Next release | **1.0.6** |
+| Current published | **1.0.6** |
+| Next release | **1.0.7** |
 | Default bump | **patch** (`1.0.x` → `1.0.x+1`) for fixes, docs, CI, small APIs |
 | Minor bump | Backward-compatible features (`1.x.0`) |
 | Major bump | Break **stable** APIs only (`2.0.0`) |
@@ -55,7 +55,7 @@ Prefer many small patch releases. Stable API breaks require a major.
 
 ### 1. Changelog (**required — never skip**)
 
-Update root [CHANGELOG.md](../CHANGELOG.md) **first**, under a new version heading (e.g. `## 1.0.5`):
+Update root [CHANGELOG.md](../CHANGELOG.md) **first**, under a new version heading (e.g. `## 1.0.6`):
 
 - Short release summary line
 - Bullet sections as needed: **Added**, **Fixed / improved**, **Docs / tests**
@@ -65,7 +65,7 @@ No version bump or publish without a matching changelog section. GitHub release 
 
 ### 2. Bump version
 
-npm **forbids** republishing the same version. Always bump (next: **1.0.6**):
+npm **forbids** republishing the same version. Always bump (next: **1.0.7**):
 
 - Root: `package.json` → `cachoujs`  
 - `packages/compiler/package.json`  
@@ -134,7 +134,7 @@ Pages:
 ### 6. Git tag + GitHub release
 
 ```bash
-git tag v1.0.5
+git tag v1.0.6
 git push origin v1.0.5
 # gh release create with notes from CHANGELOG.md for this version
 ```

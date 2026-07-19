@@ -10,6 +10,7 @@
  * This is the documented production path — not the monorepo demo server.
  */
 import http from "node:http";
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
@@ -45,6 +46,14 @@ const {
 
 applyProductionSecurityDefaults();
 
+function serverNonce() {
+  try {
+    return createCSPNonce();
+  } catch {
+    return randomBytes(16).toString("base64url");
+  }
+}
+
 function App() {
   const [count] = signal(1);
   const [msg] = createResource(
@@ -70,7 +79,7 @@ function App() {
 const PORT = Number(process.env.PORT || process.env.CACHOU_PORT || 8788);
 
 const server = http.createServer(async (req, res) => {
-  const nonce = createCSPNonce();
+  const nonce = serverNonce();
   try {
     const { html: body, head, state } = await renderApplication(App, {
       path: req.url,

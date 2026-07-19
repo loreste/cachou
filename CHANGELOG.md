@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.6
+
+Maintenance patch: modern GitHub Actions, SSR nonce fallbacks, `publish:check`.
+
+### Fixed / improved
+
+- **SSR scaffold / examples** — Node recipes catch `createCSPNonce()` failure and fall back to `node:crypto` `randomBytes` (aligned with fail-closed Web Crypto policy)
+- **`npm run publish:check`** — alias for `CACHOU_REQUIRE_CI=1 npm run publish:prep`
+
+### Tooling / CI
+
+- GitHub Actions: `checkout` / `setup-node` / `setup-go` / `upload-artifact` **@v6** (clears Node 20 action runtime deprecation warnings)
+
+### Docs
+
+- Version strings for 1.0.6
+
+
 ## 1.0.5
 
 Maintenance patch: demo query DoS bound, CI reliability, release prep gates.
