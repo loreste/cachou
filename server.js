@@ -260,7 +260,13 @@ const server = http.createServer(async (req, res) => {
       !url.includes(".map"));
 
   if (isHtmlRequest) {
-    const nonce = createCSPNonce() || crypto.randomBytes(16).toString("base64url");
+    // Prefer framework nonce helper; fall back to Node crypto if Web Crypto is absent.
+    let nonce;
+    try {
+      nonce = createCSPNonce();
+    } catch {
+      nonce = crypto.randomBytes(16).toString("base64url");
+    }
     setSecurityHeaders(res, { nonce, allowInlineStyles: true });
     try {
       const htmlTemplatePath = path.join(DIST_ROOT, "demo", "index.html");

@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.5
+
+Maintenance patch: demo query DoS bound, CI reliability, release prep gates.
+
+### Fixed / improved
+
+- **Demo SQL `LIMIT`** — `sanitizeReadOnlySelect` rejects limits above **1000** (blocks huge-limit resource exhaustion on `/api/db-query`)
+- **Demo server CSP nonce** — uses try/catch around `createCSPNonce()` with Node `crypto.randomBytes` fallback (matches fail-closed Web Crypto policy)
+
+### Tooling / CI (repo)
+
+- Linux-first CI (optional Safari after Linux); concurrency cancel-in-progress
+- Wider GHA benchmark noise budget (3× / +40ms)
+- `publish:prep` can require green **Verify (Linux / Chromium)** for `HEAD` (`CACHOU_REQUIRE_CI=1`)
+
+### Docs
+
+- Publishing notes: tag or main Linux job validates a release SHA
+- Version strings / roadmap for 1.0.5
+
+
 ## 1.0.4
 
 Honest maturity wording plus small security hardening for sanitizer and CSP nonces.

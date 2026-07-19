@@ -1,6 +1,6 @@
 {
   "name": "@cachoujs/create",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Scaffold a Vite + CachouJS application",
   "type": "module",
   "bin": {

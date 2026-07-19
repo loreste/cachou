@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **1.0.x** (published: **1.0.4**) |
-| **Next publish** | **1.0.5** (patch by default) |
+| **Current line** | **1.0.x** (published: **1.0.5**) |
+| **Next publish** | **1.0.6** (patch by default) |
 | **Next minor** | **1.1.0** for backward-compatible features |
 | **1.0** | **Shipped** — stable core frozen |
 
@@ -196,6 +196,10 @@ Theme: **boring patches**, optional minors.
 ### Shipped in 1.0.4
 
 - [x] Slash-delimited sanitizer attrs; CSP nonce fail-closed without Web Crypto; honest maturity/security docs *(1.0.4)*
+
+### Shipped in 1.0.5
+
+- [x] Demo SQL `LIMIT` cap (1000); CI Linux-first + bench noise budget; publish-prep GHA check *(1.0.5)*
 
 ---
 

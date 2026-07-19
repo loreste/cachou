@@ -187,6 +187,19 @@ describe("sanitizeReadOnlySelect — adversarial SQL injection", () => {
     const sql = sanitizeReadOnlySelect("SELECT id, text FROM todos ORDER BY id ASC, text DESC LIMIT 5");
     assert.equal(sql, "SELECT id, text FROM todos ORDER BY id ASC, text DESC LIMIT 5");
   });
+
+  it("rejects LIMIT above the demo cap", () => {
+    assert.throws(() => sanitizeReadOnlySelect("SELECT * FROM todos LIMIT 1001"), /LIMIT must be at most/);
+    assert.throws(
+      () => sanitizeReadOnlySelect("SELECT * FROM todos ORDER BY id ASC LIMIT 999999999999999999999"),
+      /LIMIT must be at most|Only simple SELECT/
+    );
+  });
+
+  it("allows LIMIT at the demo cap", () => {
+    const sql = sanitizeReadOnlySelect("SELECT * FROM todos LIMIT 1000");
+    assert.equal(sql, "SELECT * FROM todos LIMIT 1000");
+  });
 });
 
 describe("assertSafeIdentifier — adversarial", () => {

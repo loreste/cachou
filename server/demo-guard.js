@@ -33,8 +33,26 @@ export function denyUnlessDemo(res, feature = "demo API") {
  */
 const ALLOWED_TABLES = new Set(["todos"]);
 
+/** Cap demo SELECT LIMIT to limit resource exhaustion on the query endpoint. */
+const MAX_LIMIT = 1000;
+
 /** Identifiers only — no functions, keywords, or expressions. */
 const IDENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+function parseLimit(raw) {
+  if (raw == null || raw === "") return null;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0) {
+    throw Object.assign(
+      new Error("Only simple SELECT queries against allowlisted tables are permitted"),
+      { statusCode: 400 }
+    );
+  }
+  if (n > MAX_LIMIT) {
+    throw Object.assign(new Error(`LIMIT must be at most ${MAX_LIMIT}`), { statusCode: 400 });
+  }
+  return n;
+}
 
 /**
  * Columns: `*` or comma-separated bare identifiers (optionally `AS alias`).
@@ -195,22 +213,19 @@ export function sanitizeReadOnlySelect(sql) {
   }
 
   let orderClause = "";
+  let limitN = restMatch[3] != null ? parseLimit(restMatch[3]) : null;
   if (restMatch[2]) {
     // If ORDER BY captured text still contains LIMIT (non-greedy failed edge), re-split.
     let orderRaw = restMatch[2].trim();
-    let limitFromOrder = null;
     const limitInOrder = orderRaw.match(/^(.*?)\s+LIMIT\s+(\d+)\s*$/i);
     if (limitInOrder) {
       orderRaw = limitInOrder[1].trim();
-      limitFromOrder = limitInOrder[2];
+      if (limitN == null) limitN = parseLimit(limitInOrder[2]);
     }
     orderClause = ` ORDER BY ${parseOrderBy(orderRaw)}`;
-    if (limitFromOrder && !restMatch[3]) {
-      return `SELECT ${columns} FROM ${table}${orderClause} LIMIT ${limitFromOrder}`;
-    }
   }
 
-  const limitClause = restMatch[3] ? ` LIMIT ${restMatch[3]}` : "";
+  const limitClause = limitN != null ? ` LIMIT ${limitN}` : "";
   return `SELECT ${columns} FROM ${table}${orderClause}${limitClause}`;
 }
 

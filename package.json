@@ -1,6 +1,6 @@
 {
   "name": "cachoujs",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Fine-grained reactive JavaScript UI library (1.0 stable core)",
   "main": "src/index.js",
   "module": "src/index.js",
