@@ -77,23 +77,28 @@ Same version on all three packages.
 
 ```bash
 cd /path/to/cachou
-npm run publish:prep    # version lock + CHANGELOG section + secret scan + unit + compiler build + pack dry-run
+# Local gates + (when `gh` is logged in) soft check for Linux/Chromium on HEAD
+npm run publish:prep
+
+# Hard-require a green GHA Linux/Chromium check-run for this commit:
+CACHOU_REQUIRE_CI=1 npm run publish:prep
 ```
 
-Before publishing or calling a release fully validated, confirm that the
-required **Verify (Linux / Chromium)** GitHub Actions job completed
-successfully for the **exact release commit SHA**. That job may appear on the
-`main` push run **or** on the version tag push (`vX.Y.Z`) — both exercise the
-same workflow on the same tree. Local checks and package dry-runs do not
-substitute for that release-specific CI evidence. Keep the Linux/Chromium job
-required in branch protection where the repository settings allow it; macOS
-Safari is optional signal only.
+`publish:prep` looks up **Verify (Linux / Chromium)** for the current `HEAD` SHA
+via `gh` (main push **or** tag push). Without `gh`, or without
+`CACHOU_REQUIRE_CI=1`, a missing remote check is a warning only.
+
+Still confirm the job is green for the **exact release commit** before calling a
+release fully validated. Local unit/pack checks do not substitute for that CI
+evidence. Keep Linux/Chromium required in branch protection where possible;
+macOS Safari is optional signal only.
 
 `publish:prep` fails if:
 
 - package versions differ across `cachoujs` / `@cachoujs/compiler` / `@cachoujs/create`
 - `CHANGELOG.md` lacks a `## <version>` heading
 - a lightweight secret-pattern scan finds likely tokens/keys in source docs
+- `CACHOU_REQUIRE_CI=1` and Linux/Chromium is not successful for `HEAD`
 
 ### 4. Publish
 

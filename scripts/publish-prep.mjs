@@ -9,7 +9,9 @@
  *   2. All three packages share the same version
  *   3. No secrets in the tree (this script runs a lightweight scan)
  *   4. npm run test:unit + compiler:build + pack:dry (below)
- *   5. npm publish is interactive / token-based — never commit tokens
+ *   5. Linux/Chromium GHA green for HEAD when `gh` is available
+ *      (required if CACHOU_REQUIRE_CI=1)
+ *   6. npm publish is interactive / token-based — never commit tokens
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -22,6 +24,94 @@ function run(cmd, args) {
   console.log(`$ ${cmd} ${args.join(" ")}`);
   const r = spawnSync(cmd, args, { stdio: "inherit", shell: process.platform === "win32", cwd: root });
   if (r.status !== 0) process.exit(r.status || 1);
+}
+
+function capture(cmd, args) {
+  const r = spawnSync(cmd, args, {
+    encoding: "utf8",
+    shell: process.platform === "win32",
+    cwd: root
+  });
+  return {
+    status: r.status ?? 1,
+    stdout: (r.stdout || "").trim(),
+    stderr: (r.stderr || "").trim()
+  };
+}
+
+/**
+ * Confirm required GHA job "Verify (Linux / Chromium)" succeeded for HEAD.
+ * Accepts main-push or tag-push check runs for the same SHA.
+ */
+function checkLinuxChromiumCi() {
+  const requireCi =
+    process.env.CACHOU_REQUIRE_CI === "1" || process.env.CACHOU_REQUIRE_CI === "true";
+  const ghOk = capture("gh", ["--version"]);
+  if (ghOk.status !== 0) {
+    const msg =
+      "gh CLI not available — skip remote CI check. Set CACHOU_REQUIRE_CI=1 after installing gh to enforce.";
+    if (requireCi) {
+      console.error(msg);
+      process.exit(1);
+    }
+    console.warn(`warn: ${msg}`);
+    return;
+  }
+
+  const shaRes = capture("git", ["rev-parse", "HEAD"]);
+  if (shaRes.status !== 0 || !/^[0-9a-f]{40}$/i.test(shaRes.stdout)) {
+    console.error("Could not resolve git HEAD for CI check");
+    if (requireCi) process.exit(1);
+    return;
+  }
+  const sha = shaRes.stdout;
+
+  // Prefer check-runs API (covers tag + branch workflows on the same commit).
+  const api = capture("gh", [
+    "api",
+    `repos/{owner}/{repo}/commits/${sha}/check-runs`,
+    "--paginate",
+    "--jq",
+    '[.check_runs[] | select(.name == "Verify (Linux / Chromium)") | {conclusion, status, html_url}]'
+  ]);
+
+  if (api.status !== 0) {
+    const msg = `Could not query GitHub check-runs for ${sha.slice(0, 7)}: ${api.stderr || api.stdout}`;
+    if (requireCi) {
+      console.error(msg);
+      process.exit(1);
+    }
+    console.warn(`warn: ${msg}`);
+    return;
+  }
+
+  let runs = [];
+  try {
+    runs = JSON.parse(api.stdout || "[]");
+  } catch {
+    runs = [];
+  }
+  if (!Array.isArray(runs)) runs = [];
+
+  const success = runs.find(r => r && r.conclusion === "success" && r.status === "completed");
+  if (success) {
+    console.log(`CI: Verify (Linux / Chromium) success for ${sha.slice(0, 7)}`);
+    if (success.html_url) console.log(`    ${success.html_url}`);
+    return;
+  }
+
+  const pending = runs.find(r => r && (r.status === "queued" || r.status === "in_progress"));
+  const msg = pending
+    ? `CI: Verify (Linux / Chromium) still ${pending.status} for ${sha.slice(0, 7)} — wait before publish`
+    : `CI: no successful Verify (Linux / Chromium) check-run for ${sha.slice(0, 7)} (found ${runs.length} run(s))`;
+
+  if (requireCi) {
+    console.error(msg);
+    console.error("Re-run: gh run list --commit " + sha.slice(0, 7));
+    console.error("Or wait for the tag/main workflow, then re-run publish:prep with CACHOU_REQUIRE_CI=1");
+    process.exit(1);
+  }
+  console.warn(`warn: ${msg}`);
 }
 
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -102,12 +192,16 @@ if (secretHits.length) {
 }
 console.log("Secret scan: clean");
 
+checkLinuxChromiumCi();
+
 run("npm", ["run", "test:unit"]);
 run("npm", ["run", "compiler:build"]);
 run("npm", ["run", "pack:dry"]);
 
 console.log(`
 Ready to publish (manual — never paste tokens into chat or commits):
+  # Prefer: push + wait for Linux/Chromium green, then:
+  CACHOU_REQUIRE_CI=1 npm run publish:prep
   npm login   # or granular token in ~/.npmrc (local only)
   npm publish --access public
   npm publish -w @cachoujs/compiler --access public
