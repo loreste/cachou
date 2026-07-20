@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.7
+
+Security maintenance following the 1.0.6 review (demo server + sanitizer + compiler).
+
+### Fixed / improved
+
+- **HTML sanitization** — applies the unsafe-URL policy to `srcset` on both the string and DOM paths
+- **WebSocket upgrades** — rejects missing `Origin` by default and requires the request scheme and host to match the origin
+- **WebSocket proxy handling** — ignores client-supplied `x-forwarded-proto` unless `CACHOU_TRUST_PROXY=1` explicitly enables a trusted proxy deployment
+- **Files API** — keeps path checks under the configured root, omits symlink entries from listings, and uses `O_NOFOLLOW` for the final read where supported
+- **Static assets** — rejects existing symlinks that resolve outside `dist/` and uses a no-follow final file descriptor where supported
+- **Compiler SSR imports** — generated component CSS loads only in browser contexts, allowing raw Node SSR to import compiled components without a CSS loader
+
+### Docs / tests
+
+- Regression coverage for `srcset`, WebSocket origin policy, and static-asset symlink escapes
+- SECURITY / environment notes for `CACHOU_TRUST_PROXY` and stricter WS origin policy
+
+
 ## 1.0.6
 
 Maintenance patch: modern GitHub Actions, SSR nonce fallbacks, `publish:check`.

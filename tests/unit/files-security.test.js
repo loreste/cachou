@@ -74,6 +74,16 @@ describe("files API — path traversal attacks", () => {
     );
   });
 
+  it("does not disclose metadata for symlinks in directory listings", async () => {
+    const root = await makeFixture();
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "cachou-outside-"));
+    await fs.writeFile(path.join(outside, "secret.txt"), "secret\n", "utf8");
+    await fs.symlink(path.join(outside, "secret.txt"), path.join(root, "listed-secret.txt"));
+
+    const result = await listFiles("", { root, includeHidden: true });
+    assert.equal(result.entries.some(entry => entry.name === "listed-secret.txt"), false);
+  });
+
   it("allows legitimate nested reads", async () => {
     const root = await makeFixture();
     const result = await readFileContent("sub/nested.txt", { root });

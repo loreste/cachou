@@ -3,6 +3,25 @@
  * Blocks path traversal, absolute escapes, and null bytes.
  */
 import path from "node:path";
+import fs from "node:fs";
+
+/**
+ * Resolve an existing candidate and reject symlink escapes from the root.
+ * @param {string} distRoot
+ * @param {string} candidatePath
+ * @returns {string | null} Real path when it remains under distRoot
+ */
+export function resolveSafeExistingAssetPath(distRoot, candidatePath) {
+  try {
+    const rootReal = fs.realpathSync(path.resolve(distRoot));
+    const candidateReal = fs.realpathSync(path.resolve(candidatePath));
+    const rel = path.relative(rootReal, candidateReal);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+    return candidateReal;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * @param {string} distRoot Absolute path to the dist directory
@@ -41,6 +60,10 @@ export function resolveSafeAssetPath(distRoot, requestUrl) {
   if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) {
     // Empty rel means the root itself (directory) — allowed
     if (candidate === root) return candidate;
+    return null;
+  }
+
+  if (fs.existsSync(candidate) && !resolveSafeExistingAssetPath(root, candidate)) {
     return null;
   }
 

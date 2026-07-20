@@ -131,9 +131,9 @@ const DANGEROUS_TAGS =
   /<\/?(?:script|iframe|object|embed|link|meta|base|form|svg|math|template|style|frame|frameset|applet|foreignobject)(?:[\s/][^>]*)?>/gi;
 const EVENT_HANDLER_ATTR = /[\s/]on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const JS_URL_ATTR =
-  /\s(?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(['"]?)\s*(?:javascript|vbscript):[^'"\s>]*/gi;
+  /\s(?:href|src|srcset|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(['"]?)\s*(?:javascript|vbscript):[^'"\s>]*/gi;
 const DATA_HTML_URL =
-  /\s(?:href|src|srcdoc)\s*=\s*(['"]?)\s*data:\s*(?:text\/html|image\/svg\+xml)[^'"\s>]*/gi;
+  /\s(?:href|src|srcset|srcdoc)\s*=\s*(['"]?)\s*data:\s*(?:text\/html|image\/svg\+xml)[^'"\s>]*/gi;
 const STYLE_ATTR = /[\s/]style\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 
 /**
@@ -211,6 +211,18 @@ function isDangerousURLValue(value) {
   );
 }
 
+function isDangerousSrcsetValue(value) {
+  const compact = String(value || "")
+    .replace(/[\u0000-\u001F\u007F\s]+/g, "")
+    .toLowerCase();
+  return (
+    compact.includes("javascript:") ||
+    compact.includes("vbscript:") ||
+    compact.includes("data:text/html") ||
+    compact.includes("data:image/svg+xml")
+  );
+}
+
 function sanitizeHTMLString(html) {
   // Decode entities first so nested/encoded payloads become visible to strippers.
   let out = decodeHtmlEntities(html);
@@ -229,10 +241,13 @@ function sanitizeHTMLString(html) {
   // URL attrs: match full quoted values (including whitespace/control chars inside)
   // so `java\tscript:` / `java&#9;script:` cannot survive into trustedHTML sinks.
   out = out.replace(
-    /[\s/](?:href|src|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
-    (full, doubleQuoted, singleQuoted, unquoted) => {
+    /[\s/](href|src|srcset|xlink:href|action|formaction|poster|data|srcdoc)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+    (full, name, doubleQuoted, singleQuoted, unquoted) => {
       const value = doubleQuoted ?? singleQuoted ?? unquoted ?? "";
-      if (isDangerousURLValue(value)) return " ";
+      const dangerous = name.toLowerCase() === "srcset"
+        ? isDangerousSrcsetValue(value)
+        : isDangerousURLValue(value);
+      if (dangerous) return " ";
       return full;
     }
   );
@@ -287,12 +302,11 @@ function sanitizeHTMLWithDOM(html) {
             child.removeAttribute(attr.name);
             continue;
           }
-          if (
-            ["href", "src", "xlink:href", "action", "formaction", "poster", "data"].includes(name)
-          ) {
-            if (isDangerousURLValue(value)) {
-              child.removeAttribute(attr.name);
-            }
+          if (["href", "src", "srcset", "xlink:href", "action", "formaction", "poster", "data"].includes(name)) {
+            const dangerous = name === "srcset"
+              ? isDangerousSrcsetValue(value)
+              : isDangerousURLValue(value);
+            if (dangerous) child.removeAttribute(attr.name);
           }
         }
         walk(child);

@@ -13,18 +13,32 @@ function log(level, ...args) {
   }
 }
 
+function requestProtocol(request, options = {}) {
+  if (options.trustProxy === true) {
+    const forwarded = String(request.headers?.["x-forwarded-proto"] || "")
+      .split(",")[0]
+      .trim()
+      .toLowerCase();
+    if (forwarded === "http" || forwarded === "https") return `${forwarded}:`;
+  }
+  return request.socket?.encrypted ? "https:" : "http:";
+}
+
+const TRUST_PROXY = process.env.CACHOU_TRUST_PROXY === "1";
+
 /**
- * Reject cross-site WebSocket upgrades when an Origin header is present.
- * Same-host Origin (or missing Origin for non-browser clients) is allowed.
+ * Reject cross-origin WebSocket upgrades. Missing Origin is rejected by
+ * default; non-browser clients must opt in explicitly because this endpoint
+ * has no authentication layer of its own.
  */
-export function isAllowedWebSocketOrigin(request) {
+export function isAllowedWebSocketOrigin(request, options = {}) {
   const origin = request.headers?.origin;
-  if (!origin) return true;
+  if (!origin) return options.allowMissingOrigin === true;
   const host = request.headers?.host;
   if (!host) return false;
   try {
     const originUrl = new URL(origin);
-    return originUrl.host === host;
+    return originUrl.protocol === requestProtocol(request, options) && originUrl.host === host;
   } catch {
     return false;
   }
@@ -68,7 +82,7 @@ export function setupWebSocket(httpServer) {
       return;
     }
 
-    if (!isAllowedWebSocketOrigin(request)) {
+    if (!isAllowedWebSocketOrigin(request, { trustProxy: TRUST_PROXY })) {
       log("warn", "Rejected WebSocket upgrade: origin mismatch", request.headers.origin);
       rejectUpgrade(socket, 403, "Forbidden");
       return;

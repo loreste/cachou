@@ -94,7 +94,7 @@ dashboard refresh, compared with the DOM floor at 1.20ms and Solid at 1.40ms. In
 Safari smoke run, CachouJS measured 1.00ms, matching the DOM floor and Solid;
 Safari's millisecond timer resolution makes close ranks noisy.
 
-Last refreshed: **2026-07-17** (v1.0.4 line).
+Last refreshed: **2026-07-17** (v1.0.6 line).
 
 Compiler static DOM microbenchmark (Chromium, 7 samples, 10,000 renders):
 

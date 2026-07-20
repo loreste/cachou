@@ -1,4 +1,4 @@
-import { signal, effect, createRoot, memo, store, batch, html, createCompiledStatic, onCleanup, mapArray, createContext, useContext, onError, ErrorBoundary, Suspense, Portal, createResource, invalidateResource, prefetchResource, onMount, hydrate, hydrateIslands, Island, lazy, dehydrate, render, mount, unmount, renderToString, renderToStringAsync, useHead, listFiles, readFile, enableDebug, disableDebug, getDebugSnapshot, assertNoReactiveLeaks, resetDebugState, FileBrowser, configureSecurityPolicy, getSecurityPolicy, trustedHTML, onFrameworkEvent, scheduleTask, yieldNow, configureScheduler, startTransition, createField, createForm, createLiveRegion, focusFirst, restoreFocusAfter, beforeNavigate, navigate, back, forward, configureRouter, getPath, Route } from "../src/index.js";
+import { signal, effect, createRoot, memo, store, batch, html, createCompiledStatic, onCleanup, mapArray, createContext, useContext, onError, ErrorBoundary, Suspense, Portal, createResource, invalidateResource, prefetchResource, onMount, hydrate, hydrateIslands, Island, lazy, dehydrate, render, mount, unmount, renderToString, renderToStringAsync, useHead, listFiles, readFile, enableDebug, disableDebug, getDebugSnapshot, assertNoReactiveLeaks, resetDebugState, FileBrowser, configureSecurityPolicy, getSecurityPolicy, trustedHTML, sanitizeHTML, onFrameworkEvent, scheduleTask, yieldNow, configureScheduler, startTransition, createField, createForm, createLiveRegion, focusFirst, restoreFocusAfter, beforeNavigate, navigate, back, forward, configureRouter, getPath, Route } from "../src/index.js";
 import { addNodeCleanup, cleanupNode, registerTransition } from "../src/html.js";
 import { markAttachedChildrenCleanup } from "../src/dom-cleanup.js";
 import { reconcile } from "../src/reconcile.js";
@@ -538,6 +538,13 @@ test("HTML blocks executable SVG data URLs", () => {
   const el = html`<img src=${svg}>`;
 
   assertEquals(el.hasAttribute("src"), false, "SVG data URL is removed");
+});
+
+test("sanitizeHTML applies the srcset policy in the DOM path", () => {
+  const out = sanitizeHTML(
+    `<img srcset="https://safe.example/a.png 1x, javascript:alert(1) 2x"><img srcset="data:image/svg+xml,<svg onload=alert(2)> 1x">`
+  );
+  assert(!/srcset/i.test(out), "Unsafe srcset attributes are removed by the DOM sanitizer");
 });
 
 test("HTML property sinks require explicitly trusted markup", () => {

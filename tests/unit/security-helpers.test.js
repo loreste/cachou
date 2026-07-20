@@ -111,6 +111,13 @@ describe("sanitizeHTML", () => {
       );
     }
   });
+
+  it("removes unsafe srcset candidates", () => {
+    const out = sanitizeHTML(
+      `<img srcset="https://safe.example/a.png 1x, javascript:alert(1) 2x"><img srcset="data:image/svg+xml,<svg onload=alert(2)> 1x">`
+    );
+    assert.doesNotMatch(out, /srcset/i);
+  });
 });
 
 describe("sanitizeAuthToken", () => {

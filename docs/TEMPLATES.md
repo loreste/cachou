@@ -56,7 +56,7 @@ Special cases:
 
 ### URL attributes
 
-`href`, `src`, `action`, `formaction`, and `xlink:href` are sanitized. Disallowed protocols are blocked and emit a `security-block` framework event.
+`href`, `src`, `srcset`, `action`, `formaction`, and `xlink:href` are sanitized. Disallowed protocols are blocked and emit a `security-block` framework event.
 
 Allowed by default: `http:`, `https:`, `mailto:`, `tel:`, `blob:`, `data:` (with allowed MIME prefixes). Relative URLs and `#` fragments are allowed.
 

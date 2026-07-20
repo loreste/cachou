@@ -34,6 +34,7 @@ describe("JS compiler", () => {
       assert.equal(componentName, "Hello");
       const js = readFileSync(outputPath, "utf8");
       assert.match(js, /from "cachoujs"/);
+      assert.match(js, /typeof document !== "undefined"\) import\("\.\/Hello\.css"\)/);
       assert.match(js, /export default function Hello/);
       assert.match(js, /\$\{n\(\)\}/);
       assert.match(js, /\{literal\}/);

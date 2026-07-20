@@ -152,8 +152,8 @@ try {
   }
   const scopedJS = await readFile(join(dir, "ScopedCard.js"), "utf8");
   const scopedCSS = await readFile(join(dir, "ScopedCard.css"), "utf8");
-  if (!scopedJS.includes('import "./ScopedCard.css";')) {
-    throw new Error("scoped style: expected compiled JS to import generated CSS");
+  if (!scopedJS.includes('if (typeof document !== "undefined") import("./ScopedCard.css");')) {
+    throw new Error("scoped style: expected compiled JS to browser-load generated CSS");
   }
   if (!scopedJS.includes("data-c-scopedcard")) {
     throw new Error("scoped style: expected template to include data-c scope attribute");
@@ -183,8 +183,8 @@ try {
   }
   const globalJS = await readFile(join(dir, "GlobalCard.js"), "utf8");
   const globalCSS = await readFile(join(dir, "GlobalCard.css"), "utf8");
-  if (!globalJS.includes('import "./GlobalCard.css";')) {
-    throw new Error("global style: expected compiled JS to import generated CSS");
+  if (!globalJS.includes('if (typeof document !== "undefined") import("./GlobalCard.css");')) {
+    throw new Error("global style: expected compiled JS to browser-load generated CSS");
   }
   if (globalJS.includes("data-c-globalcard")) {
     throw new Error("global style: did not expect scope attribute for unscoped style");

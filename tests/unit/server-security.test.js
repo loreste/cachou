@@ -1,7 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
-import { resolveSafeAssetPath } from "../../server/static-assets.js";
+import { resolveSafeAssetPath, resolveSafeExistingAssetPath } from "../../server/static-assets.js";
 import { isAllowedWebSocketOrigin } from "../../server/ws.js";
 import { isDemoMode } from "../../server/demo-guard.js";
 import { dehydrate, createSSRContext } from "../../src/index.js";
@@ -38,11 +40,27 @@ describe("resolveSafeAssetPath", () => {
   it("blocks encoded traversal", () => {
     assert.equal(resolveSafeAssetPath(distRoot, "/assets/%2e%2e/%2e%2e/etc/passwd"), null);
   });
+
+  it("blocks existing symlinks that escape dist", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "cachou-dist-"));
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "cachou-dist-outside-"));
+    await fs.writeFile(path.join(outside, "secret.js"), "secret", "utf8");
+    await fs.symlink(path.join(outside, "secret.js"), path.join(root, "escape.js"));
+    assert.equal(resolveSafeAssetPath(root, "/escape.js"), null);
+    assert.equal(resolveSafeExistingAssetPath(root, path.join(root, "escape.js")), null);
+  });
 });
 
 describe("WebSocket origin check", () => {
-  it("allows missing Origin", () => {
-    assert.equal(isAllowedWebSocketOrigin({ headers: { host: "localhost:5173" } }), true);
+  it("rejects missing Origin by default", () => {
+    assert.equal(isAllowedWebSocketOrigin({ headers: { host: "localhost:5173" } }), false);
+  });
+
+  it("allows missing Origin only when explicitly requested", () => {
+    assert.equal(
+      isAllowedWebSocketOrigin({ headers: { host: "localhost:5173" } }, { allowMissingOrigin: true }),
+      true
+    );
   });
 
   it("allows matching Origin host", () => {
@@ -50,6 +68,41 @@ describe("WebSocket origin check", () => {
       isAllowedWebSocketOrigin({
         headers: { host: "localhost:5173", origin: "http://localhost:5173" }
       }),
+      true
+    );
+  });
+
+  it("rejects a same-host Origin with the wrong scheme", () => {
+    assert.equal(
+      isAllowedWebSocketOrigin({
+        headers: { host: "localhost:5173", origin: "https://localhost:5173" }
+      }),
+      false
+    );
+  });
+
+  it("does not trust a client-supplied forwarded scheme by default", () => {
+    assert.equal(
+      isAllowedWebSocketOrigin({
+        headers: {
+          host: "example.test",
+          origin: "https://example.test",
+          "x-forwarded-proto": "https"
+        }
+      }),
+      false
+    );
+  });
+
+  it("uses the forwarded scheme only behind an explicitly trusted proxy", () => {
+    assert.equal(
+      isAllowedWebSocketOrigin({
+        headers: {
+          host: "example.test",
+          origin: "https://example.test",
+          "x-forwarded-proto": "https"
+        }
+      }, { trustProxy: true }),
       true
     );
   });

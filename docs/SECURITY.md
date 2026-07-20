@@ -1,6 +1,6 @@
 # Security
 
-CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.6**).
+CachouJS keeps privileged capabilities outside the browser runtime. This document is the threat model and operational guide for **v1.0.x** (current: **1.0.7**).
 
 The controls below are security features and policy helpers, not a security certification or substitute for an application security review. Applications remain responsible for backend authorization, deployment-level CSP, secure session handling, dependency review, and independent testing appropriate to their risk. Do not describe CachouJS itself as universally “secure.”
 
@@ -26,10 +26,10 @@ and keep `trustedHTML` behind a narrow application-owned boundary.
 `createCSPNonce()` uses Web Crypto and fails if secure randomness is unavailable;
 callers must not replace that failure with a predictable nonce.
 
-The security surface is still receiving maintenance: the 1.0.2–1.0.4
-releases included fixes to demo SQL, sanitizer, URL handling, and CSP nonces.
-Pin the version you evaluate, read the changelog, and do not infer independent
-audit coverage from the included tests.
+The security surface is still receiving maintenance: the 1.0.2–1.0.6
+releases included fixes to demo SQL, sanitizer and URL handling, CSP nonces,
+and SSR/runtime defaults. Pin the version you evaluate, read the changelog,
+and do not infer independent audit coverage from the included tests.
 
 ---
 
@@ -42,7 +42,7 @@ audit coverage from the included tests.
 | Demo endpoints in production | Mitigated when `CACHOU_DEMO` unset / production start |
 | Demo SQL (`/api/db-query`) | Allowlisted `SELECT` only; no `UNION` / expressions in `ORDER BY` (1.0.2); `LIMIT` ≤ 1000 (1.0.5) |
 | Auth kit | **Experimental** client helpers only — not a full IdP |
-| `sanitizeHTML` | Defense-in-depth: entity decode, nested tags, whitespace-split schemes (1.0.3), slash-delimited attrs (1.0.4); still **not** a full HTML sanitizer |
+| `sanitizeHTML` | Defense-in-depth: entity decode, nested tags, whitespace-split schemes (1.0.3), slash-delimited attrs (1.0.4), unsafe `srcset` candidates (unreleased); still **not** a full HTML sanitizer |
 | URL attrs emit | Control chars stripped after allowlist check (1.0.3) |
 | CSP nonces | Fail closed without Web Crypto (1.0.4); no weak Math.random fallback |
 | Supply chain / npm | Pin versions; review changelogs |
@@ -60,7 +60,7 @@ Automated gates: unit security tests (including SSR attribute + SQL adversarial 
 | Demo APIs (`/api/todos`, `/api/db-query`, `/api/files`) | **Local demo only** | Require `CACHOU_DEMO=1`; disabled on production `npm start` by default |
 | Files API | Server FS under configured root | Default root is `./sandbox`, not repo cwd |
 | DB `runQuery` | Server process | Only simple allowlisted `SELECT` statements |
-| WebSockets (`/ws-api`) | Demo-only + same-origin Origin check | Gated by `CACHOU_DEMO`; not multi-tenant auth |
+| WebSockets (`/ws-api`) | Demo-only + scheme/host Origin check | Missing Origin is rejected by default; forwarded schemes are trusted only with `CACHOU_TRUST_PROXY=1` behind a proxy that sanitizes the header; not multi-tenant auth |
 | Your production APIs | Your authn/z | Out of scope for the framework — required for real apps |
 
 Attackers who can open a browser page can already run arbitrary JS in that origin. The goal is to prevent:
@@ -166,7 +166,7 @@ Implementation: `server/demo-guard.js` → `sanitizeReadOnlySelect` (tightened i
 |------|--------|
 | Mode | Read-only GET |
 | Root | `CACHOU_FILES_ROOT` or `./sandbox` |
-| Traversal | Lexical + `realpath` checks block `..` and symlink escape |
+| Traversal | Lexical + `realpath` checks block `..` and existing symlink escape; final reads use no-follow where supported |
 | Hidden | Dotted names excluded unless `hidden=1` |
 | Size | `CACHOU_FILES_MAX_BYTES` (default 1 MB) |
 
@@ -177,10 +177,10 @@ Repo-only proving ground (not published on npm). Hardening includes:
 | Control | Behavior |
 |---------|----------|
 | Demo gate | HTTP demo APIs + `/ws-api` require `CACHOU_DEMO` |
-| Static assets | Resolved only under `dist/` (blocks `..` traversal) |
+| Static assets | Realpath-confined under `dist/`; final reads use no-follow where supported |
 | SSR | Per-request `createSSRContext()` + explicit dehydrate/head |
 | CSP | Nonce on dehydrate script; `object-src 'none'`; `frame-ancestors 'none'` |
-| WS | Origin must match `Host` when present; table allowlist on `db-sync` |
+| WS | Origin must match request scheme + `Host`; missing Origin rejected; `x-forwarded-proto` requires `CACHOU_TRUST_PROXY=1`; table allowlist on `db-sync` |
 | Rate limit | 120 req/min/IP with map size cap |
 | Errors | Generic 500 bodies (no stack leakage to clients) |
 

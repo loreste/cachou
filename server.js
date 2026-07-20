@@ -24,7 +24,7 @@ import { getTodos, addTodo, updateTodo, deleteTodo } from "./server/db.js";
 import { setupWebSocket } from "./server/ws.js";
 import { serveFilesApi } from "./server/files.js";
 import { denyUnlessDemo, isDemoMode } from "./server/demo-guard.js";
-import { resolveSafeAssetPath } from "./server/static-assets.js";
+import { resolveSafeAssetPath, resolveSafeExistingAssetPath } from "./server/static-assets.js";
 import {
   renderToStringAsync,
   dehydrate,
@@ -333,17 +333,49 @@ const server = http.createServer(async (req, res) => {
       finalPath = null;
     }
 
-    if (finalPath && fs.existsSync(finalPath) && fs.statSync(finalPath).isFile()) {
-      const base = path.basename(finalPath).toLowerCase();
-      if (base === ".env" || base.endsWith(".pem") || base.endsWith(".key")) {
-        res.statusCode = 404;
-        res.end("Not Found");
-        return;
+    const safeFinalPath = finalPath && resolveSafeExistingAssetPath(DIST_ROOT, finalPath);
+    if (safeFinalPath) {
+      let assetFd = null;
+      try {
+        assetFd = fs.openSync(
+          safeFinalPath,
+          fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0)
+        );
+        if (!fs.fstatSync(assetFd).isFile()) {
+          fs.closeSync(assetFd);
+          assetFd = null;
+        } else {
+          const base = path.basename(safeFinalPath).toLowerCase();
+          if (base === ".env" || base.endsWith(".pem") || base.endsWith(".key")) {
+            fs.closeSync(assetFd);
+            assetFd = null;
+            res.statusCode = 404;
+            res.end("Not Found");
+            return;
+          }
+          res.statusCode = 200;
+          res.setHeader("Content-Type", getMimeType(safeFinalPath));
+          const stream = fs.createReadStream(null, { fd: assetFd, autoClose: true });
+          assetFd = null;
+          stream.on("error", () => {
+            if (res.headersSent) res.destroy();
+            else {
+              res.statusCode = 404;
+              res.end("Not Found");
+            }
+          });
+          stream.pipe(res);
+          return;
+        }
+      } catch {
+        if (assetFd !== null) {
+          try {
+            fs.closeSync(assetFd);
+          } catch {
+            // ignore close failures during a rejected asset read
+          }
+        }
       }
-      res.statusCode = 200;
-      res.setHeader("Content-Type", getMimeType(finalPath));
-      fs.createReadStream(finalPath).pipe(res);
-      return;
     }
   }
 

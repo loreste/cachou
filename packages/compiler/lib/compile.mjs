@@ -1356,7 +1356,9 @@ export function compileFile(inputPath, { outDir = "", runtime = "cachoujs" } = {
   if (scopedCSS) {
     const cssPath = join(dirname(outputPath), nameWithoutExt + ".css");
     writeFileSync(cssPath, scopedCSS + "\n", "utf8");
-    styleImport = `import "./${nameWithoutExt}.css";\n`;
+    // Keep generated components importable by raw Node SSR. Vite/browser
+    // builds still load the sibling CSS, while Node never evaluates it.
+    styleImport = `if (typeof document !== "undefined") import("./${nameWithoutExt}.css");\n`;
   }
 
   const mapFile = nameWithoutExt + ".js.map";

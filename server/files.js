@@ -60,7 +60,8 @@ async function resolveSafePath(root, requestedPath) {
     throw err;
   }
 
-  // Check each path segment for symlinks to prevent TOCTOU symlink attacks
+  // Check each path segment before resolving the target. The final read also
+  // uses O_NOFOLLOW where the platform provides it.
   const segments = lexicalRel ? lexicalRel.split(path.sep) : [];
   let current = rootReal;
   for (const segment of segments) {
@@ -120,6 +121,7 @@ export async function listFiles(requestedPath = "", options = {}) {
 
   for (const dirent of dirents) {
     if (!includeHidden && isHiddenName(dirent.name)) continue;
+    if (dirent.isSymbolicLink()) continue;
 
     const absolutePath = path.join(targetReal, dirent.name);
     let entryStat;
@@ -160,33 +162,42 @@ export async function readFileContent(requestedPath = "", options = {}) {
   const root = path.resolve(options.root || getFilesRoot());
   const maxBytes = options.maxBytes || Number(process.env.CACHOU_FILES_MAX_BYTES || 1024 * 1024);
   const { rootReal, targetReal } = await resolveSafePath(root, requestedPath);
-  const stat = await fs.promises.stat(targetReal);
+  const flags = fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0);
+  let handle;
+  try {
+    handle = await fs.promises.open(targetReal, flags);
+    const stat = await handle.stat();
+    if (!stat.isFile()) {
+      const err = new Error("Path is not a file");
+      err.statusCode = 400;
+      throw err;
+    }
+    if (stat.size > maxBytes) {
+      const err = new Error(`File is larger than the ${maxBytes} byte read limit`);
+      err.statusCode = 413;
+      throw err;
+    }
 
-  if (!stat.isFile()) {
-    const err = new Error("Path is not a file");
-    err.statusCode = 400;
+    const mime = getMimeType(targetReal);
+    const isText = isTextFile(targetReal, mime);
+    const buffer = await handle.readFile();
+
+    return {
+      name: path.basename(targetReal),
+      path: toRelativePath(rootReal, targetReal),
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+      mime,
+      kind: isText ? "text" : "binary",
+      content: isText ? buffer.toString("utf8") : buffer.toString("base64"),
+      encoding: isText ? "utf8" : "base64"
+    };
+  } catch (err) {
+    if (err && err.code === "ELOOP") err.statusCode = 403;
     throw err;
+  } finally {
+    await handle?.close().catch(() => {});
   }
-  if (stat.size > maxBytes) {
-    const err = new Error(`File is larger than the ${maxBytes} byte read limit`);
-    err.statusCode = 413;
-    throw err;
-  }
-
-  const mime = getMimeType(targetReal);
-  const isText = isTextFile(targetReal, mime);
-  const buffer = await fs.promises.readFile(targetReal);
-
-  return {
-    name: path.basename(targetReal),
-    path: toRelativePath(rootReal, targetReal),
-    size: stat.size,
-    mtimeMs: stat.mtimeMs,
-    mime,
-    kind: isText ? "text" : "binary",
-    content: isText ? buffer.toString("utf8") : buffer.toString("base64"),
-    encoding: isText ? "utf8" : "base64"
-  };
 }
 
 export async function serveFilesApi(req, res, options = {}) {

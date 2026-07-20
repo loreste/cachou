@@ -21,6 +21,7 @@ All environment variables recognized by this repository and the demo server.
 | `CACHOU_DEMO` | Dev: effectively on via Vite; Prod start: off | `1` / `true` / `yes` enables privileged demo APIs. **Keep off in production.** |
 | `CACHOU_FILES_ROOT` | `./sandbox` | Root directory for the files API (resolved absolute) |
 | `CACHOU_FILES_MAX_BYTES` | `1048576` (1 MB) | Max file size for `/api/files/content` |
+| `CACHOU_TRUST_PROXY` | off | Set to `1` only when a trusted reverse proxy overwrites `x-forwarded-proto`; do not enable it for direct client traffic |
 
 ---
 

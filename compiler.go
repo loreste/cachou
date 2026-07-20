@@ -210,7 +210,9 @@ func compileFile(path string, outDir string, runtimeImport string) error {
 		if err != nil {
 			return err
 		}
-		styleImport = fmt.Sprintf("import \"./%s.css\";\n", nameWithoutExt)
+		// Keep generated components importable by raw Node SSR. Vite/browser
+		// builds still load the sibling CSS, while Node never evaluates it.
+		styleImport = fmt.Sprintf("if (typeof document !== \"undefined\") import(\"./%s.css\");\n", nameWithoutExt)
 	}
 
 	// Dead code elimination: skip setup section if script is empty
