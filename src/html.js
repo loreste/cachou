@@ -831,14 +831,25 @@ function bindValue(node, binding, values) {
         const [get, set] = signalPair;
         const assignValue = () => {
           if (node.type === "checkbox") node.checked = Boolean(get());
+          else if (node.type === "radio") node.checked = node.value === String(get() ?? "");
           else if (isHTMLSelect(node)) applySelectValue(node, get());
           else node.value = get() ?? "";
         };
         const stop = effect(assignValue);
         addNodeCleanup(node, stop);
-        const eventName = node.type === "checkbox" || node.type === "radio" || node.tagName === "SELECT" ? "change" : "input";
-        const onInput = (e) => {
-          set(node.type === "checkbox" ? e.target.checked : e.target.value);
+        const eventName =
+          node.type === "checkbox" || node.type === "radio" || node.tagName === "SELECT"
+            ? "change"
+            : "input";
+        const onInput = () => {
+          if (node.type === "checkbox") set(node.checked);
+          else if (node.type === "radio") {
+            if (node.checked) set(node.value);
+          } else if (isHTMLSelect(node) && node.multiple) {
+            set(Array.from(node.selectedOptions).map(o => o.value));
+          } else {
+            set(node.value);
+          }
         };
         node.addEventListener(eventName, onInput);
         addNodeCleanup(node, () => node.removeEventListener(eventName, onInput));
@@ -857,16 +868,20 @@ function bindValue(node, binding, values) {
             node.checked = Boolean(get());
           } else if (prop === "value" && isHTMLSelect(node)) {
             applySelectValue(node, get());
+          } else if (prop === "value" && node.type === "radio") {
+            node.checked = node.value === String(get() ?? "");
           } else {
             node.value = get() ?? "";
           }
         };
         if (get.$$cachouSignal) {
-          assignValue(get());
+          assignValue();
           const subscriber = value => {
             if (prop === "checked") node.checked = Boolean(value);
             else if (prop === "value" && isHTMLSelect(node)) applySelectValue(node, value);
-            else node.value = value ?? "";
+            else if (prop === "value" && node.type === "radio") {
+              node.checked = node.value === String(value ?? "");
+            } else node.value = value ?? "";
           };
           get.$$cachouSignal.subscribe(subscriber);
           addNodeCleanup(node, () => {
@@ -877,9 +892,18 @@ function bindValue(node, binding, values) {
           addNodeCleanup(node, stop);
         }
         const eventName =
-          prop === "checked" || node.tagName === "SELECT" ? "change" : "input";
-        const onInput = (e) => {
-          set(prop === "checked" ? e.target.checked : e.target.value);
+          prop === "checked" || node.type === "radio" || node.tagName === "SELECT"
+            ? "change"
+            : "input";
+        const onInput = () => {
+          if (prop === "checked") set(node.checked);
+          else if (isHTMLSelect(node) && node.multiple) {
+            set(Array.from(node.selectedOptions).map(o => o.value));
+          } else if (node.type === "radio") {
+            if (node.checked) set(node.value);
+          } else {
+            set(node.value);
+          }
         };
         node.addEventListener(eventName, onInput);
         addNodeCleanup(node, () => node.removeEventListener(eventName, onInput));
@@ -1583,6 +1607,10 @@ export function hydrate(Component, root) {
         bindValue(serverNode, binding, values);
       }
       delete clientNode.$$deferredBindings;
+      // Options may already exist on the server DOM; re-apply select value now.
+      if (isHTMLSelect(serverNode) && serverNode.$$cachouSelectValue !== undefined) {
+        applySelectValue(serverNode, serverNode.$$cachouSelectValue);
+      }
     }
 
     let clientChild = clientNode.firstChild;

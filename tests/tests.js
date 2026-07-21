@@ -1319,6 +1319,42 @@ test("option selected property binding works", () => {
   assertEquals(el.value, "user", "selected option updates reactively");
 });
 
+test("multi-select bind:value writes an array of selected options", () => {
+  const [picked, setPicked] = signal(["a", "c"]);
+  const el = html`
+    <select multiple bind:value=${[picked, setPicked]}>
+      <option value="a">A</option>
+      <option value="b">B</option>
+      <option value="c">C</option>
+    </select>
+  `;
+  assertEquals(el.options[0].selected, true, "a selected");
+  assertEquals(el.options[1].selected, false, "b not selected");
+  assertEquals(el.options[2].selected, true, "c selected");
+  el.options[1].selected = true;
+  el.options[2].selected = false;
+  el.dispatchEvent(new Event("change"));
+  const next = picked();
+  assert(Array.isArray(next), "multi-select writes an array");
+  assertEquals(next.slice().sort().join(","), "a,b", "selected values a,b");
+});
+
+test("radio bind:value uses checked matching", () => {
+  const [choice, setChoice] = signal("b");
+  const group = html`
+    <div>
+      <input type="radio" name="g" value="a" bind:value=${[choice, setChoice]} />
+      <input type="radio" name="g" value="b" bind:value=${[choice, setChoice]} />
+    </div>
+  `;
+  const radios = group.querySelectorAll('input[type="radio"]');
+  assertEquals(radios[0].checked, false, "a unchecked");
+  assertEquals(radios[1].checked, true, "b checked");
+  setChoice("a");
+  assertEquals(radios[0].checked, true, "a checked after set");
+  assertEquals(radios[1].checked, false, "b unchecked after set");
+});
+
 test("filesystem frontend helpers call the server file API", async () => {
   const originalFetch = window.fetch;
   const requests = [];

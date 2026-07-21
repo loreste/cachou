@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.10
+
+Form control binding follow-ups: multi-select arrays, radio groups, hydrate select.
+
+### Fixed / improved
+
+- **Multi-select `bind:value` / `model`** — change handler writes `string[]` of selected option values (was a single `select.value`)
+- **Radio `bind:value` / `model`** — derives `checked` from shared group value; only commits when the radio is selected
+- **Hydration** — re-applies remembered `<select>` values after deferred bindings on the server DOM node
+
+### Docs / tests
+
+- How-to multi-select + radio examples
+- Browser tests for multi-select write-back and radio checked matching
+
+
 ## 1.0.9
 
 Follow-up: select binding final pass + reactive form value guidance (CRM demo fixed).

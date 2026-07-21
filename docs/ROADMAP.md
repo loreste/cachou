@@ -4,8 +4,8 @@ Public plan for where the project is going. Written for maintainers and users wh
 
 | | |
 |--|--|
-| **Current line** | **1.0.x** (published: **1.0.9**) |
-| **Next publish** | **1.0.10** (patch by default) |
+| **Current line** | **1.0.x** (published: **1.0.10**) |
+| **Next publish** | **1.0.11** (patch by default) |
 | **Next minor** | **1.1.0** for backward-compatible features |
 | **1.0** | **Shipped** — stable core frozen |
 

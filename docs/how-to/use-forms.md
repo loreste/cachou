@@ -53,6 +53,21 @@ Reading `userDraft().role` *while building* a parent view also tracks that signa
 
 **Optimistic UI tip:** when a role/permission PATCH is in flight, either keep showing the optimistic value or disable the control until the request settles so a re-render with stale props does not look like a revert.
 
+### Multi-select and radios
+
+```javascript
+// Multi-select: bind:value / model store string[]
+const [tags, setTags] = signal(["a"]);
+html`<select multiple bind:value=${[tags, setTags]}>…</select>`;
+
+// Radios: bind the shared group value; checked state is derived per input
+const [plan, setPlan] = signal("pro");
+html`
+  <input type="radio" name="plan" value="free" bind:value=${[plan, setPlan]} />
+  <input type="radio" name="plan" value="pro" bind:value=${[plan, setPlan]} />
+`;
+```
+
 ---
 
 ## Full form example

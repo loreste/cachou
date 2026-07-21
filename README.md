@@ -1,6 +1,6 @@
 # CachouJS
 
-**v1.0.9** · stable core (experimental kits still opt-in)
+**v1.0.10** · stable core (experimental kits still opt-in)
 
 [npm](https://www.npmjs.com/package/cachoujs) · [GitHub](https://github.com/loreste/cachou) · [Docs](./docs/README.md) · [Get started](./docs/GETTING_STARTED.md) · [Changelog](./CHANGELOG.md)
 
@@ -132,7 +132,7 @@ npm run check   # full local CI-ish pipeline
 
 ## Status
 
-- **1.0.9** on npm. The stable core is API-frozen; patch releases are the default. This is an API compatibility commitment, not evidence of broad production adoption.
+- **1.0.10** on npm. The stable core is API-frozen; patch releases are the default. This is an API compatibility commitment, not evidence of broad production adoption.
 - The project has a substantial implementation and test suite, but production readiness is not established. Long-running production usage, independent security review, broad device coverage, and ecosystem maturity remain unproven.
 - Performance figures in [Benchmark Results](./docs/BENCHMARK_RESULTS.md) are project-run local regression measurements tied to a specific browser, machine, version, and workload; they are not universal framework comparisons.
 - Before treating a release as fully validated, confirm that the required Linux/Chromium GitHub Actions workflow completed successfully for the exact release commit.
