@@ -280,10 +280,13 @@ export function createAction(handler) {
   const [pending, setPending] = signal(false);
   const [error, setError] = signal(null);
   const [result, setResult] = signal(undefined);
+  let submitId = 0;
 
   async function submit(input, ctx = {}) {
+    const currentSubmit = ++submitId;
     setPending(true);
     setError(null);
+    const isCurrent = () => currentSubmit === submitId;
     try {
       let payload = input;
       if (typeof FormData !== "undefined" && input instanceof FormData) {
@@ -294,12 +297,15 @@ export function createAction(handler) {
         payload = form && typeof FormData !== "undefined" ? new FormData(form) : input;
       }
       const value = await handler(payload, ctx);
+      // Stale submit: return the value to the caller but do not clobber newer UI state.
+      if (!isCurrent()) return value;
       setResult(value);
       if (value && value.$$cachouRedirect) {
         navigate(value.path, value.options || {});
       }
       return value;
     } catch (err) {
+      if (!isCurrent()) throw err;
       if (isRedirectError(err)) {
         navigate(err.path, err.options || {});
         return;
@@ -311,7 +317,7 @@ export function createAction(handler) {
       setError(err);
       throw err;
     } finally {
-      setPending(false);
+      if (isCurrent()) setPending(false);
     }
   }
 
@@ -516,26 +522,34 @@ export function Layout(props) {
           childParams = { ...params, ...(m.params || {}) };
           setRouteParams(childParams);
           const routeMeta = child.$$cachouRoute;
-          childView = () => {
-            if (routeMeta.getLoadState) {
-              const state = routeMeta.getLoadState(childParams);
-              childRouteData = state;
-              setRouteData(state.data());
+          // Resolve load state eagerly so Layout's `routeData` prop is populated
+          // (and tracked) before Outlet runs the lazy child view.
+          if (routeMeta.getLoadState) {
+            const state = routeMeta.getLoadState(childParams);
+            childRouteData = state;
+            setRouteData(state.data());
+            childView = () => {
+              const live = routeMeta.getLoadState(childParams);
+              setRouteData(live.data());
               return RouteDataContext.Provider({
-                value: { ...state, params: childParams },
+                value: { ...live, params: childParams },
                 children: () => {
                   const Comp = routeMeta.component;
                   if (typeof Comp === "function") {
-                    return Comp(childParams, state);
+                    return Comp(childParams, live);
                   }
                   return Comp;
                 }
               });
-            }
-            const Comp = routeMeta.component;
-            if (typeof Comp === "function") return Comp(childParams);
-            return Comp;
-          };
+            };
+          } else {
+            childRouteData = null;
+            childView = () => {
+              const Comp = routeMeta.component;
+              if (typeof Comp === "function") return Comp(childParams);
+              return Comp;
+            };
+          }
         }
       }
     }

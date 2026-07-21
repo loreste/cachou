@@ -1069,6 +1069,27 @@ function isArrayIndex(prop) {
   return Number.isInteger(index) && index >= 0 && String(index) === prop;
 }
 
+function disposeMapEntry(entry) {
+  if (!entry || typeof entry.dispose !== "function") return;
+  const dispose = entry.dispose;
+  entry.dispose = null;
+  try {
+    dispose();
+  } catch (_) {
+    /* item root teardown must not break list reconciliation */
+  }
+}
+
+/** Create one mapped row inside its own reactive root (disposed when the row leaves). */
+function createMapArrayItem(mapFn, mappedItem, index) {
+  let dispose = null;
+  const mapped = createRoot((d) => {
+    dispose = d;
+    return mapFn(mappedItem, index);
+  });
+  return { mapped, dispose };
+}
+
 export function mapArray(listSignal, mapFn, keyFn, options = {}) {
   let cache = new Map();
   let uniqueCache = new Map();
@@ -1084,7 +1105,33 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
   let previousResult = null;
   let hasPreviousList = false;
 
+  function disposeAllMapEntries() {
+    for (const entry of uniqueEntriesSnapshot) disposeMapEntry(entry);
+    if (uniqueCache) {
+      for (const entry of uniqueCache.values()) disposeMapEntry(entry);
+    }
+    for (const bucket of cache.values()) {
+      for (const entry of bucket) disposeMapEntry(entry);
+    }
+    cache = new Map();
+    uniqueCache = new Map();
+    uniqueKeysSnapshot = [];
+    uniqueEntriesSnapshot = [];
+    previousList = null;
+    previousResult = null;
+    hasPreviousList = false;
+  }
+
   return () => {
+    // Re-register each run: effect cleanups fire on every re-run, so only tear
+    // down row roots when the owner itself is disposed (not when it re-runs).
+    const owner = activeOwner || activeEffect;
+    if (owner) {
+      onCleanup(() => {
+        if (owner.disposed) disposeAllMapEntries();
+      });
+    }
+
     const list = (typeof listSignal === "function" ? listSignal() : listSignal) || emptyList;
     if (stableIdentityList && hasPreviousList && list === previousList) {
       return previousResult;
@@ -1194,13 +1241,18 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
         runWithDetachedOwnerBatch(() => {
           for (let i = 0; i < list.length; i++) {
             const item = list[i];
-            const key = keys[i];
             const mappedItem = reactiveItems && typeof item === "object" && item !== null ? store({ ...item }) : item;
             const reactiveItem = mappedItem !== item ? mappedItem : null;
-            const mapped = mapFn(mappedItem, i);
-            const entry = { item, mapped, mappedItem, reactiveItem };
+            const created = createMapArrayItem(mapFn, mappedItem, i);
+            const entry = {
+              item,
+              mapped: created.mapped,
+              mappedItem,
+              reactiveItem,
+              dispose: created.dispose
+            };
 
-            result[i] = mapped;
+            result[i] = created.mapped;
             entries[i] = entry;
           }
         });
@@ -1235,6 +1287,7 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
             syncStoreObject(entry.reactiveItem, item);
             entry.item = item;
           } else {
+            disposeMapEntry(entry);
             entry = undefined;
           }
         }
@@ -1242,16 +1295,23 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
         let mapped = entry && entry.mapped;
         let mappedItem = entry && entry.mappedItem;
         let reactiveItem = entry && entry.reactiveItem;
+        let dispose = entry && entry.dispose;
         if (mapped === undefined) {
           mappedItem = reactiveItems && typeof item === "object" && item !== null ? store({ ...item }) : item;
           reactiveItem = mappedItem !== item ? mappedItem : null;
-          mapped = runWithDetachedOwner(() => mapFn(mappedItem, i));
+          const created = runWithDetachedOwner(() => createMapArrayItem(mapFn, mappedItem, i));
+          mapped = created.mapped;
+          dispose = created.dispose;
         }
 
         result[i] = mapped;
-        entry = { item, mapped, mappedItem, reactiveItem };
+        entry = { item, mapped, mappedItem, reactiveItem, dispose };
         entries[i] = entry;
         newUniqueCache.set(key, entry);
+      }
+
+      for (const [key, oldEntry] of uniqueCache) {
+        if (!newUniqueCache.has(key)) disposeMapEntry(oldEntry);
       }
 
       uniqueCache = newUniqueCache;
@@ -1266,7 +1326,7 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
     const newCache = new Map();
     const result = [];
     const usedEntries = new Map();
-    
+
     for (let i = 0; i < list.length; i++) {
       const item = list[i];
       const key = keyFn ? keyFn(item, i) : item;
@@ -1288,6 +1348,7 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
           syncStoreObject(entry.reactiveItem, item);
           entry.item = item;
         } else {
+          disposeMapEntry(entry);
           entry = undefined;
         }
       }
@@ -1295,10 +1356,13 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
       let mapped = entry && entry.mapped;
       let mappedItem = entry && entry.mappedItem;
       let reactiveItem = entry && entry.reactiveItem;
+      let dispose = entry && entry.dispose;
       if (mapped === undefined) {
         mappedItem = reactiveItems && keyFn && typeof item === "object" && item !== null ? store({ ...item }) : item;
         reactiveItem = mappedItem !== item ? mappedItem : null;
-        mapped = runWithDetachedOwner(() => mapFn(mappedItem, i));
+        const created = runWithDetachedOwner(() => createMapArrayItem(mapFn, mappedItem, i));
+        mapped = created.mapped;
+        dispose = created.dispose;
       }
 
       result.push(mapped);
@@ -1308,7 +1372,14 @@ export function mapArray(listSignal, mapFn, keyFn, options = {}) {
         newBucket = [];
         newCache.set(key, newBucket);
       }
-      newBucket.push({ item, mapped, mappedItem, reactiveItem });
+      newBucket.push({ item, mapped, mappedItem, reactiveItem, dispose });
+    }
+
+    for (const [key, bucket] of cache) {
+      const used = usedEntries.get(key);
+      for (let i = 0; i < bucket.length; i++) {
+        if (!used || !used.has(i)) disposeMapEntry(bucket[i]);
+      }
     }
 
     cache = newCache;

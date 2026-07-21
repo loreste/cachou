@@ -6,7 +6,7 @@
 |--|--|
 | **npm** | [`cachoujs`](https://www.npmjs.com/package/cachoujs) |
 | **GitHub** | [github.com/loreste/cachou](https://github.com/loreste/cachou) |
-| **Version** | **1.0.10** (stable core API; patch-first) |
+| **Version** | **1.0.11** (stable core API; patch-first) |
 | **License / maturity** | Stable core frozen — see [ONE_POINT_OH.md](./ONE_POINT_OH.md); pin experimental kits |
 
 This guide takes you from zero to a running app, then the concepts and patterns you’ll use every day. Task recipes live in the [how-to guides](./how-to/README.md).
@@ -66,7 +66,7 @@ Open the URL Vite prints (usually **http://localhost:5173**).
 You get:
 
 - File routes under `src/routes/` (`/`, `/about`, `/users/:id` with `load`)
-- `cachoujs@^1.0.10` + Vite 6
+- `cachoujs@^1.0.11` + Vite 6
 - Base CSS, `.gitignore`, optional `.cachou` folder under `src/components/`
 - DevTools bridge in development (`Ctrl+Shift+D`)
 

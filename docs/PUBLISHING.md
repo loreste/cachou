@@ -6,9 +6,9 @@ How to release packages to npm. **Never paste npm tokens into chat or commit the
 
 | Package | Path | Current |
 |---------|------|---------|
-| `cachoujs` | repo root | 1.0.10 |
-| `@cachoujs/compiler` | `packages/compiler` | 1.0.10 |
-| `@cachoujs/create` | `packages/create-cachou` | 1.0.10 |
+| `cachoujs` | repo root | 1.0.11 |
+| `@cachoujs/compiler` | `packages/compiler` | 1.0.11 |
+| `@cachoujs/create` | `packages/create-cachou` | 1.0.11 |
 
 You must own the npm name / `@cachoujs` org (this project uses org **cachoujs**, owner **loreste**).
 
@@ -39,7 +39,7 @@ From **0.4.0** onward, releases use **small increments** only.
 
 | Rule | Detail |
 |------|--------|
-| Current published | **1.0.10** |
+| Current published | **1.0.11** |
 | Next release | **1.0.11** |
 | Default bump | **patch** (`1.0.x` → `1.0.x+1`) for fixes, docs, CI, small APIs |
 | Minor bump | Backward-compatible features (`1.x.0`) |
@@ -55,7 +55,7 @@ Prefer many small patch releases. Stable API breaks require a major.
 
 ### 1. Changelog (**required — never skip**)
 
-Update root [CHANGELOG.md](../CHANGELOG.md) **first**, under a new version heading (e.g. `## 1.0.10`):
+Update root [CHANGELOG.md](../CHANGELOG.md) **first**, under a new version heading (e.g. `## 1.0.11`):
 
 - Short release summary line
 - Bullet sections as needed: **Added**, **Fixed / improved**, **Docs / tests**
@@ -134,8 +134,8 @@ Pages:
 ### 6. Git tag + GitHub release
 
 ```bash
-git tag v1.0.10
-git push origin v1.0.10
+git tag v1.0.11
+git push origin v1.0.11
 # gh release create with notes from CHANGELOG.md for this version
 ```
 

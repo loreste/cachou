@@ -89,7 +89,12 @@ const metrics = {
 
 function loadUsers() {
   if (process.env.CRM_USERS_JSON) {
-    const parsed = JSON.parse(process.env.CRM_USERS_JSON);
+    let parsed;
+    try {
+      parsed = JSON.parse(process.env.CRM_USERS_JSON);
+    } catch (err) {
+      throw new Error(`CRM_USERS_JSON is not valid JSON: ${err.message}`);
+    }
     if (!Array.isArray(parsed) || parsed.length === 0) throw new Error("CRM_USERS_JSON must be a non-empty array");
     return parsed.map((user, index) => {
       const passwordSalt = user.passwordSalt || `${user.username || index}-custom-salt`;
@@ -377,12 +382,33 @@ function readBody(req) {
       body += chunk;
       if (body.length > 1_000_000) {
         req.destroy();
-        reject(new Error("Request body too large"));
+        const err = new Error("Request body too large");
+        err.status = 413;
+        reject(err);
       }
     });
-    req.on("end", () => resolve(body ? JSON.parse(body) : {}));
+    req.on("end", () => {
+      if (!body) return resolve({});
+      try {
+        resolve(JSON.parse(body));
+      } catch {
+        const err = new Error("Invalid JSON body");
+        err.status = 400;
+        reject(err);
+      }
+    });
     req.on("error", reject);
   });
+}
+
+/** Parse a stored JSON payload; skip corrupt rows instead of crashing the API. */
+function parseStoredPayload(raw, label = "payload") {
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    console.warn(`CRM: skipping corrupt ${label}: ${err.message}`);
+    return null;
+  }
 }
 
 async function getRepository() {
@@ -489,26 +515,32 @@ async function postgresRepository(pg) {
         try {
           const typed = await listTypedRecords(query);
           const audit = await query(`SELECT payload FROM ${TABLE} WHERE kind = $1`, ["audit"]);
-          typed.audit = audit.rows.map(row => JSON.parse(row.payload));
+          typed.audit = audit.rows
+            .map(row => parseStoredPayload(row.payload, "audit"))
+            .filter(Boolean);
           return normalizeWorkspace(typed);
         } catch {}
       }
       const result = await query(`SELECT kind, payload FROM ${TABLE}`);
       const next = { contacts: [], companies: [], deals: [], activities: [], messages: [], audit: [] };
       for (const row of result.rows) {
-        if (next[row.kind]) next[row.kind].push(JSON.parse(row.payload));
+        if (!next[row.kind]) continue;
+        const parsed = parseStoredPayload(row.payload, row.kind);
+        if (parsed) next[row.kind].push(parsed);
       }
       return normalizeWorkspace(next);
     },
     async listKind(kind) {
       validateKind(kind);
       const result = await query(`SELECT payload FROM ${TABLE} WHERE kind = $1`, [kind]);
-      return result.rows.map(row => JSON.parse(row.payload));
+      return result.rows
+        .map(row => parseStoredPayload(row.payload, kind))
+        .filter(Boolean);
     },
     async save(kind, record) {
       validateKind(kind);
       const existing = await query(`SELECT payload FROM ${TABLE} WHERE kind = $1 AND id = $2`, [kind, record.id]);
-      const current = existing.rows[0] ? JSON.parse(existing.rows[0].payload) : null;
+      const current = existing.rows[0] ? parseStoredPayload(existing.rows[0].payload, kind) : null;
       const next = versionRecord(current ? [current] : [], record);
       await query(`DELETE FROM ${TABLE} WHERE kind = $1 AND id = $2`, [kind, next.id]);
       await query(`INSERT INTO ${TABLE} (kind, id, payload, updated_at) VALUES ($1, $2, $3, $4)`, [
@@ -1029,7 +1061,17 @@ wss.on("connection", async (socket, req) => {
         socket.send(JSON.stringify({ type: "error", error: "Message too large" }));
         return;
       }
-      const payload = JSON.parse(raw.toString());
+      let payload;
+      try {
+        payload = JSON.parse(raw.toString());
+      } catch {
+        socket.send(JSON.stringify({ type: "error", error: "Invalid JSON message" }));
+        return;
+      }
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        socket.send(JSON.stringify({ type: "error", error: "Message must be a JSON object" }));
+        return;
+      }
       const text = String(payload.text || "").trim();
       requirePermission(user, "messages:write");
       const author = user.name.slice(0, 48);

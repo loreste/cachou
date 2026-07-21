@@ -1687,6 +1687,15 @@ test("form helpers validate fields and guard async submit races", async () => {
   });
   assertEquals(await crossField.validate(), false, "Form-level validation can reject");
   assertEquals(crossField.fields.confirm.error(), "Passwords must match", "Form-level errors attach to fields");
+
+  const emptyValidate = createForm({ name: "Ada" }, { validate: () => ({}) });
+  assertEquals(await emptyValidate.validate(), true, "Empty form-error object is success");
+
+  const field = createField("a");
+  field.setValue("b");
+  assertEquals(field.dirty(), true, "Field is dirty after edit");
+  field.reset("b");
+  assertEquals(field.dirty(), false, "reset(x) clears dirty against new baseline");
 });
 
 test("accessibility helpers manage live regions and focus", async () => {
@@ -1846,6 +1855,20 @@ test("class directive toggles CSS classes reactively", () => {
   
   setIsActive(false);
   assertEquals(el.classList.contains("active"), false, "Class toggles off");
+});
+
+test("multiple class: directives do not wipe each other", () => {
+  const [foo, setFoo] = signal(true);
+  const [bar, setBar] = signal(true);
+  const el = html`<div class:foo=${foo} class:bar=${bar}>Multi</div>`;
+  assertEquals(el.classList.contains("foo") && el.classList.contains("bar"), true, "Both classes on");
+  setFoo(false);
+  assertEquals(el.classList.contains("foo"), false, "foo off");
+  assertEquals(el.classList.contains("bar"), true, "bar survives foo off");
+  setBar(false);
+  setFoo(true);
+  assertEquals(el.classList.contains("foo"), true, "foo back on");
+  assertEquals(el.classList.contains("bar"), false, "bar stays off");
 });
 
 test("class directive cleanup unsubscribes its direct signal binding", () => {

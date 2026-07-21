@@ -520,6 +520,22 @@ function getSSRAttributeName(source) {
 }
 
 /**
+ * Remove a trailing `attr=` / `attr="` / `attr='` prefix from an SSR HTML buffer
+ * when the bound value is false/null/undefined (attribute must be omitted entirely).
+ */
+function stripTrailingSSRAttribute(htmlString, attrBinding) {
+  return String(htmlString).replace(/([^\s"'=<>/]+)\s*=\s*(["'])?$/i, (match, name, quote) => {
+    const normalized = String(name).replace(/^\./, "").toLowerCase();
+    if (normalized !== attrBinding.name) return match;
+    if (attrBinding.quote) {
+      return quote === attrBinding.quote ? "" : match;
+    }
+    // Unquoted bindings never leave an open quote in the static prefix.
+    return quote ? match : "";
+  });
+}
+
+/**
  * Unwrap nested view functions produced by Show/For/Switch/components for SSR.
  * Signals are read once (snapshot). Match markers are left alone.
  */
@@ -912,26 +928,20 @@ function bindValue(node, binding, values) {
     }
 
     // Handle Class Toggling Directive: class:name=${signal}
+    // Always use classList.toggle so multiple class:* bindings (and static class=)
+    // coexist. Never assign className — that wipes sibling class: directives.
     if (binding.name.startsWith("class:")) {
       const className = binding.name.slice(6);
       const initialVal = values[binding.index];
-      const canAssignClassName = node.className === "";
-      const setClass = canAssignClassName
-        ? (val) => node.className = val ? className : ""
-        : (val) => node.classList.toggle(className, Boolean(val));
+      const setClass = (val) => node.classList.toggle(className, Boolean(val));
       if (typeof initialVal !== "function") {
         setClass(initialVal);
         return;
       }
       if (initialVal.$$cachouSignal) {
         setClass(initialVal());
-        if (canAssignClassName && initialVal.$$cachouSignal.subscribeClass) {
-          const binding = initialVal.$$cachouSignal.subscribeClass(node, className);
-          addNodeCleanup(node, () => initialVal.$$cachouSignal.unsubscribeClass(binding));
-        } else {
-          initialVal.$$cachouSignal.subscribe(setClass);
-          addNodeCleanup(node, () => initialVal.$$cachouSignal.unsubscribe(setClass));
-        }
+        initialVal.$$cachouSignal.subscribe(setClass);
+        addNodeCleanup(node, () => initialVal.$$cachouSignal.unsubscribe(setClass));
         return;
       }
       const stop = effect(() => {
@@ -1136,8 +1146,15 @@ export function html(strings) {
       return cached;
     }
     let htmlString = "";
+    // When a quoted attribute is omitted (false/null/undefined), the closing
+    // quote lives at the start of the next static segment — skip it.
+    let skipAttrCloseQuote = null;
     for (let i = 0; i < valueCount; i++) {
-      const str = strings[i];
+      let str = strings[i];
+      if (skipAttrCloseQuote) {
+        if (str.startsWith(skipAttrCloseQuote)) str = str.slice(1);
+        skipAttrCloseQuote = null;
+      }
       htmlString += str;
       let val = arguments[i + 1];
       const eventMatch = str.match(/on[a-z]+=\s*(["'])?$/i);
@@ -1155,17 +1172,32 @@ export function html(strings) {
         // URL/style/HTML-sink policy as the client DOM path.
         const attrBinding = getSSRAttributeBinding(str);
         if (attrBinding) {
-          const attrName = attrBinding.name;
-          if (isRawHTMLSink(attrName)) {
-            val = sanitizeRawHTMLSink(attrName, val);
-          } else if (isURLAttribute(attrName)) {
-            val = sanitizeAttributeValue(attrName, val);
-          } else if (attrName === "style") {
-            val = sanitizeStyleValue(val);
+          // Client removeAttribute path: false/null/undefined omit the attribute.
+          // Emitting attr="" would leave disabled/checked/hidden still active in HTML.
+          if (val === null || val === undefined || val === false) {
+            htmlString = stripTrailingSSRAttribute(htmlString, attrBinding);
+            if (attrBinding.quote) skipAttrCloseQuote = attrBinding.quote;
+            val = "";
+          } else {
+            const attrName = attrBinding.name;
+            if (isRawHTMLSink(attrName)) {
+              val = sanitizeRawHTMLSink(attrName, val);
+            } else if (isURLAttribute(attrName)) {
+              val = sanitizeAttributeValue(attrName, val);
+            } else if (attrName === "style") {
+              val = sanitizeStyleValue(val);
+            }
+            // After sanitization a value may become null — omit the attribute.
+            if (val === null || val === undefined || val === false) {
+              htmlString = stripTrailingSSRAttribute(htmlString, attrBinding);
+              if (attrBinding.quote) skipAttrCloseQuote = attrBinding.quote;
+              val = "";
+            } else {
+              const escaped = stringifySSRValue(val, true);
+              // Quoted templates already opened the quote in the static segment.
+              val = attrBinding.quote ? escaped : `"${escaped}"`;
+            }
           }
-          const escaped = stringifySSRValue(val, true);
-          // Quoted templates already opened the quote in the static segment.
-          val = attrBinding.quote ? escaped : `"${escaped}"`;
         } else {
           val = stringifySSRValue(val, false);
         }
@@ -1178,7 +1210,11 @@ export function html(strings) {
         htmlString += String(val);
       }
     }
-    htmlString += strings[strings.length - 1];
+    let tail = strings[strings.length - 1];
+    if (skipAttrCloseQuote && tail.startsWith(skipAttrCloseQuote)) {
+      tail = tail.slice(1);
+    }
+    htmlString += tail;
     return new SafeHTML(htmlString);
   }
 

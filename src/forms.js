@@ -20,6 +20,9 @@ export function createField(initialValue = "", options = {}) {
   const [error, setError] = signal(null);
   const [touched, setTouched] = signal(false);
   const [validating, setValidating] = signal(false);
+  // Baseline for dirty tracking. reset(x) both writes x and becomes the new clean baseline.
+  // Stored as a signal so dirty memo re-evaluates when baseline changes without a value change.
+  const [baseline, setBaseline] = signal(initialValue);
   const validator = normalizeValidator(options.validate);
   let validationId = 0;
 
@@ -54,6 +57,7 @@ export function createField(initialValue = "", options = {}) {
 
   const reset = (nextValue = initialValue) => {
     validationId++;
+    setBaseline(nextValue);
     setValueSignal(nextValue);
     setError(null);
     setTouched(false);
@@ -68,7 +72,7 @@ export function createField(initialValue = "", options = {}) {
     touched,
     setTouched,
     validating,
-    dirty: memo(() => value() !== initialValue),
+    dirty: memo(() => !Object.is(value(), baseline())),
     valid: memo(() => !error()),
     validate,
     reset
@@ -204,14 +208,20 @@ export function createForm(initialValues = {}, options = {}) {
     }
     if (options.validate) {
       const formErrors = await options.validate(currentValues);
-      if (formErrors && typeof formErrors === "object") {
+      // Success: null/undefined/false, or an empty object `{}`.
+      // Only non-empty string field errors (and non-null values) fail validation.
+      if (formErrors && typeof formErrors === "object" && !Array.isArray(formErrors)) {
+        let hasFormError = false;
         for (const key of Object.keys(formErrors)) {
+          const message = normalizeValidationResult(formErrors[key]);
+          if (message == null) continue;
+          hasFormError = true;
           if (fields[key]) {
             fields[key].setTouched(true);
-            fields[key].setError(formErrors[key]);
+            fields[key].setError(message);
           }
         }
-        ok = false;
+        if (hasFormError) ok = false;
       }
     }
     return ok;

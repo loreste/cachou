@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { signal, mapArray, createRoot } from "../../src/reactivity.js";
+import { signal, mapArray, createRoot, onCleanup } from "../../src/reactivity.js";
 
 describe("mapArray", () => {
   it("maps and grows", () => {
@@ -144,5 +144,71 @@ describe("mapArray", () => {
     assert.deepEqual(mapped(), [2]);
     setList([{ id: 1 }, { id: 2 }]);
     assert.deepEqual(mapped(), [1, 2]);
+  });
+
+  it("disposes per-item ownership when rows leave the list", () => {
+    createRoot(dispose => {
+      const [list, setList] = signal([
+        { id: "a" },
+        { id: "b" },
+        { id: "c" }
+      ]);
+      const disposed = [];
+      const mapped = mapArray(
+        list,
+        item => {
+          onCleanup(() => disposed.push(item.id));
+          return item.id;
+        },
+        item => item.id,
+        { uniqueKeys: true, reactiveItems: false }
+      );
+      assert.deepEqual(mapped(), ["a", "b", "c"]);
+      setList([{ id: "a" }, { id: "c" }]);
+      assert.deepEqual(mapped(), ["a", "c"]);
+      assert.deepEqual(disposed, ["b"], "Removed keyed row disposes its root");
+      dispose();
+      assert.deepEqual(disposed.sort(), ["a", "b", "c"], "Owner dispose tears down surviving rows");
+    });
+  });
+
+  it("reorders without disposing reused unique rows", () => {
+    createRoot(dispose => {
+      const [list, setList] = signal([{ id: "a" }, { id: "b" }]);
+      const disposed = [];
+      const mapped = mapArray(
+        list,
+        item => {
+          onCleanup(() => disposed.push(item.id));
+          return item.id;
+        },
+        item => item.id,
+        { uniqueKeys: true, reactiveItems: false }
+      );
+      assert.deepEqual(mapped(), ["a", "b"]);
+      setList([{ id: "b" }, { id: "a" }]);
+      assert.deepEqual(mapped(), ["b", "a"]);
+      assert.deepEqual(disposed, [], "Reorder must not dispose reused unique rows");
+      setList([{ id: "a" }]);
+      assert.deepEqual(mapped(), ["a"]);
+      assert.deepEqual(disposed, ["b"]);
+      dispose();
+    });
+  });
+
+  it("disposes non-unique rows when they leave", () => {
+    createRoot(dispose => {
+      const [list, setList] = signal(["x", "y"]);
+      const disposed = [];
+      const mapped = mapArray(list, (item, index) => {
+        onCleanup(() => disposed.push(`${item}:${index}`));
+        return item;
+      });
+      assert.deepEqual(mapped(), ["x", "y"]);
+      setList(["x"]);
+      assert.deepEqual(mapped(), ["x"]);
+      assert.equal(disposed.length, 1, "One row root disposed on shrink");
+      dispose();
+    });
   });
 });

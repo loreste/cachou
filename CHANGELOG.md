@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.11
+
+SSR boolean attributes, form dirty/validate correctness, multi `class:` coexistence, mapArray per-item dispose, action races, Layout `routeData`, CRM JSON hardening.
+
+### Fixed / improved
+
+- **SSR false attributes** — `disabled=${false}`, `checked=${false}`, `hidden=${false}`, and any other `attr=${false|null|undefined}` omit the attribute entirely (was emitting `attr=""` which stays active in HTML)
+- **`class:` multi-binding** — always uses `classList.toggle`; multiple `class:*` directives (and static `class=`) no longer wipe each other
+- **`createField.dirty`** — tracks against the last `reset(value)` baseline, not only the original initial value
+- **`createForm` form-level `validate`** — empty `{}` (and empty-string field messages) count as success instead of always failing
+- **`mapArray` / `For` / `Index` ownership** — each mapped row runs in its own reactive root; removed rows dispose on eviction, and owner dispose tears down survivors
+- **`createAction` submit races** — only the latest `submit` updates `pending` / `result` / `error` (stale callers still get their return/throw)
+- **`Layout` `routeData` prop** — resolves child load state eagerly so layout components receive the matched route’s load state (was always `null` because assignment happened only inside the lazy child view)
+- **CRM demo API** — invalid JSON request bodies return **400**; corrupt stored payloads are skipped; WebSocket messages reject non-object JSON cleanly; oversized bodies **413**
+
+### Docs / tests
+
+- Unit + browser coverage for SSR attribute omission, multi `class:`, dirty baseline, empty form validate, mapArray item dispose, createAction races, and Layout routeData
+- CRM smoke check for invalid JSON bodies
+
+
 ## 1.0.10
 
 Form control binding follow-ups: multi-select arrays, radio groups, hydrate select.

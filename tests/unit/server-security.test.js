@@ -161,7 +161,8 @@ describe("SSR quoted attribute security policy", () => {
     }
     const out = renderToString(App);
     assert.doesNotMatch(out, /javascript:/i);
-    assert.match(out, /<a href="">/);
+    // Sanitized-null URL attributes are omitted (not emitted as href="").
+    assert.doesNotMatch(out, /href=/);
   });
 
   it("blocks javascript: URLs in unquoted href bindings", async () => {

@@ -29,7 +29,8 @@ import {
   setQueryData,
   getQueryData,
   optimisticUpdate,
-  createForm
+  createForm,
+  Layout
 } from "../../src/index.js";
 import { stripTypeScript as stripTS } from "../../packages/compiler/lib/compile.mjs";
 import { applyNavigation, currentPath, currentSearch } from "../../src/router-state.js";
@@ -266,6 +267,107 @@ describe("createAction", () => {
     assert.equal(res.ok, true);
     assert.equal(action.result().ok, true);
     assert.equal(action.pending(), false);
+  });
+
+  it("guards overlapping submits so a slower first call cannot clobber state", async () => {
+    let resolveSlow;
+    const slow = new Promise(r => {
+      resolveSlow = r;
+    });
+    let step = 0;
+    const action = createAction(async data => {
+      const n = ++step;
+      if (data === "slow") {
+        await slow;
+        return { n, tag: "slow" };
+      }
+      return { n, tag: "fast" };
+    });
+
+    const p1 = action.submit("slow");
+    assert.equal(action.pending(), true);
+    const p2 = action.submit("fast");
+    const fast = await p2;
+    assert.equal(fast.tag, "fast");
+    assert.equal(action.result().tag, "fast", "latest submit wins result");
+    assert.equal(action.pending(), false, "pending clears when latest submit settles");
+    assert.equal(action.error(), null);
+
+    resolveSlow();
+    const slowRes = await p1;
+    assert.equal(slowRes.tag, "slow", "stale submit still resolves for the caller");
+    assert.equal(action.result().tag, "fast", "stale success does not overwrite newer result");
+    assert.equal(action.pending(), false);
+  });
+
+  it("ignores stale submit errors after a newer success", async () => {
+    let rejectSlow;
+    const slow = new Promise((_, rej) => {
+      rejectSlow = rej;
+    });
+    const action = createAction(async data => {
+      if (data === "slow") {
+        await slow;
+        return { tag: "slow" };
+      }
+      return { tag: "fast" };
+    });
+
+    const p1 = action.submit("slow");
+    await action.submit("fast");
+    assert.equal(action.result().tag, "fast");
+
+    rejectSlow(new Error("stale-fail"));
+    await assert.rejects(() => p1, /stale-fail/);
+    assert.equal(action.error(), null, "stale error must not set error signal");
+    assert.equal(action.result().tag, "fast");
+    assert.equal(action.pending(), false);
+  });
+});
+
+describe("Layout routeData prop", () => {
+  it("passes child load state on the layout component props", async () => {
+    configureRouter({ history: "memory", initialPath: "/app/hi" });
+    let seenRouteData = null;
+    let layoutText = "";
+    let dispose;
+
+    function unwrapView(value, depth = 0) {
+      if (depth > 16) return value;
+      if (typeof value === "function" && !value.$$cachouSignal && !value.$$cachouMatch) {
+        return unwrapView(value(), depth + 1);
+      }
+      return value;
+    }
+
+    createRoot(rootDispose => {
+      dispose = rootDispose;
+      const child = Route({
+        path: "/app/:slug",
+        load: ({ params }) => ({ title: params.slug }),
+        component: (params, state) => `page:${state.data()?.title || "…"}`
+      });
+      // Route() returns a render function with $$cachouRoute metadata.
+      const layout = Layout({
+        path: "/app",
+        component: props => {
+          seenRouteData = props.routeData;
+          return `layout:${props.routeData ? "has-state" : "none"}`;
+        },
+        children: [child]
+      });
+      layoutText = String(unwrapView(layout));
+    });
+
+    assert.match(layoutText, /layout:has-state/, "Layout component rendered with routeData object");
+    assert.ok(seenRouteData, "Layout receives routeData for the matched child");
+    assert.equal(typeof seenRouteData.data, "function");
+    assert.equal(typeof seenRouteData.loading, "function");
+
+    // Resource load is async; wait for data to settle.
+    await new Promise(r => setTimeout(r, 30));
+    assert.equal(seenRouteData.data()?.title, "hi");
+    dispose?.();
   });
 });
 
@@ -541,6 +643,22 @@ describe("createField validation", () => {
     assert.equal(bad.error(), "nope");
   });
 
+  it("dirty uses reset baseline, not the original initial value", async () => {
+    const { createField } = await import("../../src/forms.js");
+    const field = createField("a");
+    assert.equal(field.dirty(), false);
+    field.setValue("b");
+    assert.equal(field.dirty(), true);
+    field.reset("b");
+    assert.equal(field.value(), "b");
+    assert.equal(field.dirty(), false, "reset(x) marks the field clean against x");
+    field.setValue("c");
+    assert.equal(field.dirty(), true);
+    field.reset();
+    assert.equal(field.value(), "a", "reset() restores the original initial value");
+    assert.equal(field.dirty(), false);
+  });
+
   it("stale async validate does not report false when state is valid", async () => {
     const { createField } = await import("../../src/forms.js");
     let resolveSlow;
@@ -564,6 +682,27 @@ describe("createField validation", () => {
     resolveSlow();
     assert.equal(await p1, true); // stale run reports current validity
     assert.equal(field.error(), null);
+  });
+});
+
+describe("createForm form-level validate", () => {
+  it("treats empty error object as success", async () => {
+    const { createForm } = await import("../../src/forms.js");
+    const form = createForm({ name: "Ada" }, {
+      validate: () => ({})
+    });
+    assert.equal(await form.validate(), true, "validate: () => ({}) succeeds");
+    assert.equal(form.fields.name.error(), null);
+  });
+
+  it("applies only non-empty string form errors", async () => {
+    const { createForm } = await import("../../src/forms.js");
+    const form = createForm({ a: "1", b: "2" }, {
+      validate: () => ({ a: "bad", b: "", c: "orphan" })
+    });
+    assert.equal(await form.validate(), false);
+    assert.equal(form.fields.a.error(), "bad");
+    assert.equal(form.fields.b.error(), null, "empty string form errors are ignored");
   });
 });
 

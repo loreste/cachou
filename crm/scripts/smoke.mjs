@@ -78,6 +78,18 @@ try {
   if (!anonymousWorkspace.headers.get("x-request-id") || !anonymousWorkspaceBody.requestId) {
     throw new Error("Expected request id on anonymous workspace error");
   }
+  const badJson = await fetch(`${API}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: "http://127.0.0.1:5190" },
+    body: "{not-json"
+  });
+  if (badJson.status !== 400) {
+    throw new Error(`Expected invalid JSON body to return 400, got ${badJson.status}`);
+  }
+  const badJsonBody = await badJson.json();
+  if (!/Invalid JSON/i.test(badJsonBody.error || "")) {
+    throw new Error(`Expected Invalid JSON body error, got ${JSON.stringify(badJsonBody)}`);
+  }
   const admin = await login("admin", "admin");
   const sales = await login("sales", "sales");
   if (!admin.expiresAt || Date.parse(admin.expiresAt) <= Date.now()) {

@@ -909,8 +909,8 @@ describe("SSR isolation", () => {
 
   it("sanitizes URL and inline style interpolations during SSR", () => {
     const output = String(renderToString(() => html`<a href=${"javascript:alert(1)"} style=${"background:url(javascript:alert(1))"}>x</a>`));
-    assert.match(output, /href=""/);
-    assert.match(output, /style=""/);
+    // Unsafe URLs omit the attribute entirely (null after sanitize); empty style may remain.
+    assert.doesNotMatch(output, /href=/);
     assert.doesNotMatch(output, /javascript:/i);
   });
 
