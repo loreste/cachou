@@ -57,13 +57,13 @@ export default function DealEditor(props = {}) {
 <div class="modal" role="dialog" aria-modal="true" aria-label="Deal editor" data-c-dealeditor>
   <form class="editor" onsubmit=${props.persistDeal} data-c-dealeditor>
     <header data-c-dealeditor>
-      <h2 data-c-dealeditor>${props.current.name ? "Edit deal" : "New deal"}</h2>
+      <h2 data-c-dealeditor>${() => (props.draft().name ? "Edit deal" : "New deal")}</h2>
       <button type="button" class="icon" aria-label="Close deal editor" onclick=${props.close} data-c-dealeditor>x</button>
     </header>
-    <label data-c-dealeditor>Name<input value=${props.current.name} oninput=${event => props.setDraft({ ...props.draft(), name: event.target.value })}  data-c-dealeditor/></label>
-    <label data-c-dealeditor>Company<input value=${props.current.company} oninput=${event => props.setDraft({ ...props.draft(), company: event.target.value })}  data-c-dealeditor/></label>
-    <label data-c-dealeditor>Value<input type="number" value=${props.current.value} oninput=${event => props.setDraft({ ...props.draft(), value: Number(event.target.value || 0) })}  data-c-dealeditor/></label>
-    <label data-c-dealeditor>Stage<select value=${props.current.stage} onchange=${event => props.setDraft({ ...props.draft(), stage: event.target.value })} data-c-dealeditor>
+    <label data-c-dealeditor>Name<input value=${() => props.draft().name} oninput=${event => props.setDraft({ ...props.draft(), name: event.target.value })}  data-c-dealeditor/></label>
+    <label data-c-dealeditor>Company<input value=${() => props.draft().company} oninput=${event => props.setDraft({ ...props.draft(), company: event.target.value })}  data-c-dealeditor/></label>
+    <label data-c-dealeditor>Value<input type="number" value=${() => props.draft().value} oninput=${event => props.setDraft({ ...props.draft(), value: Number(event.target.value || 0) })}  data-c-dealeditor/></label>
+    <label data-c-dealeditor>Stage<select value=${() => props.draft().stage} onchange=${event => props.setDraft({ ...props.draft(), stage: event.target.value })} data-c-dealeditor>
       ${props.stages.map(stage => html`<option value=${stage} data-c-dealeditor>${stage}</option>`)}
     </select></label>
     <footer data-c-dealeditor>

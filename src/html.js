@@ -1271,6 +1271,20 @@ export function html(strings) {
     }
   }
 
+  // Final pass: any <select> that received value= before its options (or that
+  // has static options) gets one more apply after the full binding walk.
+  if (!isHydrating) {
+    const seen = new Set();
+    for (let i = 0; i < targetNodes.length; i++) {
+      const node = targetNodes[i];
+      if (!node || seen.has(node)) continue;
+      if (isHTMLSelect(node) && node.$$cachouSelectValue !== undefined) {
+        applySelectValue(node, node.$$cachouSelectValue);
+        seen.add(node);
+      }
+    }
+  }
+
   if (fragment.childNodes.length === 1) {
     return fragment.firstChild;
   }

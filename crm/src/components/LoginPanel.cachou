@@ -61,8 +61,8 @@
   <span>Cachou CRM</span>
   <h1>Sign in</h1>
   <p class="status-line"><i class={props.systemOnline() ? "dot online" : "dot"}></i>{props.systemMode()}</p>
-  <label>Username<input value={props.current.username} oninput={event => props.setLoginDraft({ ...props.loginDraft(), username: event.target.value })} /></label>
-  <label>Password<input type="password" value={props.current.password} oninput={event => props.setLoginDraft({ ...props.loginDraft(), password: event.target.value })} /></label>
+  <label>Username<input value={() => props.loginDraft().username} oninput={event => props.setLoginDraft({ ...props.loginDraft(), username: event.target.value })} /></label>
+  <label>Password<input type="password" value={() => props.loginDraft().password} oninput={event => props.setLoginDraft({ ...props.loginDraft(), password: event.target.value })} /></label>
   <div class="login-shortcuts">
     {props.accounts.map(username => html`<button type="button" class="ghost" onclick=${() => props.setLoginDraft({ username, password: username })}>${username}</button>`)}
   </div>

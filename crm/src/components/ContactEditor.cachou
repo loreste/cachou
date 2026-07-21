@@ -57,18 +57,18 @@
 <div class="modal" role="dialog" aria-modal="true" aria-label="Contact editor">
   <form class="editor" onsubmit={props.persistDraft}>
     <header>
-      <h2>{props.current.name ? "Edit contact" : "New contact"}</h2>
+      <h2>{() => (props.draft().name ? "Edit contact" : "New contact")}</h2>
       <button type="button" class="icon" aria-label="Close contact editor" onclick={props.close}>x</button>
     </header>
-    <label>Name<input value={props.current.name} oninput={event => props.setDraft({ ...props.draft(), name: event.target.value })} /></label>
-    <label>Email<input value={props.current.email} oninput={event => props.setDraft({ ...props.draft(), email: event.target.value })} /></label>
-    <label>Phone<input value={props.current.phone} oninput={event => props.setDraft({ ...props.draft(), phone: event.target.value })} /></label>
-    <label>Company<input value={props.current.company} oninput={event => props.setDraft({ ...props.draft(), company: event.target.value })} /></label>
-    <label>Status<select value={props.current.status} onchange={event => props.setDraft({ ...props.draft(), status: event.target.value })}>
+    <label>Name<input value={() => props.draft().name} oninput={event => props.setDraft({ ...props.draft(), name: event.target.value })} /></label>
+    <label>Email<input value={() => props.draft().email} oninput={event => props.setDraft({ ...props.draft(), email: event.target.value })} /></label>
+    <label>Phone<input value={() => props.draft().phone} oninput={event => props.setDraft({ ...props.draft(), phone: event.target.value })} /></label>
+    <label>Company<input value={() => props.draft().company} oninput={event => props.setDraft({ ...props.draft(), company: event.target.value })} /></label>
+    <label>Status<select value={() => props.draft().status} onchange={event => props.setDraft({ ...props.draft(), status: event.target.value })}>
       {props.statuses.map(status => html`<option value=${status}>${status}</option>`)}
     </select></label>
-    <label>Owner<input value={props.current.owner} oninput={event => props.setDraft({ ...props.draft(), owner: event.target.value })} /></label>
-    <label>Notes<textarea oninput={event => props.setDraft({ ...props.draft(), notes: event.target.value })}>{props.current.notes}</textarea></label>
+    <label>Owner<input value={() => props.draft().owner} oninput={event => props.setDraft({ ...props.draft(), owner: event.target.value })} /></label>
+    <label>Notes<textarea value={() => props.draft().notes || ""} oninput={event => props.setDraft({ ...props.draft(), notes: event.target.value })}></textarea></label>
     <footer>
       <button type="button" class="ghost" onclick={props.close}>Cancel</button>
       <button disabled={props.busy}>{() => props.busy() ? "Saving..." : "Save contact"}</button>

@@ -53,12 +53,12 @@
 <div class="modal" role="dialog" aria-modal="true" aria-label="Company editor">
   <form class="editor" onsubmit={props.persistCompany}>
     <header>
-      <h2>{props.current.name ? "Edit company" : "New company"}</h2>
+      <h2>{() => (props.draft().name ? "Edit company" : "New company")}</h2>
       <button type="button" class="icon" aria-label="Close company editor" onclick={props.close}>x</button>
     </header>
-    <label>Name<input value={props.current.name} oninput={event => props.setDraft({ ...props.draft(), name: event.target.value })} /></label>
-    <label>Segment<input value={props.current.segment} oninput={event => props.setDraft({ ...props.draft(), segment: event.target.value })} /></label>
-    <label>Owner<input value={props.current.owner} oninput={event => props.setDraft({ ...props.draft(), owner: event.target.value })} /></label>
+    <label>Name<input value={() => props.draft().name} oninput={event => props.setDraft({ ...props.draft(), name: event.target.value })} /></label>
+    <label>Segment<input value={() => props.draft().segment} oninput={event => props.setDraft({ ...props.draft(), segment: event.target.value })} /></label>
+    <label>Owner<input value={() => props.draft().owner} oninput={event => props.setDraft({ ...props.draft(), owner: event.target.value })} /></label>
     <footer>
       <button type="button" class="ghost" onclick={props.close}>Cancel</button>
       <button disabled={props.busy}>{() => props.busy() ? "Saving..." : "Save company"}</button>

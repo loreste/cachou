@@ -104,14 +104,14 @@
     </article>`, user => user.id, { uniqueKeys: true, reactiveItems: false })}
     <form onsubmit={props.saveUser}>
       <strong>Admin user management</strong>
-      <label>Username<input value={props.userDraft().username} oninput={event => props.setUserDraft({ ...props.userDraft(), username: event.target.value })} /></label>
-      <label>Name<input value={props.userDraft().name} oninput={event => props.setUserDraft({ ...props.userDraft(), name: event.target.value })} /></label>
-      <label>Role<select value={props.userDraft().role} onchange={event => props.setUserDraft({ ...props.userDraft(), role: event.target.value })}>
+      <label>Username<input value={() => props.userDraft().username} oninput={event => props.setUserDraft({ ...props.userDraft(), username: event.target.value })} /></label>
+      <label>Name<input value={() => props.userDraft().name} oninput={event => props.setUserDraft({ ...props.userDraft(), name: event.target.value })} /></label>
+      <label>Role<select value={() => props.userDraft().role} onchange={event => props.setUserDraft({ ...props.userDraft(), role: event.target.value })}>
         <option value="Sales">Sales</option>
         <option value="Manager">Manager</option>
         <option value="Admin">Admin</option>
       </select></label>
-      <label>Password<input type="password" value={props.userDraft().password} oninput={event => props.setUserDraft({ ...props.userDraft(), password: event.target.value })} /></label>
+      <label>Password<input type="password" value={() => props.userDraft().password} oninput={event => props.setUserDraft({ ...props.userDraft(), password: event.target.value })} /></label>
       <div class="actions">
         <button>Save user</button>
         <button type="button" class="ghost" onclick={props.resetDemo}>Reset demo</button>
@@ -149,9 +149,9 @@
     <span>Audit stream</span>
     <h2>Timeline</h2>
     <div class="filters">
-      <label>Actor<input value={props.auditFilter().actor} oninput={event => props.setAuditFilter({ ...props.auditFilter(), actor: event.target.value })} /></label>
-      <label>Action<input value={props.auditFilter().action} oninput={event => props.setAuditFilter({ ...props.auditFilter(), action: event.target.value })} /></label>
-      <label>Role<select value={props.auditFilter().role} onchange={event => props.setAuditFilter({ ...props.auditFilter(), role: event.target.value })}>
+      <label>Actor<input value={() => props.auditFilter().actor} oninput={event => props.setAuditFilter({ ...props.auditFilter(), actor: event.target.value })} /></label>
+      <label>Action<input value={() => props.auditFilter().action} oninput={event => props.setAuditFilter({ ...props.auditFilter(), action: event.target.value })} /></label>
+      <label>Role<select value={() => props.auditFilter().role} onchange={event => props.setAuditFilter({ ...props.auditFilter(), role: event.target.value })}>
         <option value="">Any role</option>
         <option value="Sales">Sales</option>
         <option value="Manager">Manager</option>

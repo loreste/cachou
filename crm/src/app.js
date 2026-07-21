@@ -818,10 +818,8 @@ function App() {
 }
 
 function LoginView() {
-  const current = loginDraft();
   return html`<main class="login-shell">
     ${() => LoginPanel({
-      current,
       signIn,
       loginDraft,
       setLoginDraft,
@@ -985,6 +983,8 @@ function LiveRoom() {
 }
 
 function Security() {
+  // Do not read userDraft/auditFilter here — SecurityPanel binds them with
+  // () => accessors so typing does not remount the whole security view.
   const security = securityState() || { users: [], audit: [] };
   return SecurityPanel({
     users: security.users || [],
@@ -1203,13 +1203,20 @@ async function completeActivity(activity) {
 
 async function createUser(event) {
   event.preventDefault();
+  if (busy()) return;
+  setBusy(true);
+  // Hold the draft for the whole request so selects/inputs do not flash empty
+  // or stale server state while the save is in flight.
+  const snapshot = userDraft();
   try {
-    await saveUser(userDraft());
+    await saveUser(snapshot);
     setUserDraft({ username: "", name: "", role: "Sales", password: "" });
     securityControls.refetch();
     showToast("User saved");
   } catch (err) {
     showToast(err.message);
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -1287,10 +1294,12 @@ async function runCollaborationLab() {
 }
 
 function editor() {
+  // Pass draft signals into editors — field bindings use () => draft().field
+  // so keystrokes do not remount the modal (which used to fight <select> value).
   const current = draft();
+  if (!current) return null;
   if (current.kind === "companies") {
     return CompanyEditor({
-      current,
       draft,
       setDraft,
       persistCompany,
@@ -1300,7 +1309,6 @@ function editor() {
   }
   if (current.kind === "deals") {
     return DealEditor({
-      current,
       draft,
       setDraft,
       persistDeal,
@@ -1310,7 +1318,6 @@ function editor() {
     });
   }
   return ContactEditor({
-    current,
     draft,
     setDraft,
     persistDraft,

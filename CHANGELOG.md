@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.9
+
+Follow-up: select binding final pass + reactive form value guidance (CRM demo fixed).
+
+### Fixed / improved
+
+- **Select final apply** — after all template bindings run, re-apply any remembered `<select>` values once more (covers static option lists + ordering edge cases)
+- **CRM demo forms** — Security / contact / company / deal / login fields bind with `() => draft().field` instead of one-shot `draft().field` reads (stops full panel remount on every keystroke and role “revert” flashes)
+- **CRM user save** — holds draft for the whole request and uses busy guard so controls do not clear mid-flight
+
+### Docs
+
+- How-to forms: wrong vs right reactive `value=` patterns
+
+
 ## 1.0.8
 
 Fix `<select>` value binding when options mount after `value=`.

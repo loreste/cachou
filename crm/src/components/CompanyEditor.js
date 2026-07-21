@@ -57,12 +57,12 @@ export default function CompanyEditor(props = {}) {
 <div class="modal" role="dialog" aria-modal="true" aria-label="Company editor" data-c-companyeditor>
   <form class="editor" onsubmit=${props.persistCompany} data-c-companyeditor>
     <header data-c-companyeditor>
-      <h2 data-c-companyeditor>${props.current.name ? "Edit company" : "New company"}</h2>
+      <h2 data-c-companyeditor>${() => (props.draft().name ? "Edit company" : "New company")}</h2>
       <button type="button" class="icon" aria-label="Close company editor" onclick=${props.close} data-c-companyeditor>x</button>
     </header>
-    <label data-c-companyeditor>Name<input value=${props.current.name} oninput=${event => props.setDraft({ ...props.draft(), name: event.target.value })}  data-c-companyeditor/></label>
-    <label data-c-companyeditor>Segment<input value=${props.current.segment} oninput=${event => props.setDraft({ ...props.draft(), segment: event.target.value })}  data-c-companyeditor/></label>
-    <label data-c-companyeditor>Owner<input value=${props.current.owner} oninput=${event => props.setDraft({ ...props.draft(), owner: event.target.value })}  data-c-companyeditor/></label>
+    <label data-c-companyeditor>Name<input value=${() => props.draft().name} oninput=${event => props.setDraft({ ...props.draft(), name: event.target.value })}  data-c-companyeditor/></label>
+    <label data-c-companyeditor>Segment<input value=${() => props.draft().segment} oninput=${event => props.setDraft({ ...props.draft(), segment: event.target.value })}  data-c-companyeditor/></label>
+    <label data-c-companyeditor>Owner<input value=${() => props.draft().owner} oninput=${event => props.setDraft({ ...props.draft(), owner: event.target.value })}  data-c-companyeditor/></label>
     <footer data-c-companyeditor>
       <button type="button" class="ghost" onclick=${props.close} data-c-companyeditor>Cancel</button>
       <button disabled=${props.busy} data-c-companyeditor>${() => props.busy() ? "Saving..." : "Save company"}</button>

@@ -1,6 +1,6 @@
 {
   "name": "@cachoujs/compiler",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "CachouJS .cachou SFC compiler (pure JS, optional native binaries)",
   "type": "module",
   "bin": {

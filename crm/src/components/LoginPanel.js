@@ -58,8 +58,8 @@ export default function LoginPanel(props = {}) {
   <span data-c-loginpanel>Cachou CRM</span>
   <h1 data-c-loginpanel>Sign in</h1>
   <p class="status-line" data-c-loginpanel><i class=${props.systemOnline() ? "dot online" : "dot"} data-c-loginpanel></i>${props.systemMode()}</p>
-  <label data-c-loginpanel>Username<input value=${props.current.username} oninput=${event => props.setLoginDraft({ ...props.loginDraft(), username: event.target.value })}  data-c-loginpanel/></label>
-  <label data-c-loginpanel>Password<input type="password" value=${props.current.password} oninput=${event => props.setLoginDraft({ ...props.loginDraft(), password: event.target.value })}  data-c-loginpanel/></label>
+  <label data-c-loginpanel>Username<input value=${() => props.loginDraft().username} oninput=${event => props.setLoginDraft({ ...props.loginDraft(), username: event.target.value })}  data-c-loginpanel/></label>
+  <label data-c-loginpanel>Password<input type="password" value=${() => props.loginDraft().password} oninput=${event => props.setLoginDraft({ ...props.loginDraft(), password: event.target.value })}  data-c-loginpanel/></label>
   <div class="login-shortcuts" data-c-loginpanel>
     ${props.accounts.map(username => html`<button type="button" class="ghost" onclick=${() => props.setLoginDraft({ username, password: username })} data-c-loginpanel>${username}</button>`)}
   </div>

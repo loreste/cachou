@@ -70,14 +70,14 @@ export default function SecurityPanel(props = {}) {
     </article>`, user => user.id, { uniqueKeys: true, reactiveItems: false })}
     <form onsubmit=${props.saveUser} data-c-securitypanel>
       <strong data-c-securitypanel>Admin user management</strong>
-      <label data-c-securitypanel>Username<input value=${props.userDraft().username} oninput=${event => props.setUserDraft({ ...props.userDraft(), username: event.target.value })}  data-c-securitypanel/></label>
-      <label data-c-securitypanel>Name<input value=${props.userDraft().name} oninput=${event => props.setUserDraft({ ...props.userDraft(), name: event.target.value })}  data-c-securitypanel/></label>
-      <label data-c-securitypanel>Role<select value=${props.userDraft().role} onchange=${event => props.setUserDraft({ ...props.userDraft(), role: event.target.value })} data-c-securitypanel>
+      <label data-c-securitypanel>Username<input value=${() => props.userDraft().username} oninput=${event => props.setUserDraft({ ...props.userDraft(), username: event.target.value })}  data-c-securitypanel/></label>
+      <label data-c-securitypanel>Name<input value=${() => props.userDraft().name} oninput=${event => props.setUserDraft({ ...props.userDraft(), name: event.target.value })}  data-c-securitypanel/></label>
+      <label data-c-securitypanel>Role<select value=${() => props.userDraft().role} onchange=${event => props.setUserDraft({ ...props.userDraft(), role: event.target.value })} data-c-securitypanel>
         <option value="Sales" data-c-securitypanel>Sales</option>
         <option value="Manager" data-c-securitypanel>Manager</option>
         <option value="Admin" data-c-securitypanel>Admin</option>
       </select></label>
-      <label data-c-securitypanel>Password<input type="password" value=${props.userDraft().password} oninput=${event => props.setUserDraft({ ...props.userDraft(), password: event.target.value })}  data-c-securitypanel/></label>
+      <label data-c-securitypanel>Password<input type="password" value=${() => props.userDraft().password} oninput=${event => props.setUserDraft({ ...props.userDraft(), password: event.target.value })}  data-c-securitypanel/></label>
       <div class="actions" data-c-securitypanel>
         <button data-c-securitypanel>Save user</button>
         <button type="button" class="ghost" onclick=${props.resetDemo} data-c-securitypanel>Reset demo</button>
@@ -115,9 +115,9 @@ export default function SecurityPanel(props = {}) {
     <span data-c-securitypanel>Audit stream</span>
     <h2 data-c-securitypanel>Timeline</h2>
     <div class="filters" data-c-securitypanel>
-      <label data-c-securitypanel>Actor<input value=${props.auditFilter().actor} oninput=${event => props.setAuditFilter({ ...props.auditFilter(), actor: event.target.value })}  data-c-securitypanel/></label>
-      <label data-c-securitypanel>Action<input value=${props.auditFilter().action} oninput=${event => props.setAuditFilter({ ...props.auditFilter(), action: event.target.value })}  data-c-securitypanel/></label>
-      <label data-c-securitypanel>Role<select value=${props.auditFilter().role} onchange=${event => props.setAuditFilter({ ...props.auditFilter(), role: event.target.value })} data-c-securitypanel>
+      <label data-c-securitypanel>Actor<input value=${() => props.auditFilter().actor} oninput=${event => props.setAuditFilter({ ...props.auditFilter(), actor: event.target.value })}  data-c-securitypanel/></label>
+      <label data-c-securitypanel>Action<input value=${() => props.auditFilter().action} oninput=${event => props.setAuditFilter({ ...props.auditFilter(), action: event.target.value })}  data-c-securitypanel/></label>
+      <label data-c-securitypanel>Role<select value=${() => props.auditFilter().role} onchange=${event => props.setAuditFilter({ ...props.auditFilter(), role: event.target.value })} data-c-securitypanel>
         <option value="" data-c-securitypanel>Any role</option>
         <option value="Sales" data-c-securitypanel>Sales</option>
         <option value="Manager" data-c-securitypanel>Manager</option>

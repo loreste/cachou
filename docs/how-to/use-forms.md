@@ -37,6 +37,20 @@ html`
 
 **App state tip:** keep selection signals at the app (or panel owner) level, not inside a view function that re-runs and recreates signals on every parent update — otherwise the control appears to “reset” even when the DOM binding is correct.
 
+**Reactive value tip:** bind with an accessor, not a one-shot read:
+
+```javascript
+// Wrong — evaluates once; parent remounts or select stays stale
+value=${userDraft().role}
+
+// Right — Cachou subscribes and updates the control
+value=${() => userDraft().role}
+// or pass the signal getter when it is the whole value
+value=${serverId}
+```
+
+Reading `userDraft().role` *while building* a parent view also tracks that signal and **remounts the whole panel on every keystroke**. Prefer accessors so only the control updates.
+
 **Optimistic UI tip:** when a role/permission PATCH is in flight, either keep showing the optimistic value or disable the control until the request settles so a re-render with stale props does not look like a revert.
 
 ---

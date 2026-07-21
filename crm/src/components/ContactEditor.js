@@ -57,18 +57,18 @@ export default function ContactEditor(props = {}) {
 <div class="modal" role="dialog" aria-modal="true" aria-label="Contact editor" data-c-contacteditor>
   <form class="editor" onsubmit=${props.persistDraft} data-c-contacteditor>
     <header data-c-contacteditor>
-      <h2 data-c-contacteditor>${props.current.name ? "Edit contact" : "New contact"}</h2>
+      <h2 data-c-contacteditor>${() => (props.draft().name ? "Edit contact" : "New contact")}</h2>
       <button type="button" class="icon" aria-label="Close contact editor" onclick=${props.close} data-c-contacteditor>x</button>
     </header>
-    <label data-c-contacteditor>Name<input value=${props.current.name} oninput=${event => props.setDraft({ ...props.draft(), name: event.target.value })}  data-c-contacteditor/></label>
-    <label data-c-contacteditor>Email<input value=${props.current.email} oninput=${event => props.setDraft({ ...props.draft(), email: event.target.value })}  data-c-contacteditor/></label>
-    <label data-c-contacteditor>Phone<input value=${props.current.phone} oninput=${event => props.setDraft({ ...props.draft(), phone: event.target.value })}  data-c-contacteditor/></label>
-    <label data-c-contacteditor>Company<input value=${props.current.company} oninput=${event => props.setDraft({ ...props.draft(), company: event.target.value })}  data-c-contacteditor/></label>
-    <label data-c-contacteditor>Status<select value=${props.current.status} onchange=${event => props.setDraft({ ...props.draft(), status: event.target.value })} data-c-contacteditor>
+    <label data-c-contacteditor>Name<input value=${() => props.draft().name} oninput=${event => props.setDraft({ ...props.draft(), name: event.target.value })}  data-c-contacteditor/></label>
+    <label data-c-contacteditor>Email<input value=${() => props.draft().email} oninput=${event => props.setDraft({ ...props.draft(), email: event.target.value })}  data-c-contacteditor/></label>
+    <label data-c-contacteditor>Phone<input value=${() => props.draft().phone} oninput=${event => props.setDraft({ ...props.draft(), phone: event.target.value })}  data-c-contacteditor/></label>
+    <label data-c-contacteditor>Company<input value=${() => props.draft().company} oninput=${event => props.setDraft({ ...props.draft(), company: event.target.value })}  data-c-contacteditor/></label>
+    <label data-c-contacteditor>Status<select value=${() => props.draft().status} onchange=${event => props.setDraft({ ...props.draft(), status: event.target.value })} data-c-contacteditor>
       ${props.statuses.map(status => html`<option value=${status} data-c-contacteditor>${status}</option>`)}
     </select></label>
-    <label data-c-contacteditor>Owner<input value=${props.current.owner} oninput=${event => props.setDraft({ ...props.draft(), owner: event.target.value })}  data-c-contacteditor/></label>
-    <label data-c-contacteditor>Notes<textarea oninput=${event => props.setDraft({ ...props.draft(), notes: event.target.value })} data-c-contacteditor>${props.current.notes}</textarea></label>
+    <label data-c-contacteditor>Owner<input value=${() => props.draft().owner} oninput=${event => props.setDraft({ ...props.draft(), owner: event.target.value })}  data-c-contacteditor/></label>
+    <label data-c-contacteditor>Notes<textarea value=${() => props.draft().notes || ""} oninput=${event => props.setDraft({ ...props.draft(), notes: event.target.value })} data-c-contacteditor></textarea></label>
     <footer data-c-contacteditor>
       <button type="button" class="ghost" onclick=${props.close} data-c-contacteditor>Cancel</button>
       <button disabled=${props.busy} data-c-contacteditor>${() => props.busy() ? "Saving..." : "Save contact"}</button>
