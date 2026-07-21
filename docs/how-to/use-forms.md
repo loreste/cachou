@@ -6,6 +6,41 @@ Related: [Templates](./use-templates-and-directives.md) (`bind:`), [API: Forms](
 
 ---
 
+## `<select>` value binding
+
+Cachou templates often bind `value=` on `<select>` **before** dynamic `<option>` children are inserted. Browsers ignore `select.value` when no matching option exists yet, which used to leave a placeholder selected.
+
+From **1.0.8**, Cachou remembers the desired value and **re-applies** it after options mount or change. These all work:
+
+```javascript
+// Preferred: value on the select + dynamic options
+const [serverId, setServerId] = signal("prod");
+const servers = () => [{ id: "prod", name: "Production" }, { id: "staging", name: "Staging" }];
+
+html`
+  <select value=${serverId} onchange=${e => setServerId(e.target.value)}>
+    ${() => servers().map(s => html`<option value=${s.id}>${s.name}</option>`)}
+  </select>
+`;
+
+// Or bind:value / model
+html`<select bind:value=${[serverId, setServerId]}>...</select>`;
+
+// Or per-option selected (also supported)
+html`
+  <select>
+    <option value="user" selected=${() => role() === "user"}>User</option>
+    <option value="admin" selected=${() => role() === "admin"}>Admin</option>
+  </select>
+`;
+```
+
+**App state tip:** keep selection signals at the app (or panel owner) level, not inside a view function that re-runs and recreates signals on every parent update — otherwise the control appears to “reset” even when the DOM binding is correct.
+
+**Optimistic UI tip:** when a role/permission PATCH is in flight, either keep showing the optimistic value or disable the control until the request settles so a re-render with stale props does not look like a revert.
+
+---
+
 ## Full form example
 
 ```javascript

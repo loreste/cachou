@@ -1265,6 +1265,60 @@ test("Two-way form binding directive (bind:value)", () => {
   assertEquals(el.value, "set-programmatically", "Signal updates input reactively");
 });
 
+test("select value applies after dynamic options mount", () => {
+  // value= is bound before child options; browsers drop the value until options exist.
+  const [selected, setSelected] = signal("b");
+  const [items] = signal([
+    { id: "a", label: "Alpha" },
+    { id: "b", label: "Beta" },
+    { id: "c", label: "Gamma" }
+  ]);
+  const el = html`
+    <select value=${selected}>
+      ${() => items().map(item => html`<option value=${item.id}>${item.label}</option>`)}
+    </select>
+  `;
+  assertEquals(el.tagName, "SELECT", "renders a select");
+  assertEquals(el.options.length, 3, "options mounted");
+  assertEquals(el.value, "b", "value sticks after options mount");
+  setSelected("c");
+  assertEquals(el.value, "c", "reactive value updates");
+  setSelected("a");
+  assertEquals(el.value, "a", "reactive value updates again");
+});
+
+test("select re-applies value when options list changes", () => {
+  const [selected, setSelected] = signal("keep");
+  const [items, setItems] = signal([{ id: "x", label: "X" }]);
+  const el = html`
+    <select value=${selected}>
+      ${() => items().map(item => html`<option value=${item.id}>${item.label}</option>`)}
+    </select>
+  `;
+  // Desired value not in options yet — remember it.
+  assertEquals(el.options.length, 1, "initial option only");
+  setItems([
+    { id: "keep", label: "Keep" },
+    { id: "other", label: "Other" }
+  ]);
+  assertEquals(el.value, "keep", "re-applies remembered value when matching option appears");
+  setSelected("other");
+  assertEquals(el.value, "other", "still updates after options change");
+});
+
+test("option selected property binding works", () => {
+  const [role, setRole] = signal("admin");
+  const el = html`
+    <select>
+      <option value="user" selected=${() => role() === "user"}>User</option>
+      <option value="admin" selected=${() => role() === "admin"}>Admin</option>
+    </select>
+  `;
+  assertEquals(el.value, "admin", "selected option reflects signal");
+  setRole("user");
+  assertEquals(el.value, "user", "selected option updates reactively");
+});
+
 test("filesystem frontend helpers call the server file API", async () => {
   const originalFetch = window.fetch;
   const requests = [];

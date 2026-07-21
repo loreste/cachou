@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.0.8
+
+Fix `<select>` value binding when options mount after `value=`.
+
+### Fixed / improved
+
+- **`<select value=${…}>` with dynamic options** — browsers ignore `select.value` until a matching `<option>` exists; Cachou now remembers the desired value and re-applies it after option children mount or change
+- **`bind:value` / `model` / `use:model` on `<select>`** — same deferred matching for multi- and single-select
+- **`selected=${…}` on `<option>`** — treated as a boolean property binding
+- App guidance: keep selection signals outside recreated view functions; avoid optimistic UI that flashes stale roles mid-request
+
+### Docs / tests
+
+- How-to: [use-forms.md](./docs/how-to/use-forms.md) select section
+- Browser + unit tests for select/option ordering and re-apply
+
+
 ## 1.0.7
 
 Security maintenance following the 1.0.6 review (demo server + sanitizer + compiler).

@@ -111,4 +111,4 @@ Node-only helpers stay out of the browser graph.
 
 ## Versioning
 
-CachouJS **1.0** freezes the **stable** core’s API compatibility contract. Published line is **1.0.x** (current: **1.0.7**, next: **1.0.7**). Experimental kits may still change — pin tightly. This does not certify production maturity or security. Read the [changelog](../CHANGELOG.md) and [ONE_POINT_OH.md](./ONE_POINT_OH.md).
+CachouJS **1.0** freezes the **stable** core’s API compatibility contract. Published line is **1.0.x** (current: **1.0.8**, next: **1.0.8**). Experimental kits may still change — pin tightly. This does not certify production maturity or security. Read the [changelog](../CHANGELOG.md) and [ONE_POINT_OH.md](./ONE_POINT_OH.md).

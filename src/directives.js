@@ -3,6 +3,7 @@
  */
 
 import { effect, untrack } from "./reactivity.js";
+import { applySelectValue, isHTMLSelect } from "./select-bind.js";
 
 const registry = new Map();
 
@@ -56,10 +57,9 @@ export function modelDirective(el, accessor) {
     if (el.tagName === "INPUT" && (el.type === "checkbox" || el.type === "radio")) {
       if (el.type === "checkbox") el.checked = Boolean(current);
       else el.checked = el.value === String(current);
-    } else if (el.tagName === "SELECT" && el.multiple && Array.isArray(current)) {
-      for (const opt of el.options) {
-        opt.selected = current.map(String).includes(opt.value);
-      }
+    } else if (isHTMLSelect(el)) {
+      // Same deferred matching as value= bindings: options may mount later.
+      applySelectValue(el, current);
     } else if ("value" in el) {
       const next = current == null ? "" : String(current);
       if (el.value !== next) el.value = next;

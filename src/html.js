@@ -5,6 +5,7 @@ import { applyDirective } from "./directives.js";
 import { takeRequestEvent, beginSSRRender, endSSRRender } from "./ssr-context.js";
 import { extractTraceparent, isTracingEnabled, runWithSpan, startSpan } from "./tracing.js";
 import { addNodeCleanup, cleanupNode, activateCleanupTracking, hasActiveCleanupRegistrations, markAttachedChildrenCleanup, markAttachedNodeCleanup, markCleanupParents, needsCleanup, setCleanupEventReporter } from "./dom-cleanup.js";
+import { applySelectValue, isHTMLSelect, reapplySelectValueFromDescendant } from "./select-bind.js";
 
 setCleanupEventReporter(emitFrameworkEvent);
 
@@ -631,6 +632,7 @@ export function updateChild(anchor, val, oldNodes) {
   
   if (isPrimitive && oldNodes.length === 1 && oldNodes[0].nodeType === Node.TEXT_NODE) {
     oldNodes[0].nodeValue = String(val);
+    reapplySelectValueFromDescendant(anchor);
     return oldNodes;
   }
 
@@ -649,6 +651,9 @@ export function updateChild(anchor, val, oldNodes) {
     reconcile(parent, oldNodes, newNodes, anchor);
   }
 
+  // Dynamic <option> lists are often bound after value= on <select>. Re-apply
+  // the remembered value now that options exist.
+  reapplySelectValueFromDescendant(anchor);
   return newNodes;
 }
 
@@ -658,29 +663,37 @@ function replaceStaticChild(anchor, val) {
   if (val !== null && val !== undefined && typeof val !== "object" && typeof val !== "function") {
     if (isOnlyChildAnchor(anchor)) {
       parent.textContent = String(val);
+      reapplySelectValueFromDescendant(parent);
       return;
     }
-    anchor.replaceWith(document.createTextNode(String(val)));
+    const text = document.createTextNode(String(val));
+    anchor.replaceWith(text);
+    reapplySelectValueFromDescendant(text);
     return;
   }
   const newNodes = normalizeVal(val);
   if (newNodes.length === 0) {
+    const select = parent;
     anchor.remove();
+    reapplySelectValueFromDescendant(select);
     return;
   }
   if (newNodes.length === 1) {
     anchor.replaceWith(newNodes[0]);
     markAttachedNodeCleanup(newNodes[0]);
+    reapplySelectValueFromDescendant(newNodes[0]);
     return;
   }
   if (isOnlyChildAnchor(anchor) && typeof parent.replaceChildren === "function") {
     parent.replaceChildren(...newNodes);
     if (hasActiveCleanupRegistrations()) markAttachedChildrenCleanup(parent);
+    reapplySelectValueFromDescendant(parent);
     return;
   }
   if (typeof anchor.replaceWith === "function") {
     anchor.replaceWith(...newNodes);
     if (hasActiveCleanupRegistrations()) markAttachedChildrenCleanup(parent);
+    reapplySelectValueFromDescendant(parent);
     return;
   }
   const fragment = document.createDocumentFragment();
@@ -690,6 +703,7 @@ function replaceStaticChild(anchor, val) {
   parent.insertBefore(fragment, anchor);
   if (hasActiveCleanupRegistrations()) markAttachedChildrenCleanup(parent);
   anchor.remove();
+  reapplySelectValueFromDescendant(parent);
 }
 
 function isOnlyChildAnchor(anchor) {
@@ -817,6 +831,7 @@ function bindValue(node, binding, values) {
         const [get, set] = signalPair;
         const assignValue = () => {
           if (node.type === "checkbox") node.checked = Boolean(get());
+          else if (isHTMLSelect(node)) applySelectValue(node, get());
           else node.value = get() ?? "";
         };
         const stop = effect(assignValue);
@@ -840,13 +855,19 @@ function bindValue(node, binding, values) {
         const assignValue = () => {
           if (prop === "checked") {
             node.checked = Boolean(get());
+          } else if (prop === "value" && isHTMLSelect(node)) {
+            applySelectValue(node, get());
           } else {
             node.value = get() ?? "";
           }
         };
         if (get.$$cachouSignal) {
           assignValue(get());
-          const subscriber = value => assignValue(value);
+          const subscriber = value => {
+            if (prop === "checked") node.checked = Boolean(value);
+            else if (prop === "value" && isHTMLSelect(node)) applySelectValue(node, value);
+            else node.value = value ?? "";
+          };
           get.$$cachouSignal.subscribe(subscriber);
           addNodeCleanup(node, () => {
             get.$$cachouSignal.unsubscribe(subscriber);
@@ -855,7 +876,8 @@ function bindValue(node, binding, values) {
           const stop = effect(assignValue);
           addNodeCleanup(node, stop);
         }
-        const eventName = prop === "checked" ? "change" : "input";
+        const eventName =
+          prop === "checked" || node.tagName === "SELECT" ? "change" : "input";
         const onInput = (e) => {
           set(prop === "checked" ? e.target.checked : e.target.value);
         };
@@ -942,7 +964,9 @@ function bindValue(node, binding, values) {
       return;
     }
 
-    const isProp = ["value", "checked", "disabled"].includes(binding.name) || binding.name.startsWith(".");
+    const isProp =
+      ["value", "checked", "disabled", "selected"].includes(binding.name) ||
+      binding.name.startsWith(".");
     const name = binding.name.startsWith(".") ? binding.name.slice(1) : binding.name;
     const initialVal = values[binding.index];
 
@@ -1046,6 +1070,11 @@ function setAttributeBinding(node, name, isProp, val) {
       node[propertyName] = sanitizeStyleValue(val);
     } else if (isURLAttribute(propertyName) || isURLAttribute(name)) {
       node[propertyName] = sanitizeAttributeValue(propertyName, val) ?? "";
+    } else if (propertyName === "value" && isHTMLSelect(node)) {
+      // Defer matching until options exist (see select-bind.js).
+      applySelectValue(node, val);
+    } else if (propertyName === "selected" && node.tagName === "OPTION") {
+      node.selected = Boolean(val);
     } else {
       node[propertyName] = val;
     }
@@ -1060,6 +1089,9 @@ function setAttributeBinding(node, name, isProp, val) {
         : sanitizeAttributeValue(name, val);
       if (safeVal === null) {
         node.removeAttribute(name);
+      } else if (name === "value" && isHTMLSelect(node)) {
+        // value="..." attribute path — still use property + re-apply logic.
+        applySelectValue(node, safeVal);
       } else {
         node.setAttribute(name, safeVal);
       }
